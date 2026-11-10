@@ -699,8 +699,7 @@ namespace Server.MirEnvir
                             });
                         }
 
-                        //   if (Players.Count == 0) Thread.Sleep(1);
-                        //   GC.Collect();
+                        if (Players.Count == 0) Thread.Sleep(100);
                     }
                 }
                 catch (Exception ex)
