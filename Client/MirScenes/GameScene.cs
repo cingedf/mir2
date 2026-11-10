@@ -1265,7 +1265,8 @@ namespace Client.MirScenes
             {
                 ItemLabel.BringToFront();
 
-                int x = CMain.MPoint.X + 15, y = CMain.MPoint.Y;
+                int x = CMain.MPoint.X - ItemLabel.Size.Width, y = CMain.MPoint.Y + 20;
+                if (x < 0) x = 0;
                 if (x + ItemLabel.Size.Width > Settings.ScreenWidth)
                     x = Settings.ScreenWidth - ItemLabel.Size.Width;
 
@@ -1278,7 +1279,8 @@ namespace Client.MirScenes
             {
                 MailLabel.BringToFront();
 
-                int x = CMain.MPoint.X + 15, y = CMain.MPoint.Y;
+                int x = CMain.MPoint.X - MailLabel.Size.Width, y = CMain.MPoint.Y + 20;
+                if (x < 0) x = 0;
                 if (x + MailLabel.Size.Width > Settings.ScreenWidth)
                     x = Settings.ScreenWidth - MailLabel.Size.Width;
 
@@ -1291,7 +1293,8 @@ namespace Client.MirScenes
             {
                 MemoLabel.BringToFront();
 
-                int x = CMain.MPoint.X + 15, y = CMain.MPoint.Y;
+                int x = CMain.MPoint.X - MemoLabel.Size.Width, y = CMain.MPoint.Y + 20;
+                if (x < 0) x = 0;
                 if (x + MemoLabel.Size.Width > Settings.ScreenWidth)
                     x = Settings.ScreenWidth - MemoLabel.Size.Width;
 
@@ -1304,7 +1307,8 @@ namespace Client.MirScenes
             {
                 GuildBuffLabel.BringToFront();
 
-                int x = CMain.MPoint.X + 15, y = CMain.MPoint.Y;
+                int x = CMain.MPoint.X - GuildBuffLabel.Size.Width, y = CMain.MPoint.Y + 20;
+                if (x < 0) x = 0;
                 if (x + GuildBuffLabel.Size.Width > Settings.ScreenWidth)
                     x = Settings.ScreenWidth - GuildBuffLabel.Size.Width;
 
