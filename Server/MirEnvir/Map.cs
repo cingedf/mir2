@@ -701,6 +701,9 @@ namespace Server.MirEnvir
 
         public void Process()
         {
+            //空闲快速门控：无刷怪点、无门、无地图特效、无延迟动作的地图直接跳过整圈遍历
+            if (Respawns.Count == 0 && Doors.Count == 0 && !Info.Lightning && !Info.Fire && ActionList.Count == 0) return;
+
             ProcessRespawns();
 
             for (int i = 0; i < Doors.Count; i++)
