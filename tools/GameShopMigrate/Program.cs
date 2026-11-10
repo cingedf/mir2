@@ -44,17 +44,11 @@ switch (mode)
 return 0;
 
 
-// 无头工具的场景：Envir.LoadDB 里 GameShopList 的绑定永远查 Envir.Edit.ItemInfoList
-// （Envir.cs@1445 → Main.BindGameShop(item) → 遍历 Edit.ItemInfoList），
-// 而无头进程没人去加载 Edit，所以第一遍读取会把货架全部静默丢弃。
-// 解法：先跑一遍 LoadDB 只为取到 Main.ItemInfoList，把它灌进 Edit，再正式 LoadDB 一次，
-// 让 BindGameShop 有数据可查，货架得以完整恢复。
+// 引擎修复（Envir.cs BindGameShop 回落绑定自身物品表）之后，
+// 无头进程单次 LoadDB 即可正确绑定货架；此函数保留入口并降级为单次加载，
+// 免改 5 处调用点。若引擎回退旧版本，恢复为两遍加载即可。
 void LoadDbTwoPass()
 {
-    Envir.Main.LoadDB();
-    var edit = Envir.Edit;
-    edit.ItemInfoList.Clear();
-    edit.ItemInfoList.AddRange(Envir.Main.ItemInfoList);
     Envir.Main.LoadDB();
 }
 

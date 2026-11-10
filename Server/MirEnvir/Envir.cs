@@ -3076,9 +3076,17 @@ namespace Server.MirEnvir
 
         public bool BindGameShop(GameShopItem item, bool editEnvir = true)
         {
-            for (var i = 0; i < Edit.ItemInfoList.Count; i++)
+            // 先按调用方意图的物品表绑定；未命中则回落到另一张表。
+            // 无头工具（Server.MirForms 未加载 Edit 数据）也能正确绑定货架。
+            if (BindGameShopSource(item, editEnvir ? Edit.ItemInfoList : ItemInfoList)) return true;
+            return BindGameShopSource(item, editEnvir ? ItemInfoList : Edit.ItemInfoList);
+        }
+
+        private bool BindGameShopSource(GameShopItem item, List<ItemInfo> source)
+        {
+            for (var i = 0; i < source.Count; i++)
             {
-                var info = Edit.ItemInfoList[i];
+                var info = source[i];
                 if (info.Index != item.ItemIndex) continue;
                 item.Info = info;
 
