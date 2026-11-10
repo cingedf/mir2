@@ -26,6 +26,11 @@ namespace Server.MirEnvir
         public Cell[,] Cells;
         public List<Point> WalkableCells;
         public Door[,] DoorIndex;
+        /// <summary>懒初始化门索引数组：无门地图保持 null（省 817 图 × 338MB 级分配），首扇门写入时创建。</summary>
+        private void EnsureDoorArray()
+        {
+            if (DoorIndex == null) DoorIndex = new Door[Width, Height];
+        }
         public List<Door> Doors = new List<Door>();
         public MineSpot[,] Mine;
         public long LightningTime, FireTime;
@@ -141,7 +146,6 @@ namespace Server.MirEnvir
             offSet += 2;
             Height = BitConverter.ToInt16(fileBytes, offSet);
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 52;
 
@@ -165,7 +169,10 @@ namespace Server.MirEnvir
                     offSet += 4;
 
                     if (fileBytes[offSet] > 0)
+                    {
+                        EnsureDoorArray();
                         DoorIndex[x, y] = AddDoor(fileBytes[offSet], new Point(x, y));
+                    }
 
                     offSet += 3;
 
@@ -188,7 +195,6 @@ namespace Server.MirEnvir
             Width = w ^ xor;
             Height = h ^ xor;
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 54;
 
@@ -205,7 +211,10 @@ namespace Server.MirEnvir
                     if (Cells[x, y] == null) Cells[x, y] = new Cell { Attribute = CellAttribute.Walk };
                     offSet += 2;
                     if (fileBytes[offSet] > 0)
+                    {
+                        EnsureDoorArray();
                         DoorIndex[x, y] = AddDoor(fileBytes[offSet], new Point(x, y));
+                    }
                     offSet += 5;
 
                     byte light = fileBytes[offSet++];
@@ -224,7 +233,6 @@ namespace Server.MirEnvir
             offSet += 2;
             Height = BitConverter.ToInt16(fileBytes, offSet);
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 52;
 
@@ -246,7 +254,10 @@ namespace Server.MirEnvir
 
                     offSet += 2;
                     if (fileBytes[offSet] > 0)
+                    {
+                        EnsureDoorArray();
                         DoorIndex[x, y] = AddDoor(fileBytes[offSet], new Point(x, y));
+                    }
                     offSet += 5;
 
                     byte light = fileBytes[offSet++];
@@ -265,7 +276,6 @@ namespace Server.MirEnvir
             offSet += 2;
             Height = BitConverter.ToInt16(fileBytes, offSet);
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 52;
 
@@ -286,7 +296,10 @@ namespace Server.MirEnvir
                     if (Cells[x, y] == null) Cells[x, y] = new Cell { Attribute = CellAttribute.Walk };
                     offSet += 2;
                     if (fileBytes[offSet] > 0)
+                    {
+                        EnsureDoorArray();
                         DoorIndex[x, y] = AddDoor(fileBytes[offSet], new Point(x, y));
+                    }
                     offSet += 12;
 
                     byte light = fileBytes[offSet++];
@@ -309,7 +322,6 @@ namespace Server.MirEnvir
             Width = w ^ xor;
             Height = h ^ xor;
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 64;
 
@@ -326,7 +338,10 @@ namespace Server.MirEnvir
                     if (Cells[x, y] == null) Cells[x, y] = new Cell { Attribute = CellAttribute.Walk };
                     offSet += 4;
                     if (fileBytes[offSet] > 0)
+                    {
+                        EnsureDoorArray();
                         DoorIndex[x, y] = AddDoor(fileBytes[offSet], new Point(x, y));
+                    }
                     offSet += 6;
                 }
         }
@@ -338,7 +353,6 @@ namespace Server.MirEnvir
             offSet += 2;
             Height = BitConverter.ToInt16(fileBytes, offSet);
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 28 + (3 * ((Width / 2) + (Width % 2)) * (Height / 2));
             for (int x = 0; x < Width; x++)
@@ -366,7 +380,6 @@ namespace Server.MirEnvir
             offSet += 2;
             Height = BitConverter.ToInt16(fileBytes, offSet);
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 40;
 
@@ -390,7 +403,6 @@ namespace Server.MirEnvir
             offSet += 4;
             Height = BitConverter.ToInt16(fileBytes, offSet);
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offSet = 54;
 
@@ -406,7 +418,10 @@ namespace Server.MirEnvir
                     if (Cells[x, y] == null) Cells[x, y] = new Cell { Attribute = CellAttribute.Walk };
                     offSet += 2;
                     if (fileBytes[offSet] > 0)
+                    {
+                        EnsureDoorArray();
                         DoorIndex[x, y] = AddDoor(fileBytes[offSet], new Point(x, y));
+                    }
                     offSet += 4;
 
                     byte light = fileBytes[offSet++];
@@ -426,7 +441,6 @@ namespace Server.MirEnvir
             offset += 2;
             Height = BitConverter.ToInt16(Bytes, offset);
             Cells = new Cell[Width, Height];
-            DoorIndex = new Door[Width, Height];
 
             offset = 8;
 
@@ -443,7 +457,10 @@ namespace Server.MirEnvir
                     if (Cells[x, y] == null) Cells[x, y] = new Cell { Attribute = CellAttribute.Walk };
                     offset += 2;
                     if (Bytes[offset] > 0)
+                    {
+                        EnsureDoorArray();
                         DoorIndex[x, y] = AddDoor(Bytes[offset], new Point(x, y));
+                    }
                     offset += 11;
 
                     byte light = Bytes[offset++];
@@ -676,6 +693,7 @@ namespace Server.MirEnvir
         }
         public bool CheckDoorOpen(Point location)
         {
+            if (DoorIndex == null) return true;
             if (DoorIndex[location.X, location.Y] == null) return true;
             if (DoorIndex[location.X, location.Y].DoorState != DoorState.Open) return false;
             return true;
@@ -3135,7 +3153,8 @@ namespace Server.MirEnvir
             get { return Attribute == CellAttribute.Walk; }
         }
 
-        public List<MapObject> Objects = new List<MapObject>();
+        private static readonly List<MapObject> EmptyObjectList = new List<MapObject>(0);
+        public List<MapObject> Objects = EmptyObjectList;
         public CellAttribute Attribute;
         public sbyte FishingAttribute = -1;
 
@@ -3146,6 +3165,9 @@ namespace Server.MirEnvir
                 ReportCellIssue("尝试向 Cell 中添加一个空的 MapObject");
                 return;
             }
+
+            if (ReferenceEquals(Objects, EmptyObjectList))
+                Objects = new List<MapObject>();
 
             if (Objects.Contains(mapObject))
             {
@@ -3163,11 +3185,16 @@ namespace Server.MirEnvir
                 return;
             }
 
+            if (ReferenceEquals(Objects, EmptyObjectList))
+            {
+                ReportCellIssue($"从 Cell 集合中移除 MapObject 失败（空列表），对象ID：{mapObject.ObjectID}");
+                return;
+            }
+
             if (!Objects.Remove(mapObject))
             {
                 ReportCellIssue($"从 Cell 集合中移除 MapObject 失败，对象ID：{mapObject.ObjectID}");
             }
-            // DO NOT set Objects = null; keep the list to avoid re-alloc
         }
 
         private static void ReportCellIssue(string message)
