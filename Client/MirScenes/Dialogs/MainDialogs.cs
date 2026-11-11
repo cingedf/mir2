@@ -2776,6 +2776,9 @@ namespace Client.MirScenes.Dialogs
         public MirImageControl SoundBar, MusicSoundBar;
         public MirImageControl VolumeBar, MusicVolumeBar;
 
+        public MirLabel AssistantTitleLabel;
+        public MirCheckBox[] AssistantOptions;
+
         public MirButton CloseButton;
 
 
@@ -2954,7 +2957,7 @@ namespace Client.MirScenes.Dialogs
             {
                 Index = 468,
                 Library = Libraries.Prguse2,
-                Location = new Point(159, 225),
+                Location = new Point(159, 213),
                 Parent = this,
                 DrawImage = false,
             };
@@ -2966,7 +2969,7 @@ namespace Client.MirScenes.Dialogs
             {
                 Index = 20,
                 Library = Libraries.Prguse,
-                Location = new Point(155, 218),
+                Location = new Point(155, 206),
                 Parent = this,
                 NotControl = true,
             };
@@ -2975,7 +2978,7 @@ namespace Client.MirScenes.Dialogs
             {
                 Index = 468,
                 Library = Libraries.Prguse2,
-                Location = new Point(159, 251),
+                Location = new Point(159, 239),
                 Parent = this,
                 DrawImage = false
             };
@@ -2987,15 +2990,37 @@ namespace Client.MirScenes.Dialogs
             {
                 Index = 20,
                 Library = Libraries.Prguse,
-                Location = new Point(155, 244),
+                Location = new Point(155, 232),
                 Parent = this,
                 NotControl = true,
             };
 
+            ObserveOn = new MirButton
+            {
+                Library = Libraries.Prguse2,
+                Location = new Point(159, 261),
+                Parent = this,
+                Sound = SoundList.ButtonA,
+                Size = new Size(36, 17),
+                PressedIndex = 457,
+            };
+            ObserveOn.Click += (o, e) => ToggleObserve(true);
+
+            ObserveOff = new MirButton
+            {
+                Library = Libraries.Prguse2,
+                Location = new Point(201, 261),
+                Parent = this,
+                Sound = SoundList.ButtonA,
+                Size = new Size(36, 17),
+                PressedIndex = 460
+            };
+            ObserveOff.Click += (o, e) => ToggleObserve(false);
+
             NewMoveOn = new MirButton
             {
                 Library = Libraries.Title,
-                Location = new Point(159, 296),
+                Location = new Point(159, 286),
                 Parent = this,
                 Sound = SoundList.ButtonA,
                 Size = new Size(36, 17),
@@ -3010,7 +3035,7 @@ namespace Client.MirScenes.Dialogs
             NewMoveOff = new MirButton
             {
                 Library = Libraries.Title,
-                Location = new Point(201, 296),
+                Location = new Point(201, 286),
                 Parent = this,
                 Sound = SoundList.ButtonA,
                 Size = new Size(36, 17),
@@ -3022,27 +3047,33 @@ namespace Client.MirScenes.Dialogs
                 GameScene.Scene.ChatDialog.ReceiveChat(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.OldMovementStyle), ChatType.Hint);
             };
 
-            ObserveOn = new MirButton
+            // 内挂功能区块（占位 UI，勾选仅存内存，无功能逻辑）
+            AssistantTitleLabel = new MirLabel
             {
-                Library = Libraries.Prguse2,
-                Location = new Point(159, 271),
+                AutoSize = true,
                 Parent = this,
-                Sound = SoundList.ButtonA,
-                Size = new Size(36, 17),
-                PressedIndex = 457,
+                Location = new Point(10, 315),
+                ForeColour = Color.Orange,
+                Text = "内挂功能（开发中）",
             };
-            ObserveOn.Click += (o, e) => ToggleObserve(true);
 
-            ObserveOff = new MirButton
+            string[] assistantNames = { "自动喝药保护", "范围自动捡物", "怪物血条增强" };
+            AssistantOptions = new MirCheckBox[assistantNames.Length];
+            for (int i = 0; i < AssistantOptions.Length; i++)
             {
-                Library = Libraries.Prguse2,
-                Location = new Point(201, 271),
-                Parent = this,
-                Sound = SoundList.ButtonA,
-                Size = new Size(36, 17),
-                PressedIndex = 460
-            };
-            ObserveOff.Click += (o, e) => ToggleObserve(false);
+                int offsetY = i * 24;
+                AssistantOptions[i] = new MirCheckBox { Index = 2086, UnTickedIndex = 2086, TickedIndex = 2087, Parent = this, Location = new Point(12, (336 + offsetY)), Library = Libraries.Prguse };
+                AssistantOptions[i].LabelText = assistantNames[i];
+                AssistantOptions[i].Click += AssistantCheckBoxClick;
+            }
+        }
+
+        private void AssistantCheckBoxClick(object sender, EventArgs e)
+        {
+            // 占位：仅记录勾选状态，功能逻辑二期实现
+            MirCheckBox box = (MirCheckBox)sender;
+            int index = Array.IndexOf(AssistantOptions, box);
+            GameAssistantSettings.AssistantOptions[index] = box.Checked;
         }
 
         private void ToggleObserve(bool allow)
@@ -3084,7 +3115,7 @@ namespace Client.MirScenes.Dialogs
 
             if (percent > 1) percent = 1;
 
-            VolumeBar.Location = percent > 0 ? new Point(159 + (int)((SoundBar.Size.Width - 2) * percent), 218) : new Point(159, 218);
+            VolumeBar.Location = percent > 0 ? new Point(159 + (int)((SoundBar.Size.Width - 2) * percent), 206) : new Point(159, 206);
         }
 
         private void SoundBar_BeforeDraw(object sender, EventArgs e)
@@ -3104,10 +3135,10 @@ namespace Client.MirScenes.Dialogs
                 };
 
                 SoundBar.Library.Draw(SoundBar.Index, section, SoundBar.DisplayLocation, Color.White, false);
-                VolumeBar.Location = new Point(159 + section.Size.Width, 218);
+                VolumeBar.Location = new Point(159 + section.Size.Width, 206);
             }
             else
-                VolumeBar.Location = new Point(159, 218);
+                VolumeBar.Location = new Point(159, 206);
         }
 
         private void MusicSoundBar_BeforeDraw(object sender, EventArgs e)
@@ -3127,10 +3158,10 @@ namespace Client.MirScenes.Dialogs
                 };
 
                 MusicSoundBar.Library.Draw(MusicSoundBar.Index, section, MusicSoundBar.DisplayLocation, Color.White, false);
-                MusicVolumeBar.Location = new Point(159 + section.Size.Width, 244);
+                MusicVolumeBar.Location = new Point(159 + section.Size.Width, 232);
             }
             else
-                MusicVolumeBar.Location = new Point(159, 244);
+                MusicVolumeBar.Location = new Point(159, 232);
         }
 
         private void MusicSoundBar_MouseMove(object sender, MouseEventArgs e)
@@ -3148,7 +3179,7 @@ namespace Client.MirScenes.Dialogs
 
             if (percent > 1) percent = 1;
 
-            MusicVolumeBar.Location = percent > 0 ? new Point(159 + (int)((MusicSoundBar.Size.Width - 2) * percent), 244) : new Point(159, 244);
+            MusicVolumeBar.Location = percent > 0 ? new Point(159 + (int)((MusicSoundBar.Size.Width - 2) * percent), 232) : new Point(159, 232);
         }
 
         private void OptionPanel_BeforeDraw(object sender, EventArgs e)
