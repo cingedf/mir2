@@ -725,7 +725,7 @@ namespace Server
             OpenFlagsButton.Name = "OpenFlagsButton";
             OpenFlagsButton.Size = new Size(128, 23);
             OpenFlagsButton.TabIndex = 54;
-            OpenFlagsButton.Text = "Open Flag Info";
+            OpenFlagsButton.Text = "打开标志文件";
             OpenFlagsButton.UseVisualStyleBackColor = true;
             OpenFlagsButton.Click += OpenFlagsButton_Click;
             // 
@@ -735,7 +735,7 @@ namespace Server
             EnableSelectedFlag.Name = "EnableSelectedFlag";
             EnableSelectedFlag.Size = new Size(128, 23);
             EnableSelectedFlag.TabIndex = 53;
-            EnableSelectedFlag.Text = "Enable Selected Flag";
+            EnableSelectedFlag.Text = "启用选中标志";
             EnableSelectedFlag.UseVisualStyleBackColor = true;
             EnableSelectedFlag.Click += EnableSelectedFlag_Click;
             // 
@@ -754,7 +754,7 @@ namespace Server
             DisableSelectedFlag.Name = "DisableSelectedFlag";
             DisableSelectedFlag.Size = new Size(128, 23);
             DisableSelectedFlag.TabIndex = 51;
-            DisableSelectedFlag.Text = "Disable Selected Flag";
+            DisableSelectedFlag.Text = "禁用选中标志";
             DisableSelectedFlag.UseVisualStyleBackColor = true;
             DisableSelectedFlag.Click += DisableSelectedFlag_Click;
             // 
@@ -765,7 +765,7 @@ namespace Server
             ActiveFlagsCheckBox.Name = "ActiveFlagsCheckBox";
             ActiveFlagsCheckBox.Size = new Size(124, 21);
             ActiveFlagsCheckBox.TabIndex = 50;
-            ActiveFlagsCheckBox.Text = "Show Active only";
+            ActiveFlagsCheckBox.Text = "仅显示已激活";
             ActiveFlagsCheckBox.UseVisualStyleBackColor = true;
             ActiveFlagsCheckBox.CheckedChanged += ActiveFlagsCheckBox_CheckedChanged;
             // 
@@ -783,7 +783,7 @@ namespace Server
             // 
             // columnHeader5
             // 
-            columnHeader5.Text = "Flag #";
+            columnHeader5.Text = "标志号";
             columnHeader5.Width = 85;
             // 
             // columnHeader6

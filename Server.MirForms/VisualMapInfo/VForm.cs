@@ -512,7 +512,7 @@ namespace Server.MirForms.VisualMapInfo
         {
             if (MiningPanel.Controls.Count == 0) return;
 
-            DialogResult result = MessageBox.Show("Remove selected records?", "", MessageBoxButtons.YesNoCancel);
+            DialogResult result = MessageBox.Show("确定要移除选中的记录吗？", "移除确认", MessageBoxButtons.YesNoCancel);
             if (result != DialogResult.Yes) return;
 
             for (int i = MiningPanel.Controls.Count; i > -1; --i)
@@ -642,7 +642,7 @@ namespace Server.MirForms.VisualMapInfo
         {
             if (RespawnPanel.Controls.Count == 0) return;
 
-            DialogResult result = MessageBox.Show("Remove selected records?", "", MessageBoxButtons.YesNoCancel);
+            DialogResult result = MessageBox.Show("确定要移除选中的记录吗？", "移除确认", MessageBoxButtons.YesNoCancel);
             if (result != DialogResult.Yes) return;
 
             for (int i = RespawnPanel.Controls.Count; i > -1; --i)

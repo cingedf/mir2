@@ -58,8 +58,8 @@ namespace Server
             }
             else
             {
-                CurrentMapLabel.Text = "OFFLINE";
-                CurrentXY.Text = "OFFLINE";
+                CurrentMapLabel.Text = "离线";
+                CurrentXY.Text = "离线";
             }
 
             CurrentIPLabel.Text = Character.AccountInfo.LastIP;
@@ -343,22 +343,29 @@ namespace Server
                 applied++;
             }
 
-            if (applied == 0) return;
+            if (applied == 0)
+            {
+                // 全部留空 = 清除之前的临时属性
+                target.RemoveBuff(BuffType.防御提升);
+                target.RemoveBuff(BuffType.魔法防御提升);
+                target.RemoveBuff(BuffType.攻击力提升);
+                target.RemoveBuff(BuffType.魔法力提升);
+                target.RemoveBuff(BuffType.道术力提升);
+                target.RemoveBuff(BuffType.准确提升);
+                target.RemoveBuff(BuffType.敏捷提升);
+                target.RemoveBuff(BuffType.攻击速度提升);
 
-            // 先移除旧 buff（StackType=ResetStatAndDuration 会重算，但显式移除更稳）
-            target.RemoveBuff(BuffType.防御提升);
-            target.RemoveBuff(BuffType.魔法防御提升);
-            target.RemoveBuff(BuffType.攻击力提升);
-            target.RemoveBuff(BuffType.魔法力提升);
-            target.RemoveBuff(BuffType.道术力提升);
-            target.RemoveBuff(BuffType.准确提升);
-            target.RemoveBuff(BuffType.敏捷提升);
-            target.RemoveBuff(BuffType.攻击速度提升);
+                MessageBox.Show($"已清除{(target is HeroObject ? "英雄" : "玩家")}「{targetName}」的临时属性（未填写任何数值）。", "临时属性", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
 
-            // duration=0 + Infinite 堆叠 = 无限时 buff；RemoveOnDeath|RemoveOnExit 保证死亡/下线自动清
-            target.AddBuff(BuffType.防御提升, target, 0, stats, true, false);
+            // 注意：不能先 RemoveBuff 再 AddBuff 同类型——RemoveBuff 只是标记删除（FlagForRemoval），
+            // 1 秒 tick 才真正移除；随后 AddBuff 会命中旧 buff 重置数值但清除不了删除标记，buff 仍会被 tick 收走。
+            // 直接 AddBuff：StackType=ResetStatAndDuration 会自动覆盖旧时长与数值（无旧 buff 时新建）。
+            // duration 必须给大值：duration=0 + 非 Infinite 堆叠会被 ProcessBuffs 首个 tick 判过期移除。
+            target.AddBuff(BuffType.防御提升, target, int.MaxValue, stats, true, false);
 
-            MessageBox.Show($"已对{(target is HeroObject ? "英雄" : "玩家")}「{targetName}」应用 {applied} 项临时属性（死亡或下线后失效）。", "临时属性", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show($"已对{(target is HeroObject ? "英雄" : "玩家")}「{targetName}」应用 {applied} 项临时属性（死亡或下线后失效）。", "临时属性", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void SaveChanges()
@@ -553,7 +560,7 @@ namespace Server
 
                 bool isFlagActive = flagNumber >= 0 && flagNumber < Character.Flags.Length && Character.Flags[flagNumber];
 
-                listItem.SubItems.Add(isFlagActive ? "Active" : "Not Active");
+                listItem.SubItems.Add(isFlagActive ? "已激活" : "未激活");
 
                 listItem.ForeColor = isFlagActive ? Color.Green : Color.Red;
 
@@ -570,7 +577,7 @@ namespace Server
             {
                 bool showItem = true;
 
-                if (ActiveFlagsCheckBox.Checked && item.SubItems[1].Text != "Active")
+                if (ActiveFlagsCheckBox.Checked && item.SubItems[1].Text != "已激活")
                 {
                     showItem = false;
                 }
@@ -629,7 +636,7 @@ namespace Server
                 ListViewItem selectedItem = PlayerFlagsListView.SelectedItems[0];
                 int flagIndex = int.Parse(selectedItem.Text);
 
-                var result = MessageBox.Show("Are you sure you want to enable this flag?", "Confirm Action", MessageBoxButtons.YesNo);
+                var result = MessageBox.Show("确定要启用该标志吗？", "操作确认", MessageBoxButtons.YesNo);
 
                 if (result == DialogResult.Yes)
                 {
@@ -637,18 +644,18 @@ namespace Server
                     {
                         Character.Flags[flagIndex] = true;
 
-                        selectedItem.SubItems[1].Text = "Active";
+                        selectedItem.SubItems[1].Text = "已激活";
                         selectedItem.SubItems[1].ForeColor = Color.Green;
                     }
                     else
                     {
-                        MessageBox.Show("Invalid flag index.");
+                        MessageBox.Show("标志编号无效。");
                     }
                 }
             }
             else
             {
-                MessageBox.Show("Please select a flag to enable.");
+                MessageBox.Show("请先选中要启用的标志。");
             }
         }
         private void DisableSelectedFlag_Click(object sender, EventArgs e)
@@ -658,7 +665,7 @@ namespace Server
                 ListViewItem selectedItem = PlayerFlagsListView.SelectedItems[0];
                 int flagIndex = int.Parse(selectedItem.Text);
 
-                var result = MessageBox.Show("Are you sure you want to disable this flag?", "Confirm Action", MessageBoxButtons.YesNo);
+                var result = MessageBox.Show("确定要禁用该标志吗？", "操作确认", MessageBoxButtons.YesNo);
 
                 if (result == DialogResult.Yes)
                 {
@@ -666,18 +673,18 @@ namespace Server
                     {
                         Character.Flags[flagIndex] = false;
 
-                        selectedItem.SubItems[1].Text = "Inactive";
+                        selectedItem.SubItems[1].Text = "未激活";
                         selectedItem.SubItems[1].ForeColor = Color.Red;
                     }
                     else
                     {
-                        MessageBox.Show("Invalid flag index.");
+                        MessageBox.Show("标志编号无效。");
                     }
                 }
             }
             else
             {
-                MessageBox.Show("Please select a flag to disable.");
+                MessageBox.Show("请先选中要禁用的标志。");
             }
         }
         #endregion

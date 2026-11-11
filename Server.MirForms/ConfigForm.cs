@@ -266,7 +266,7 @@ namespace Server
 
             if (!Directory.Exists(dropPath))
             {
-                MessageBox.Show("Drops directory not found!");
+                MessageBox.Show("未找到 Drops 目录！");
                 return;
             }
 
