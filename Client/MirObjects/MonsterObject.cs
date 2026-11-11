@@ -49,10 +49,10 @@ namespace Client.MirObjects
 
         public FrameSet Frames = new FrameSet();
         public Frame Frame;
-        public int FrameIndex, FrameInterval, EffectFrameIndex;
+        public int FrameIndex, FrameInterval, EffectFrameIndex = 0;
 
         public uint TargetID;
-        public Point TargetPoint;
+        public Point TargetPoint = default;
 
         public bool Stoned;
         public byte Stage;
@@ -63,7 +63,7 @@ namespace Client.MirObjects
 
         public Color OldNameColor;
 
-        public SpellEffect CurrentEffect;
+        public SpellEffect CurrentEffect = default(SpellEffect);
 
         public uint MasterObjectId;
 

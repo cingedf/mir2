@@ -3005,6 +3005,10 @@ namespace Client.MirScenes.Dialogs
 
             if (!GameScene.User.HasStoragePassword)
             {
+                // 防重入门卫：已处于强制设密码流程中（_forcingPasswordSetup 由 Force/Cancel/Result 维护），
+                // 重入 Show 时不再重复触发弹窗，避免 InputBox 堆叠
+                if (_forcingPasswordSetup) return;
+
                 GameScene.Scene.NPCDialog.Hide();
                 GameScene.Scene.InventoryDialog.Hide();
                 ForceStoragePasswordSetup();

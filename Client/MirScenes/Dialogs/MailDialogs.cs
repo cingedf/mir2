@@ -8,9 +8,12 @@ namespace Client.MirScenes.Dialogs
 {
     public class MailListDialog : MirImageControl
     {
-        MirImageControl TitleLabel;
+        // 邮件列表头控件：背景图 Title[670] 的列头区（深色带）已烧录「类型/发件人/信息」浅色文字，
+        // 上游移植时注释掉创建代码以避免重影（像素探针实测确认）；保留声明供日后自定义列头参考，
+        // 显式赋 null 消除 CS0169（字段为有意不创建的上游遗留占位）
+        MirImageControl TitleLabel = null;
         MirButton HelpButton, CloseButton;
-        MirLabel TitleTypeLabel, TitleSenderLabel, TitleMessageLabel;
+        MirLabel TitleTypeLabel = null, TitleSenderLabel = null, TitleMessageLabel = null;
         //Send / Reply (Can only reply if index exists, button will disapear if not) / Read / Delete / Block List / Bug Report (new system??)
 
         MirLabel PageLabel;

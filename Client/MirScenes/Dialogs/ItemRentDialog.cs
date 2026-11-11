@@ -260,6 +260,9 @@ namespace Client.MirScenes.Dialogs
 
         public void SetGuestFee(uint amount)
         {
+            // 门卫：对方已锁定租金后拒绝再改动（防御性；正常流程服务端不会再下发）
+            if (_guestGoldLocked && amount != _guestGold) return;
+
             _guestGold = amount;
         }
 

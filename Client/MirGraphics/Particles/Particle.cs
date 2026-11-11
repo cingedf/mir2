@@ -148,9 +148,9 @@ namespace Client.MirGraphics.Particles
                 else if (Position.X > Settings.ScreenWidth + ImageInfo.Size.Width)
                     Position -= xreset;
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                throw e;
+                throw; // 保留原堆栈轨迹（重抛用 throw 而非 throw e，避免堆栈重置）
             }
         }
 
