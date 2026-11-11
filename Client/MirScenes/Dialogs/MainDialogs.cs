@@ -2779,6 +2779,9 @@ namespace Client.MirScenes.Dialogs
         public MirLabel AssistantTitleLabel;
         public MirCheckBox[] AssistantOptions;
 
+        public MirLabel BasicTabLabel, AssistantTabLabel;
+        private int CurrentTab; // 0=基本设置 1=内挂
+
         public MirButton CloseButton;
 
 
@@ -2804,6 +2807,29 @@ namespace Client.MirScenes.Dialogs
                 PressedIndex = 362,
             };
             CloseButton.Click += (o, e) => Hide();
+
+            // 页签：基本设置 / 内挂（文字页签，点击切换，复刻 ChatOptionDialog 分页模式）
+            BasicTabLabel = new MirLabel
+            {
+                AutoSize = true,
+                Parent = this,
+                Location = new Point(15, 10),
+                ForeColour = Color.Orange,
+                Text = "基本设置",
+                Sound = SoundList.ButtonA,
+            };
+            BasicTabLabel.Click += (o, e) => SwitchTab(0);
+
+            AssistantTabLabel = new MirLabel
+            {
+                AutoSize = true,
+                Parent = this,
+                Location = new Point(85, 10),
+                ForeColour = Color.White,
+                Text = "内挂",
+                Sound = SoundList.ButtonA,
+            };
+            AssistantTabLabel.Click += (o, e) => SwitchTab(1);
 
             //tilde option
             SkillModeOn = new MirButton
@@ -3047,14 +3073,15 @@ namespace Client.MirScenes.Dialogs
                 GameScene.Scene.ChatDialog.ReceiveChat(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.OldMovementStyle), ChatType.Hint);
             };
 
-            // 内挂功能区块（占位 UI，勾选仅存内存，无功能逻辑）
+            // 内挂功能区块（占位 UI，勾选仅存内存，无功能逻辑）——「内挂」页内容（页签切换时才显示）
             AssistantTitleLabel = new MirLabel
             {
                 AutoSize = true,
                 Parent = this,
-                Location = new Point(10, 315),
+                Location = new Point(10, 60),
                 ForeColour = Color.Orange,
                 Text = "内挂功能（开发中）",
+                Visible = false,
             };
 
             string[] assistantNames = { "自动喝药保护", "范围自动捡物", "怪物血条增强" };
@@ -3062,10 +3089,38 @@ namespace Client.MirScenes.Dialogs
             for (int i = 0; i < AssistantOptions.Length; i++)
             {
                 int offsetY = i * 24;
-                AssistantOptions[i] = new MirCheckBox { Index = 2086, UnTickedIndex = 2086, TickedIndex = 2087, Parent = this, Location = new Point(12, (336 + offsetY)), Library = Libraries.Prguse };
+                AssistantOptions[i] = new MirCheckBox { Index = 2086, UnTickedIndex = 2086, TickedIndex = 2087, Parent = this, Location = new Point(12, (80 + offsetY)), Library = Libraries.Prguse, Visible = false };
                 AssistantOptions[i].LabelText = assistantNames[i];
                 AssistantOptions[i].Click += AssistantCheckBoxClick;
             }
+
+            SwitchTab(0); // 默认显示基本页（兼容原有布局）
+        }
+
+        // 页签切换：0=基本设置（8 组开关+音量条） 1=内挂（占位区块）
+        private void SwitchTab(int tab)
+        {
+            CurrentTab = tab;
+
+            BasicTabLabel.ForeColour = tab == 0 ? Color.Orange : Color.White;
+            AssistantTabLabel.ForeColour = tab == 1 ? Color.Orange : Color.White;
+
+            bool basic = tab == 0;
+            SkillModeOn.Visible = basic; SkillModeOff.Visible = basic;
+            SkillBarOn.Visible = basic; SkillBarOff.Visible = basic;
+            EffectOn.Visible = basic; EffectOff.Visible = basic;
+            DropViewOn.Visible = basic; DropViewOff.Visible = basic;
+            NameViewOn.Visible = basic; NameViewOff.Visible = basic;
+            HPViewOn.Visible = basic; HPViewOff.Visible = basic;
+            SoundBar.Visible = basic; VolumeBar.Visible = basic;
+            MusicSoundBar.Visible = basic; MusicVolumeBar.Visible = basic;
+            ObserveOn.Visible = basic; ObserveOff.Visible = basic;
+            NewMoveOn.Visible = basic; NewMoveOff.Visible = basic;
+
+            AssistantTitleLabel.Visible = !basic;
+            if (AssistantOptions != null)
+                foreach (var box in AssistantOptions)
+                    box.Visible = !basic;
         }
 
         private void AssistantCheckBoxClick(object sender, EventArgs e)
