@@ -1,4 +1,4 @@
-﻿namespace Server
+namespace Server
 {
     partial class PlayerInfoForm
     {
@@ -274,81 +274,81 @@
             // 
             // ATKSPDBox
             // 
-            ATKSPDBox.Enabled = false;
+            ATKSPDBox.Enabled = true;
             ATKSPDBox.Location = new Point(261, 260);
             ATKSPDBox.Margin = new Padding(4, 3, 4, 3);
             ATKSPDBox.Name = "ATKSPDBox";
-            ATKSPDBox.ReadOnly = true;
+            ATKSPDBox.ReadOnly = false;
             ATKSPDBox.Size = new Size(73, 23);
             ATKSPDBox.TabIndex = 32;
             // 
             // AGILBox
             // 
-            AGILBox.Enabled = false;
+            AGILBox.Enabled = true;
             AGILBox.Location = new Point(261, 227);
             AGILBox.Margin = new Padding(4, 3, 4, 3);
             AGILBox.Name = "AGILBox";
-            AGILBox.ReadOnly = true;
+            AGILBox.ReadOnly = false;
             AGILBox.Size = new Size(73, 23);
             AGILBox.TabIndex = 31;
             // 
             // ACCBox
             // 
-            ACCBox.Enabled = false;
+            ACCBox.Enabled = true;
             ACCBox.Location = new Point(261, 190);
             ACCBox.Margin = new Padding(4, 3, 4, 3);
             ACCBox.Name = "ACCBox";
-            ACCBox.ReadOnly = true;
+            ACCBox.ReadOnly = false;
             ACCBox.Size = new Size(73, 23);
             ACCBox.TabIndex = 30;
             // 
             // SCBox
             // 
-            SCBox.Enabled = false;
+            SCBox.Enabled = true;
             SCBox.Location = new Point(261, 158);
             SCBox.Margin = new Padding(4, 3, 4, 3);
             SCBox.Name = "SCBox";
-            SCBox.ReadOnly = true;
+            SCBox.ReadOnly = false;
             SCBox.Size = new Size(73, 23);
             SCBox.TabIndex = 29;
             // 
             // MCBox
             // 
-            MCBox.Enabled = false;
+            MCBox.Enabled = true;
             MCBox.Location = new Point(261, 125);
             MCBox.Margin = new Padding(4, 3, 4, 3);
             MCBox.Name = "MCBox";
-            MCBox.ReadOnly = true;
+            MCBox.ReadOnly = false;
             MCBox.Size = new Size(73, 23);
             MCBox.TabIndex = 28;
             // 
             // DCBox
             // 
-            DCBox.Enabled = false;
+            DCBox.Enabled = true;
             DCBox.Location = new Point(261, 92);
             DCBox.Margin = new Padding(4, 3, 4, 3);
             DCBox.Name = "DCBox";
-            DCBox.ReadOnly = true;
+            DCBox.ReadOnly = false;
             DCBox.Size = new Size(73, 23);
             DCBox.TabIndex = 27;
             // 
             // AMCBox
             // 
-            AMCBox.Enabled = false;
+            AMCBox.Enabled = true;
             AMCBox.Location = new Point(261, 56);
             AMCBox.Margin = new Padding(4, 3, 4, 3);
             AMCBox.Name = "AMCBox";
-            AMCBox.ReadOnly = true;
+            AMCBox.ReadOnly = false;
             AMCBox.Size = new Size(73, 23);
             AMCBox.TabIndex = 26;
             // 
             // ACBox
             // 
-            ACBox.Enabled = false;
+            ACBox.Enabled = true;
             ACBox.Location = new Point(261, 23);
             ACBox.Margin = new Padding(4, 3, 4, 3);
             ACBox.Name = "ACBox";
-            ACBox.ReadOnly = true;
+            ACBox.ReadOnly = false;
             ACBox.Size = new Size(73, 23);
             ACBox.TabIndex = 24;
             // 
@@ -448,7 +448,7 @@
             // 
             // IndexTextBox
             // 
-            IndexTextBox.Enabled = false;
+            IndexTextBox.Enabled = true;
             IndexTextBox.Location = new Point(70, 23);
             IndexTextBox.Margin = new Padding(4, 3, 4, 3);
             IndexTextBox.Name = "IndexTextBox";
@@ -714,7 +714,7 @@
             SearchBox.Controls.Add(PlayerFlagsListView);
             SearchBox.Location = new Point(354, 194);
             SearchBox.Name = "SearchBox";
-            SearchBox.Size = new Size(189, 110);
+            SearchBox.Size = new Size(323, 261);
             SearchBox.TabIndex = 48;
             SearchBox.TabStop = false;
             SearchBox.Text = "搜索";
@@ -741,9 +741,9 @@
             // 
             // FlagSearchBox
             // 
-            FlagSearchBox.Location = new Point(31, 40);
+            FlagSearchBox.Location = new Point(196, 57);
             FlagSearchBox.Name = "FlagSearchBox";
-            FlagSearchBox.PlaceholderText = "Search Flag Number";
+            FlagSearchBox.PlaceholderText = "搜索标志编号";
             FlagSearchBox.Size = new Size(114, 23);
             FlagSearchBox.TabIndex = 52;
             FlagSearchBox.TextChanged += FlagSearchBox_TextChanged;
@@ -1076,81 +1076,81 @@
             // 
             // HeroATKSPDBox
             // 
-            HeroATKSPDBox.Enabled = false;
+            HeroATKSPDBox.Enabled = true;
             HeroATKSPDBox.Location = new Point(260, 255);
             HeroATKSPDBox.Margin = new Padding(4, 3, 4, 3);
             HeroATKSPDBox.Name = "HeroATKSPDBox";
-            HeroATKSPDBox.ReadOnly = true;
+            HeroATKSPDBox.ReadOnly = false;
             HeroATKSPDBox.Size = new Size(73, 23);
             HeroATKSPDBox.TabIndex = 32;
             // 
             // HeroAGILBox
             // 
-            HeroAGILBox.Enabled = false;
+            HeroAGILBox.Enabled = true;
             HeroAGILBox.Location = new Point(260, 224);
             HeroAGILBox.Margin = new Padding(4, 3, 4, 3);
             HeroAGILBox.Name = "HeroAGILBox";
-            HeroAGILBox.ReadOnly = true;
+            HeroAGILBox.ReadOnly = false;
             HeroAGILBox.Size = new Size(73, 23);
             HeroAGILBox.TabIndex = 31;
             // 
             // HeroACCBox
             // 
-            HeroACCBox.Enabled = false;
+            HeroACCBox.Enabled = true;
             HeroACCBox.Location = new Point(260, 191);
             HeroACCBox.Margin = new Padding(4, 3, 4, 3);
             HeroACCBox.Name = "HeroACCBox";
-            HeroACCBox.ReadOnly = true;
+            HeroACCBox.ReadOnly = false;
             HeroACCBox.Size = new Size(73, 23);
             HeroACCBox.TabIndex = 30;
             // 
             // HeroSCBox
             // 
-            HeroSCBox.Enabled = false;
+            HeroSCBox.Enabled = true;
             HeroSCBox.Location = new Point(261, 155);
             HeroSCBox.Margin = new Padding(4, 3, 4, 3);
             HeroSCBox.Name = "HeroSCBox";
-            HeroSCBox.ReadOnly = true;
+            HeroSCBox.ReadOnly = false;
             HeroSCBox.Size = new Size(73, 23);
             HeroSCBox.TabIndex = 29;
             // 
             // HeroMCBox
             // 
-            HeroMCBox.Enabled = false;
+            HeroMCBox.Enabled = true;
             HeroMCBox.Location = new Point(260, 122);
             HeroMCBox.Margin = new Padding(4, 3, 4, 3);
             HeroMCBox.Name = "HeroMCBox";
-            HeroMCBox.ReadOnly = true;
+            HeroMCBox.ReadOnly = false;
             HeroMCBox.Size = new Size(73, 23);
             HeroMCBox.TabIndex = 28;
             // 
             // HeroDCBox
             // 
-            HeroDCBox.Enabled = false;
+            HeroDCBox.Enabled = true;
             HeroDCBox.Location = new Point(260, 88);
             HeroDCBox.Margin = new Padding(4, 3, 4, 3);
             HeroDCBox.Name = "HeroDCBox";
-            HeroDCBox.ReadOnly = true;
+            HeroDCBox.ReadOnly = false;
             HeroDCBox.Size = new Size(73, 23);
             HeroDCBox.TabIndex = 27;
             // 
             // HeroAMCBox
             // 
-            HeroAMCBox.Enabled = false;
+            HeroAMCBox.Enabled = true;
             HeroAMCBox.Location = new Point(260, 54);
             HeroAMCBox.Margin = new Padding(4, 3, 4, 3);
             HeroAMCBox.Name = "HeroAMCBox";
-            HeroAMCBox.ReadOnly = true;
+            HeroAMCBox.ReadOnly = false;
             HeroAMCBox.Size = new Size(73, 23);
             HeroAMCBox.TabIndex = 26;
             // 
             // HeroACBox
             // 
-            HeroACBox.Enabled = false;
+            HeroACBox.Enabled = true;
             HeroACBox.Location = new Point(261, 20);
             HeroACBox.Margin = new Padding(4, 3, 4, 3);
             HeroACBox.Name = "HeroACBox";
-            HeroACBox.ReadOnly = true;
+            HeroACBox.ReadOnly = false;
             HeroACBox.Size = new Size(73, 23);
             HeroACBox.TabIndex = 24;
             // 

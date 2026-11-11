@@ -272,6 +272,95 @@ namespace Server
             SaveChanges();
         }
 
+        /// <summary>
+        /// 解析 min-max 双值属性框（支持「min-max」「min-max」全角连接符或单值写法）。
+        /// 单值写法时 min=max=该值；解析失败返回 null。
+        /// </summary>
+        private static (int min, int max)? ParseMinMax(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            text = text.Trim().Replace("－", "-").Replace("—", "-").Replace("–", "-");
+
+            int idx = text.IndexOf('-');
+            if (idx < 0)
+            {
+                if (!int.TryParse(text, out int single)) return null;
+                return (single, single);
+            }
+
+            string minPart = text.Substring(0, idx).Trim();
+            string maxPart = text.Substring(idx + 1).Trim();
+
+            if (!int.TryParse(minPart, out int min)) return null;
+            if (!int.TryParse(maxPart, out int max)) return null;
+
+            return (min, max);
+        }
+
+        /// <summary>
+        /// 方案B临时属性：把管理员填写的属性值以无限时长 buff（RemoveOnDeath|RemoveOnExit）
+        /// 加到在线玩家/英雄身上，立即生效、死亡或下线自动失效，不写入存档。
+        /// </summary>
+        private void ApplyStatsBuff(MapObject target, string targetName)
+        {
+            if (target == null) return;
+
+            var pairs = new (string text, BuffType type, Stat minStat, Stat maxStat, string label)[]
+            {
+                (ACBox.Text,     BuffType.防御提升,     Stat.MinAC,  Stat.MaxAC,  "物理防御"),
+                (AMCBox.Text,    BuffType.魔法防御提升, Stat.MinMAC, Stat.MaxMAC, "魔法防御"),
+                (DCBox.Text,     BuffType.攻击力提升,   Stat.MinDC,  Stat.MaxDC,  "物理攻击"),
+                (MCBox.Text,     BuffType.魔法力提升,   Stat.MinMC,  Stat.MaxMC,  "魔法攻击"),
+                (SCBox.Text,     BuffType.道术力提升,   Stat.MinSC,  Stat.MaxSC,  "道术攻击"),
+            };
+
+            var stats = new Stats();
+            int applied = 0;
+
+            foreach (var p in pairs)
+            {
+                var v = ParseMinMax(p.text);
+                if (v == null) continue;
+
+                stats[p.minStat] = v.Value.min;
+                stats[p.maxStat] = v.Value.max;
+                applied++;
+            }
+
+            var singlePairs = new (string text, BuffType type, Stat stat, string label)[]
+            {
+                (ACCBox.Text,    BuffType.准确提升,     Stat.准确,     "准确"),
+                (AGILBox.Text,   BuffType.敏捷提升,     Stat.敏捷,     "敏捷"),
+                (ATKSPDBox.Text, BuffType.攻击速度提升, Stat.攻击速度, "攻击速度"),
+            };
+
+            foreach (var p in singlePairs)
+            {
+                if (!int.TryParse(p.text?.Trim(), out int v)) continue;
+
+                stats[p.stat] = v;
+                applied++;
+            }
+
+            if (applied == 0) return;
+
+            // 先移除旧 buff（StackType=ResetStatAndDuration 会重算，但显式移除更稳）
+            target.RemoveBuff(BuffType.防御提升);
+            target.RemoveBuff(BuffType.魔法防御提升);
+            target.RemoveBuff(BuffType.攻击力提升);
+            target.RemoveBuff(BuffType.魔法力提升);
+            target.RemoveBuff(BuffType.道术力提升);
+            target.RemoveBuff(BuffType.准确提升);
+            target.RemoveBuff(BuffType.敏捷提升);
+            target.RemoveBuff(BuffType.攻击速度提升);
+
+            // duration=0 + Infinite 堆叠 = 无限时 buff；RemoveOnDeath|RemoveOnExit 保证死亡/下线自动清
+            target.AddBuff(BuffType.防御提升, target, 0, stats, true, false);
+
+            MessageBox.Show($"已对{(target is HeroObject ? "英雄" : "玩家")}「{targetName}」应用 {applied} 项临时属性（死亡或下线后失效）。", "临时属性", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         private void SaveChanges()
         {
             CharacterInfo info = Character;
@@ -319,6 +408,16 @@ namespace Server
             {
                 MessageBox.Show("信用币输入错误");
                 return;
+            }
+
+            // 属性框（方案B临时生效）：仅在线玩家可用，buff 死亡/下线自动失效
+            if (Character.Player != null)
+            {
+                ApplyStatsBuff(Character.Player, Character.Name);
+            }
+            else if (ACBox.Text.Trim().Length > 0)
+            {
+                MessageBox.Show("玩家当前离线，临时属性仅对在线玩家生效。", "临时属性", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             UpdateTabs();
@@ -825,6 +924,16 @@ namespace Server
 
             selectedHero.Name = HeroNameTextBox.Text;
             selectedHero.Level = level;
+
+            // 英雄属性框（方案B临时生效）：仅在线英雄可用，buff 死亡/下线自动失效
+            if (Character.Player?.Hero != null)
+            {
+                ApplyStatsBuff(Character.Player.Hero, HeroNameTextBox.Text);
+            }
+            else if (HeroACBox.Text.Trim().Length > 0)
+            {
+                MessageBox.Show("英雄当前不在线，临时属性仅对在线英雄生效。", "临时属性", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
 
             UpdateTabs();
         }
