@@ -3168,7 +3168,8 @@ namespace Server.MirObjects
                 BindingShotCenter = BindingShotCenter,
                 Buffs = Buffs.Where(d => d.Info.Visible).Select(e => e.Type).ToList(),
                 MasterObjectId = Master?.ObjectID ?? 0,
-                Rarity= MonsterType
+                Rarity= MonsterType,
+                IsBoss = Info.IsBoss
             };
         }
 
@@ -3786,7 +3787,8 @@ namespace Server.MirObjects
 
         public override void SendHealth(HumanObject player)
         {
-            if (!player.IsMember(Master) && !(player.IsMember(EXPOwner) && AutoRev) && Envir.Time > RevTime) return;
+            //内挂-怪物血条：进视野即下发当前血量百分比（野怪也对全视野玩家下发），
+            //使客户端能在开打前就显示持续血条；玩家/宠物/复活冷却等原有逻辑保留。
             byte time = Math.Min(byte.MaxValue, (byte)Math.Max(5, (RevTime - Envir.Time) / 1000));
             player.Enqueue(new S.ObjectHealth { ObjectID = ObjectID, Percent = PercentHealth, Expire = time });
         }

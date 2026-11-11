@@ -571,9 +571,14 @@ namespace Client.MirObjects
             if (Dead) return;
             if (Race != ObjectType.Player && Race != ObjectType.Monster && Race != ObjectType.Hero) return;
 
-            if (CMain.Time >= HealthTime)
+            // 内挂功能：怪物血条持续显示——只要已知血量百分比就画，不再受 HealthTime 窗口过期限制
+            if (Race != ObjectType.Monster && CMain.Time >= HealthTime)
             {
                 if (!ShouldDrawHealth()) return;
+            }
+            else if (Race == ObjectType.Monster && CMain.Time >= HealthTime && PercentHealth <= 0)
+            {
+                return; // 尚未收到过血量数据时不画（避免 0 长度血条）
             }
 
             Libraries.Prguse2.Draw(0, DisplayRectangle.X + 8, DisplayRectangle.Y - 64);

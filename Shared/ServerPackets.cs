@@ -2315,6 +2315,7 @@ namespace ServerPackets
         public bool BindingShotCenter;
         public uint MasterObjectId;
         public MonsterType Rarity;
+        public bool IsBoss;
 
         public List<BuffType> Buffs = new List<BuffType>();
 
@@ -2339,6 +2340,7 @@ namespace ServerPackets
             ExtraByte = reader.ReadByte();
             MasterObjectId= reader.ReadUInt32();
             Rarity= (MonsterType)reader.ReadByte();
+            IsBoss = reader.ReadBoolean();
 
             int count = reader.ReadInt32();
             for (int i = 0; i < count; i++)
@@ -2369,6 +2371,7 @@ namespace ServerPackets
             writer.Write((byte)ExtraByte);
             writer.Write(MasterObjectId);
             writer.Write((byte)Rarity);
+            writer.Write(IsBoss);
 
             writer.Write(Buffs.Count);
             for (int i = 0; i < Buffs.Count; i++)

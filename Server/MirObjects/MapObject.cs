@@ -965,7 +965,13 @@ namespace Server.MirObjects
                 return;
             }
 
-            if (Race == ObjectType.Monster && !AutoRev && Master == null) return;
+            //内挂-怪物血条：野怪（无主且非自动复活）血量更新也向视野内全玩家广播，
+            //否则普通野怪的血量包只发给主人/仇恨者，视野内其他玩家无法看到血条。
+            if (Race == ObjectType.Monster && !AutoRev && Master == null)
+            {
+                CurrentMap.Broadcast(p, CurrentLocation);
+                return;
+            }
 
             if (Race == ObjectType.Player)
             {

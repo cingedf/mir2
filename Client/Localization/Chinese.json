@@ -1095,5 +1095,9 @@
     "Max": "最大"
   },
   "Enum": {
+    "MonsterType_Normal": "普通级",
+    "MonsterType_Uncommon": "稀有级",
+    "MonsterType_Rare": "珍稀级",
+    "MonsterType_Elite": "精英级"
   }
 }

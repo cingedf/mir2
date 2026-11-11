@@ -68,6 +68,7 @@ namespace Client.MirObjects
         public uint MasterObjectId;
 
         public MonsterType Rarity;
+        public bool IsBoss;
 
         public MonsterObject(uint objectID) : base(objectID) { }
 
@@ -97,6 +98,7 @@ namespace Client.MirObjects
 
             MasterObjectId = info.MasterObjectId;
             Rarity = info.Rarity;
+            IsBoss = info.IsBoss;
 
             if (MasterObjectId == 0 && Rarity != MonsterType.Normal)
             {
@@ -104,6 +106,17 @@ namespace Client.MirObjects
                 //Add localization for rarity text
                 Name = $"{Rarity.ToLocalizedString()}_{Name}";
             }
+
+            //内挂-BOSS 高亮：BOSS 名字固定用醒目颜色（覆盖服务端默认白色）。
+            //血量百分比由紧随其后的 S.ObjectHealth 包（SendHealth 已放开为全发）补真实值，
+            //此处先按满血初始化，避免进视野第一帧把血条画成 0%。
+            if (IsBoss)
+            {
+                NameColour = Color.OrangeRed;
+                PercentHealth = 100;
+                OldNameColor = NameColour;
+            }
+
             Buffs = info.Buffs;
 
             switch (BaseImage)
@@ -430,10 +443,8 @@ namespace Client.MirObjects
 
         public override bool ShouldDrawHealth()
         {
-            string name = string.Empty;
-            if (Name.Contains("(")) name = Name.Substring(Name.IndexOf("(") + 1, Name.Length - Name.IndexOf("(") - 2);
-
-            return Name.EndsWith(string.Format("({0})", User.Name)) || MirScenes.Dialogs.GroupDialog.GroupList.Contains(name);
+            // 内挂功能：视野内所有怪物均显示血条（原白名单仅自己/队友的怪可见）
+            return true;
         }
 
         public override void Process()
