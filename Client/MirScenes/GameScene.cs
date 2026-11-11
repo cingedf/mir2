@@ -79,6 +79,7 @@ namespace Client.MirScenes
         public MiniMapDialog MiniMapDialog;
         public InspectDialog InspectDialog;
         public OptionDialog OptionDialog;
+        public AssistantDialog AssistantDialog;
         public MenuDialog MenuDialog;
         public NPCDialog NPCDialog;
         public NPCGoodsDialog NPCGoodsDialog;
@@ -314,6 +315,7 @@ namespace Client.MirScenes
             MiniMapDialog = new MiniMapDialog { Parent = this };
             InspectDialog = new InspectDialog { Parent = this, Visible = false };
             OptionDialog = new OptionDialog { Parent = this, Visible = false };
+            AssistantDialog = new AssistantDialog { Visible = false };
             MenuDialog = new MenuDialog { Parent = this, Visible = false };
             NPCDialog = new NPCDialog { Parent = this, Visible = false };
             NPCGoodsDialog = new NPCGoodsDialog(PanelType.Buy) { Parent = this, Visible = false };
@@ -685,6 +687,10 @@ namespace Client.MirScenes
                         if (!QuestLogDialog.Visible) QuestLogDialog.Show();
                         else QuestLogDialog.Hide();
                         break;
+                    case KeybindOptions.Assistant:
+                        if (!AssistantDialog.Visible) AssistantDialog.Show();
+                        else AssistantDialog.Hide();
+                        break;
                     case KeybindOptions.Exit:
                         QuitGame();
                         return;
@@ -694,6 +700,7 @@ namespace Client.MirScenes
                         InventoryDialog.Hide();
                         CharacterDialog.Hide();
                         OptionDialog.Hide();
+                        AssistantDialog.Hide();
                         MenuDialog.Hide();
                         if (NPCDialog.Visible) NPCDialog.Hide();
                         HelpDialog.Hide();

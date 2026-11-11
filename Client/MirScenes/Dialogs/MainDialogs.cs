@@ -3243,6 +3243,67 @@ namespace Client.MirScenes.Dialogs
         }
 
     }
+    /// <summary>
+    /// 内挂助手面板（占位版）：Prguse3[#33] 354×259 暗色面板背景，
+    /// 仅显示标题与三个功能复选框；勾选状态存 GameAssistantSettings 内存变量，无功能逻辑（二期实现）。
+    /// </summary>
+    public sealed class AssistantDialog : MirImageControl
+    {
+        public MirLabel AssistantTitleLabel;
+        public MirCheckBox[] AssistantOptions;
+        public MirButton CloseButton;
+
+        public AssistantDialog()
+        {
+            Index = 33;
+            Library = Libraries.Prguse3;
+            Movable = true;
+            Sort = true;
+            Parent = GameScene.Scene;
+            Location = new Point((Settings.ScreenWidth - Size.Width) / 2, (Settings.ScreenHeight - Size.Height) / 2);
+
+            CloseButton = new MirButton
+            {
+                Index = 360,
+                HoverIndex = 361,
+                Library = Libraries.Prguse2,
+                Location = new Point(Size.Width - 26, 5),
+                Parent = this,
+                Sound = SoundList.ButtonA,
+                PressedIndex = 362,
+            };
+            CloseButton.Click += (o, e) => Hide();
+
+            // 标题（顶部亮色标题条下方）
+            AssistantTitleLabel = new MirLabel
+            {
+                AutoSize = true,
+                Parent = this,
+                Location = new Point(15, 42),
+                ForeColour = Color.Orange,
+                Text = "内挂功能（开发中）",
+            };
+
+            // 三个功能复选框（勾选仅存内存，无功能逻辑）
+            AssistantOptions = new MirCheckBox[GameAssistantSettings.AssistantNames.Length];
+            for (int i = 0; i < AssistantOptions.Length; i++)
+            {
+                int offsetY = i * 30;
+                AssistantOptions[i] = new MirCheckBox { Index = 2086, UnTickedIndex = 2086, TickedIndex = 2087, Parent = this, Location = new Point(18, (80 + offsetY)), Library = Libraries.Prguse };
+                AssistantOptions[i].LabelText = GameAssistantSettings.AssistantNames[i];
+                AssistantOptions[i].Checked = GameAssistantSettings.AssistantOptions[i];
+                AssistantOptions[i].Click += AssistantCheckBoxClick;
+            }
+        }
+
+        private void AssistantCheckBoxClick(object sender, EventArgs e)
+        {
+            // 占位：仅记录勾选状态，功能逻辑二期实现
+            MirCheckBox box = (MirCheckBox)sender;
+            int index = Array.IndexOf(AssistantOptions, box);
+            GameAssistantSettings.AssistantOptions[index] = box.Checked;
+        }
+    }
     public sealed class MenuDialog : MirImageControl
     {
         public MirButton ExitButton,
