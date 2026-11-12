@@ -3255,7 +3255,7 @@ namespace Client.MirScenes.Dialogs
 
         public AssistantDialog()
         {
-            Index = 33;
+            Index = 34; // Prguse3[34]=354×259 暗色面板背景（#33 是 1×1 占位帧，勿用）
             Library = Libraries.Prguse3;
             Movable = true;
             Sort = true;
