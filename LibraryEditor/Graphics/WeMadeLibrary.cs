@@ -160,7 +160,16 @@ namespace LibraryEditor
             if (Images == null || index < 0 || index >= Images.Length) return;
             if (Images[index] == null)
             {
-                _fStream.Position = _indexList[index];
+                // 坏帧防御：WIX 索引偏移越界（供应商资源常见末条死索引/文件尾截断）时，
+                // 按空白帧处理（与偏移=0 的现有空帧行为一致），避免 ReadInt16 越过文件尾抛
+                // EndOfStreamException 使整个批量转换中断。空白帧经 ToMLibrary 转为 .Lib 空图。
+                long offset = _indexList[index];
+                if (offset <= 0 || offset > _fStream.Length - ImageStructureSize[_nType])
+                {
+                    Images[index] = new WeMadeImage();
+                    return;
+                }
+                _fStream.Position = offset;
                 Images[index] = new WeMadeImage(_bReader, _nType);
             }
 
@@ -308,6 +317,12 @@ namespace LibraryEditor
                     x = 0;
                 }
                 return Pixels;
+            }
+
+            public WeMadeImage()
+            {
+                // 坏帧占位：全零尺寸使 CreateTexture 直接跳过（Image 保持 null），
+                // ToMLibrary 时 MImage(null) 走 FBytes=空数组分支，与正常空白帧一致
             }
 
             public WeMadeImage(BinaryReader reader, byte nType)

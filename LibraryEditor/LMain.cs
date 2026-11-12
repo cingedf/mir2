@@ -507,20 +507,29 @@ namespace LibraryEditor
                     var fileName = OpenWeMadeDialog.FileNames[i];
                     var ext = Path.GetExtension(fileName).ToUpper();
 
-                    if (ext == ".WTL")
+                    // 单文件容错：一个文件损坏（坏索引/截断/压缩数据错）不应中断整批转换
+                    try
                     {
-                        WTLLibrary WTLlib = new WTLLibrary(fileName);
-                        WTLlib.ToMLibrary();
+                        if (ext == ".WTL")
+                        {
+                            WTLLibrary WTLlib = new WTLLibrary(fileName);
+                            WTLlib.ToMLibrary();
+                        }
+                        else if (ext == ".LIB")
+                        {
+                            MLibraryV1 v1Lib = new MLibraryV1(fileName);
+                            v1Lib.ToMLibrary();
+                        }
+                        else
+                        {
+                            WeMadeLibrary WILlib = new WeMadeLibrary(fileName);
+                            WILlib.ToMLibrary();
+                        }
                     }
-                    else if (ext == ".LIB")
+                    catch (Exception ex)
                     {
-                        MLibraryV1 v1Lib = new MLibraryV1(fileName);
-                        v1Lib.ToMLibrary();
-                    }
-                    else
-                    {
-                        WeMadeLibrary WILlib = new WeMadeLibrary(fileName);
-                        WILlib.ToMLibrary();
+                        Invoke(new Action(() =>
+                            MessageBox.Show(string.Format("{0} 转换失败: {1}", Path.GetFileName(fileName), ex.Message))));
                     }
 
                     Invoke(new Action(() =>
