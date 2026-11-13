@@ -67,7 +67,7 @@ public abstract class Packet
         return p;
     }
 
-    public IEnumerable<byte> GetPacketBytes()
+    public byte[] GetPacketBytes()
     {
         if (Index < 0) return new byte[0];
 

@@ -163,6 +163,23 @@ namespace Server.MirObjects
 
         public List<PlayerObject> GroupMembers;
 
+        /// <summary>
+        /// 收集对客户端可见的 Buff 类型（GetInfo 序列化用）。
+        /// 手写循环替代 Buffs.Where(d=>d.Info.Visible).Select(e=>e.Type).ToList()，
+        /// 避免广播热路径上的枚举器/委托/闭包分配。
+        /// </summary>
+        protected List<BuffType> GetVisibleBuffTypes()
+        {
+            var list = new List<BuffType>();
+            var buffs = Buffs;
+            for (int i = 0; i < buffs.Count; i++)
+            {
+                if (buffs[i].Info.Visible)
+                    list.Add(buffs[i].Type);
+            }
+            return list;
+        }
+
         public virtual AttackMode AMode { get; set; }
         public virtual PetMode PMode { get; set; }
 
@@ -347,11 +364,17 @@ namespace Server.MirObjects
                 throw new InvalidOperationException("节点不为空，对象已经生成");
 
             Node = Envir.Objects.AddLast(this);
+            LinkedListNode<MapObject> threadedNode = null;
             if ((Race == ObjectType.Monster) && Settings.Multithreaded)
             {
                 SpawnThread = CurrentMap.Thread;
-                NodeThreaded = Envir.MobThreads[SpawnThread].ObjectsList.AddLast(this);
+                threadedNode = NodeThreaded = Envir.MobThreads[SpawnThread].ObjectsList.AddLast(this);
             }
+
+            // 防护：AddLast 期间怪物线程可能正扫到旧 _current（其 Value 已被并发 Despawn 置空），此处只需保证 _current 指向有效节点
+            var mt = Envir.MobThreads[SpawnThread];
+            if (mt._current == null || mt._current.Value == null)
+                mt._current = threadedNode;
 
             OperateTime = Envir.Time + Envir.Random.Next(OperateDelay);
 
@@ -369,7 +392,13 @@ namespace Server.MirObjects
             Envir.Objects.Remove(Node);
             if (Settings.Multithreaded && (Race == ObjectType.Monster))
             {
-                Envir.MobThreads[SpawnThread].ObjectsList.Remove(NodeThreaded);
+                // 防护：若怪物线程的 _current 正指向本节点，移除后会得到 Value==null 并炸掉整个 ThreadLoop，
+                // 先把 _current 前移到安全位置再移除（Envir.ThreadLoop 内亦有 null 防御兜底）
+                var mt = Envir.MobThreads[SpawnThread];
+                if (mt._current == NodeThreaded)
+                    mt._current = NodeThreaded.Previous ?? mt.ObjectsList.First;
+                mt.ObjectsList.Remove(NodeThreaded);
+                NodeThreaded = null;
             }
 
             ActionList.Clear();

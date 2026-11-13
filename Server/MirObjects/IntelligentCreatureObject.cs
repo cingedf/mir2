@@ -854,7 +854,7 @@ namespace Server.MirObjects
                 Poison = CurrentPoison,
                 Hidden = Hidden,
                 Extra = Summoned,
-                Buffs = Buffs.Where(d => d.Info.Visible).Select(e => e.Type).ToList()
+                Buffs = GetVisibleBuffTypes()
             };
         }
     }

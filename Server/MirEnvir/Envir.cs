@@ -758,6 +758,13 @@ namespace Server.MirEnvir
                         Info._current = Info.ObjectsList.First;
                     else
                     {
+                        // 防护：节点可能已被并发 Despawn 移除（Value==null），回绕到链表头而不是让线程崩掉
+                        if (Info._current.Value == null)
+                        {
+                            Info._current = Info.ObjectsList.First;
+                            continue;
+                        }
+
                         var next = Info._current.Next;
 
                         //if we reach the end of our list > go back to the top (since we are running threaded, we dont want the system to sit there for xxms doing nothing)

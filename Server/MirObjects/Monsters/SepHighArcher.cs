@@ -87,7 +87,7 @@ namespace Server.MirObjects.Monsters
                 return;
             }
 
-            bool hasPoisonBuff = (Buffs.Where(x => x.Type == BuffType.毒魔闪).ToList().Count() > 0);
+            bool hasPoisonBuff = Buffs.Exists(x => x.Type == BuffType.毒魔闪);
 
 
             if (hasPoisonBuff && Envir.Random.Next(2) == 0)

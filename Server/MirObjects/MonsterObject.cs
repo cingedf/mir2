@@ -3166,7 +3166,7 @@ namespace Server.MirObjects
                 Hidden = Hidden,
                 ShockTime = (ShockTime > 0 ? ShockTime - Envir.Time : 0),
                 BindingShotCenter = BindingShotCenter,
-                Buffs = Buffs.Where(d => d.Info.Visible).Select(e => e.Type).ToList(),
+                Buffs = GetVisibleBuffTypes(),
                 MasterObjectId = Master?.ObjectID ?? 0,
                 Rarity= MonsterType,
                 IsBoss = Info.IsBoss

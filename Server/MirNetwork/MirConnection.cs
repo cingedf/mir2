@@ -185,7 +185,6 @@ namespace Server.MirNetwork
         private bool _keepAlivePending;
         private long _keepAliveToken;
         private long _sendBytes;
-        private long _receiveBytes;
 
         private const long KeepAliveInterval = 10000;
         private const long ConnectionTimeout = 60000;
@@ -652,12 +651,12 @@ namespace Server.MirNetwork
                 {
                     _sendQueueCount--;
 
-                    IEnumerable<byte> packetBytes = p.GetPacketBytes();
+                    byte[] packetBytes = p.GetPacketBytes();
 
                     if (packetBytes == null)
                         continue;
 
-                    int packetLength = packetBytes.Count();
+                    int packetLength = packetBytes.Length;
 
                     if (packetLength == 0)
                         continue;

@@ -3202,14 +3202,8 @@ namespace Server.MirEnvir
 
         private static void ReportCellIssue(string message)
         {
-            try
-            {
-                throw new System.InvalidOperationException(message);
-            }
-            catch (System.Exception ex)
-            {
-                MessageQueue.Instance.Enqueue(ex);
-            }
+            // 热路径告警：直接入队字符串，不再用 throw-catch 构造异常（省 StackTrace 捕获开销）
+            MessageQueue.Instance.Enqueue(message);
         }
     }
     public class MapRespawn
