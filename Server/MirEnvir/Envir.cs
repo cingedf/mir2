@@ -729,7 +729,16 @@ namespace Server.MirEnvir
                             }
                         }
 
-                        Process();
+                        // 第二步段位隔离④：Envir 全局段（日切换/战争倒计时/行会计时等）异常不冒泡致命 catch
+                        try
+                        {
+                            Process();
+                        }
+                        catch (Exception ex)
+                        {
+                            ErrorThrottle.Notify("WorkLoopEnvir", () =>
+                                MessageQueue.Enqueue($"主循环全局系统处理异常 => {ex}"));
+                        }
 
                         if (Time >= saveTime)
                         {
