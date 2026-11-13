@@ -715,7 +715,19 @@ namespace Server.MirEnvir
                             }
                         }
 
-                        DragonSystem?.Process();
+                        // 第二步段位隔离③：龙系统 Process 异常不冒泡致命 catch（单实例，节流键固定）
+                        if (DragonSystem != null)
+                        {
+                            try
+                            {
+                                DragonSystem.Process();
+                            }
+                            catch (Exception ex)
+                            {
+                                ErrorThrottle.Notify("WorkLoopDragon", () =>
+                                    MessageQueue.Enqueue($"主循环龙系统处理异常 => {ex}"));
+                            }
+                        }
 
                         Process();
 
