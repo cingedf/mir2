@@ -674,12 +674,25 @@ namespace Server.MirEnvir
                             }
 
                             var next = current.Next;
-                            if (!Settings.Multithreaded || current.Value.Race != ObjectType.Monster || current.Value.Master != null)
+                            var sliceObj = current.Value;
+                            if (!Settings.Multithreaded || sliceObj.Race != ObjectType.Monster || sliceObj.Master != null)
                             {
-                                if (Time > current.Value.OperateTime)
+                                if (Time > sliceObj.OperateTime)
                                 {
-                                    current.Value.Process();
-                                    current.Value.SetOperateTime();
+                                    // 逐对象隔离：单个对象 Process 异常只节流日志 + 顺延重试，不再炸进内层 catch 触发全服停机；
+                                    // sliceObj 为提前捕获的引用，防并发 Despawn 后 catch 内再解引用（原实现两次解引用本就存在同窗口风险）
+                                    try
+                                    {
+                                        sliceObj.Process();
+                                        sliceObj.SetOperateTime();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        ErrorThrottle.Notify("WorkLoopSlice:" + sliceObj.ObjectID, () =>
+                                            MessageQueue.Enqueue($"主循环切片对象处理异常 [{sliceObj.ObjectID}] => {ex}"));
+                                        // 顺延该对象的下次处理时间，防毒对象每 20ms 切片被连续重锤
+                                        sliceObj.OperateTime = Time + 5000;
+                                    }
                                 }
                                 processCount++;
                             }
