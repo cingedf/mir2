@@ -697,17 +697,17 @@ namespace Server.MirEnvir
                             {
                                 if (Time > sliceObj.OperateTime)
                                 {
-                                    // 逐对象隔离：单个对象 Process 异常只节流日志 + 顺延重试，不再炸进内层 catch 触发全服停机；
+                                    // 逐对象隔离：单个对象 Process 异常只节流日志 + 毒对象治理 + 顺延重试，不再炸进内层 catch 触发全服停机；
                                     // sliceObj 为提前捕获的引用，防并发 Despawn 后 catch 内再解引用（原实现两次解引用本就存在同窗口风险）
                                     try
                                     {
                                         sliceObj.Process();
                                         sliceObj.SetOperateTime();
+                                        sliceObj.ProcessErrorCount = 0; // 连续失败语义：成功即清零，防玩家累计终身 5 次错误被误踢
                                     }
                                     catch (Exception ex)
                                     {
-                                        ErrorThrottle.Notify("WorkLoopSlice:" + sliceObj.ObjectID, () =>
-                                            MessageQueue.Enqueue($"主循环切片对象处理异常 [{sliceObj.ObjectID}] => {ex}"));
+                                        sliceObj.HandleProcessError(ex, "主循环切片");
                                         // 顺延该对象的下次处理时间，防毒对象每 20ms 切片被连续重锤
                                         sliceObj.OperateTime = Time + 5000;
                                     }
@@ -873,17 +873,17 @@ namespace Server.MirEnvir
                             {
                                 if (Info._current.Value.Master == null) //since we are running multithreaded, dont allow pets to be processed (unless you constantly move pets into their map appropriate thead)
                                 {
-                                    // 逐对象隔离：单个对象 Process 异常只计数 + 节流日志 + 顺延重试，不炸掉整个 mob 线程
+                                    // 逐对象隔离：单个对象 Process 异常只计数 + 毒对象治理 + 顺延重试，不炸掉整个 mob 线程
                                     try
                                     {
                                         Info._current.Value.Process();
                                         Info._current.Value.SetOperateTime();
+                                        Info._current.Value.ProcessErrorCount = 0; // 连续失败语义：成功即清零，防累计终身错误被误处置
                                     }
                                     catch (Exception ex)
                                     {
                                         Info.ErrorCount++;
-                                        ErrorThrottle.Notify("ThreadLoop:" + Info.Id, () =>
-                                            MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.ThreadLoopError), ex)));
+                                        Info._current.Value.HandleProcessError(ex, "怪物线程");
                                         // 顺延该对象的下次处理时间，防毒对象每轮扫描被连续重锤（直接赋值，不可能再抛）
                                         Info._current.Value.OperateTime = Time + 5000;
                                     }

@@ -156,6 +156,9 @@ namespace Server.MirObjects
         public long ExpireTime, OwnerTime, OperateTime;
         public int OperateDelay = 100;
 
+        /// <summary>毒对象治理：Process 连续失败计数（成功一次即清零，见 Envir 主循环/怪物线程隔离 catch）。</summary>
+        public int ProcessErrorCount;
+
         public Stats Stats;
 
         public List<MonsterObject> Pets = new List<MonsterObject>();
@@ -407,6 +410,42 @@ namespace Server.MirObjects
                 Pets[i].Die();
 
             Node = null;
+        }
+
+        /// <summary>
+        /// 毒对象治理：Process 异常集中处置（计数 + 节流日志；连续失败超阈值按 Race 分流：玩家走正常断线踢线，其余 Despawn）。
+        /// 由主循环切片 / 怪物线程的逐对象隔离 catch 调用；本方法自身不得抛出（清理段内部再包 catch）。
+        /// </summary>
+        public void HandleProcessError(Exception ex, string source)
+        {
+            ProcessErrorCount++;
+
+            ErrorThrottle.Notify("ProcessError:" + ObjectID, () =>
+                MessageQueue.Enqueue($"毒对象治理 [{source}] {Race} #{ObjectID} 累计错误 {ProcessErrorCount} 次 => {ex}"));
+
+            if (ProcessErrorCount <= 5) return;
+
+            try
+            {
+                if (Race == ObjectType.Player)
+                {
+                    // 玩家无 Despawn override，直接 Despawn 会造成半死状态（连接活着对象消失）；正确出口=走正常断线流程踢线
+                    MessageQueue.Enqueue($"毒对象治理：玩家 {Name} (#{ObjectID}) 连续处理失败达阈值，执行踢线");
+                    var player = this as PlayerObject;
+                    player?.Connection?.Disconnect(3);
+                }
+                else
+                {
+                    MessageQueue.Enqueue($"毒对象治理：{Race} #{ObjectID} ({Name}) 连续处理失败达阈值，执行 Despawn");
+                    if (Node != null) Despawn();
+                }
+            }
+            catch (Exception cleanEx)
+            {
+                // catch 内的清理异常必须吞掉（仅节流日志），不得再次冒泡
+                ErrorThrottle.Notify("ProcessErrorCleanup:" + ObjectID, () =>
+                    MessageQueue.Enqueue($"毒对象清理异常 [{source}] #{ObjectID} => {cleanEx}"));
+            }
         }
 
         public MapObject FindObject(uint targetID, int dist)
