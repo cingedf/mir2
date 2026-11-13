@@ -618,11 +618,21 @@ namespace Server.MirEnvir
 
                             AdjustLights();
 
+                            // 每连接隔离：单连接 Process 异常只影响自己（下周期由防洪/状态机自然处置），不再炸全服；
+                            // 倒序迭代对 Process 内自移除（SoftDisconnect→Connections.Remove(this)）天然安全，i 由 for 自然递减推进
                             lock (Connections)
                             {
                                 for (var i = Connections.Count - 1; i >= 0; i--)
                                 {
-                                    Connections[i].Process();
+                                    var conn = Connections[i];
+                                    try
+                                    {
+                                        conn.Process();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        ErrorThrottle.Notify("WorkLoopConnection:" + i, () => MessageQueue.Enqueue($"主循环连接处理异常 [{i}] => {ex}"));
+                                    }
                                 }
                             }
 
@@ -630,7 +640,15 @@ namespace Server.MirEnvir
                             {
                                 for (var i = StatusConnections.Count - 1; i >= 0; i--)
                                 {
-                                    StatusConnections[i].Process();
+                                    var statusConn = StatusConnections[i];
+                                    try
+                                    {
+                                        statusConn.Process();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        ErrorThrottle.Notify("WorkLoopStatus:" + i, () => MessageQueue.Enqueue($"主循环状态连接处理异常 [{i}] => {ex}"));
+                                    }
                                 }
                             }
                         }
