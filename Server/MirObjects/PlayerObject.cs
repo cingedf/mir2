@@ -2860,6 +2860,7 @@ namespace Server.MirObjects
 
                             Envir.CharacterList.Remove(data);
                             account.Characters.Remove(data);
+                            Envir.InvalidateCharacterIndex(data.Index); // 体检④修复：角色归档删除后同步失效索引缓存
 
                             ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerHasBeenArchived), data.Name), ChatType.System);
                             MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerArchivedBy), data.Name, Name));

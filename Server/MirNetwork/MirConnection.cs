@@ -206,7 +206,7 @@ namespace Server.MirNetwork
         public List<NPCInfo> SentNPCInfo = new List<NPCInfo>();
         public List<QuestInfo> SentQuestInfo = new List<QuestInfo>();
         public List<RecipeInfo> SentRecipeInfo = new List<RecipeInfo>();
-        public List<UserItem> SentChatItem = new List<UserItem>(); //TODO - Add Expiry time
+        public readonly HashSet<UserItem> SentChatItem = new HashSet<UserItem>(); //TODO - Add Expiry time（体检④修复：List.Contains O(n) → HashSet O(1)，用法仅 Contains/Add，引用相等语义不变）
         public List<MapInfo> SentMapInfo = new List<MapInfo>();
         public List<ulong> SentHeroInfo = new List<ulong>();
         public bool WorldMapSetupSent;
@@ -647,28 +647,35 @@ namespace Server.MirNetwork
 
                 data = new List<byte>();
 
-                while (_sendList.TryDequeue(out Packet p))
+                // 体检④修复：原实现 TryDequeue 后超限再 Enqueue 回队尾，FIFO 被破坏（该包排到其后
+                // 已入队包之后发送）；且单包超限时 data 恒空导致永久卡死。改为 TryPeek 先探测：
+                // 放不下的包留在队首（顺序无损），队首单包超限且本批为空时强制单发（防卡死）。
+                // 泵已被 _sendPumpLock 串行化且 _sendList 无其他消费者，Peek/Dequeue 配对安全。
+                while (_sendList.TryPeek(out Packet p))
                 {
-                    _sendQueueCount--;
-
                     byte[] packetBytes = p.GetPacketBytes();
 
-                    if (packetBytes == null)
-                        continue;
-
-                    int packetLength = packetBytes.Length;
-
-                    if (packetLength == 0)
-                        continue;
-
-                    if (data.Count + packetLength > MaxSendBatchBytes)
+                    if (packetBytes == null || packetBytes.Length == 0)
                     {
-                        _sendList.Enqueue(p);
-                        _sendQueueCount++;
-                        break;
+                        // 空包/无效包直接出队丢弃（与原实现 continue 语义一致）
+                        if (_sendList.TryDequeue(out Packet discarded) && discarded == p)
+                            _sendQueueCount--;
+                        continue;
                     }
 
-                    data.AddRange(packetBytes);
+                    if (data.Count > 0 && data.Count + packetBytes.Length > MaxSendBatchBytes)
+                        break; // 放不下的包留在队首，本批到此为止
+
+                    if (_sendList.TryDequeue(out Packet dequeued) && dequeued == p)
+                    {
+                        _sendQueueCount--;
+                        data.AddRange(packetBytes);
+                    }
+                    else
+                    {
+                        // 队首在 Peek 与 Dequeue 之间被他人消费（防御分支，正常不应发生）
+                        break;
+                    }
                 }
 
                 if (data.Count == 0)

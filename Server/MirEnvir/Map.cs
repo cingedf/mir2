@@ -786,6 +786,7 @@ namespace Server.MirEnvir
                 if (Envir.Time < ActionList[i].Time) continue;
                 Process(ActionList[i]);
                 ActionList.RemoveAt(i);
+                i--; // 体检④修复：RemoveAt 后元素前移，不回退 i 会跳过下一元素（各延迟一 tick）
             }
         }
 

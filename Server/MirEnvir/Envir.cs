@@ -1405,6 +1405,7 @@ namespace Server.MirEnvir
 
                     count = reader.ReadInt32();
                     ItemInfoList.Clear();
+                    _itemInfoIndexCache.Clear(); // 体检④修复：重载时同步失效索引缓存
                     for (var i = 0; i < count; i++)
                     {
                         ItemInfoList.Add(new ItemInfo(reader, LoadVersion, LoadCustomVersion));
@@ -1415,11 +1416,13 @@ namespace Server.MirEnvir
                     }
                     count = reader.ReadInt32();
                     MonsterInfoList.Clear();
+                    _monsterInfoIndexCache.Clear(); // 体检④修复：重载时同步失效索引缓存
                     for (var i = 0; i < count; i++)
                         MonsterInfoList.Add(new MonsterInfo(reader));
 
                     count = reader.ReadInt32();
                     NPCInfoList.Clear();
+                    _npcInfoIndexCache.Clear(); // 体检④修复：重载时同步失效索引缓存
                     for (var i = 0; i < count; i++)
                         NPCInfoList.Add(new NPCInfo(reader));
 
@@ -1518,6 +1521,7 @@ namespace Server.MirEnvir
                         count = reader.ReadInt32();
 
                         HeroList.Clear();
+                        _heroInfoIndexCache.Clear(); // 体检④修复：重载时同步失效索引缓存
 
                         for (var i = 0; i < count; i++)
                             HeroList.Add(new HeroInfo(reader, LoadVersion, LoadCustomVersion));
@@ -1527,6 +1531,7 @@ namespace Server.MirEnvir
 
                     AccountList.Clear();
                     CharacterList.Clear();
+                    _characterInfoIndexCache.Clear(); // 体检④修复：重载时同步失效索引缓存
 
                     int TrueAccount = 0;
                     for (var i = 0; i < count; i++)
@@ -2890,15 +2895,18 @@ namespace Server.MirEnvir
         public void Remove(ItemInfo info)
         {
             ItemInfoList.Remove(info);
+            _itemInfoIndexCache.TryRemove(info.Index, out _); // 体检④修复：运行期删除同步失效索引缓存
         }
         public void Remove(MonsterInfo info)
         {
             MonsterInfoList.Remove(info);
+            _monsterInfoIndexCache.TryRemove(info.Index, out _); // 体检④修复：运行期删除同步失效索引缓存
             //Desync all objects\
         }
         public void Remove(NPCInfo info)
         {
             NPCInfoList.Remove(info);
+            _npcInfoIndexCache.TryRemove(info.Index, out _); // 体检④修复：运行期删除同步失效索引缓存
             //Desync all objects\
         }
         public void Remove(QuestInfo info)
@@ -3166,22 +3174,51 @@ namespace Server.MirEnvir
             return Objects.Where(x => x.CurrentMapIndex == map && x.Race == race).ToList();
         }
 
+        // ── 体检④修复：五类资料查找原为 List 线性扫描（掉落/NPC 对话/查人等热路径 O(n)）──
+        // 惰性字典缓存：命中 O(1)；未命中线性扫描并回填；运行期 Remove/Clear 点同步失效。
+        // 并发说明：多线程模式下 mob 线程与主线程并发读，ConcurrentDictionary 保证安全；
+        // 同 Index 重复资料时「首个命中」语义与线性扫描一致（回填值来自扫描首命中）。
+        private readonly ConcurrentDictionary<int, ItemInfo> _itemInfoIndexCache = new ConcurrentDictionary<int, ItemInfo>();
+        private readonly ConcurrentDictionary<int, MonsterInfo> _monsterInfoIndexCache = new ConcurrentDictionary<int, MonsterInfo>();
+        private readonly ConcurrentDictionary<int, NPCInfo> _npcInfoIndexCache = new ConcurrentDictionary<int, NPCInfo>();
+        private readonly ConcurrentDictionary<int, CharacterInfo> _characterInfoIndexCache = new ConcurrentDictionary<int, CharacterInfo>();
+        private readonly ConcurrentDictionary<int, HeroInfo> _heroInfoIndexCache = new ConcurrentDictionary<int, HeroInfo>();
+
+        /// <summary>运行期删除角色（归档/删号）后失效索引缓存（PlayerObject 归档路径调用）</summary>
+        public void InvalidateCharacterIndex(int index)
+        {
+            _characterInfoIndexCache.TryRemove(index, out _);
+        }
+
         public MonsterInfo GetMonsterInfo(int index)
         {
-            for (var i = 0; i < MonsterInfoList.Count; i++)
-                if (MonsterInfoList[i].Index == index) return MonsterInfoList[i];
+            if (_monsterInfoIndexCache.TryGetValue(index, out var cached))
+                return cached;
 
+            for (var i = 0; i < MonsterInfoList.Count; i++)
+            {
+                var info = MonsterInfoList[i];
+                if (info.Index != index) continue;
+                _monsterInfoIndexCache[index] = info; // 回填（线程安全）
+                return info;
+            }
             return null;
         }
 
         public NPCInfo GetNPCInfo(int index)
         {
+            if (_npcInfoIndexCache.TryGetValue(index, out var cached))
+                return cached;
+
             for (var i = 0; i < NPCInfoList.Count; i++)
             {
-                if (NPCInfoList[i].Index == index)
-                    return NPCInfoList[i];
+                var info = NPCInfoList[i];
+                if (info.Index == index)
+                {
+                    _npcInfoIndexCache[index] = info; // 回填（线程安全）
+                    return info;
+                }
             }
-
             return null;
         }
 
@@ -3263,23 +3300,43 @@ namespace Server.MirEnvir
 
         public CharacterInfo GetCharacterInfo(int index)
         {
-            for (var i = 0; i < CharacterList.Count; i++)
-                if (CharacterList[i].Index == index)
-                    return CharacterList[i];
+            if (_characterInfoIndexCache.TryGetValue(index, out var cached))
+                return cached;
 
+            for (var i = 0; i < CharacterList.Count; i++)
+            {
+                var info = CharacterList[i];
+                if (info.Index != index) continue;
+                _characterInfoIndexCache[index] = info; // 回填（线程安全）
+                return info;
+            }
             return null;
         }
         public HeroInfo GetHeroInfo(int index)
         {
-            return HeroList.FirstOrDefault(x => x.Index == index);
+            if (_heroInfoIndexCache.TryGetValue(index, out var cached))
+                return cached;
+
+            for (var i = 0; i < HeroList.Count; i++)
+            {
+                var info = HeroList[i];
+                if (info.Index != index) continue;
+                _heroInfoIndexCache[index] = info; // 回填（线程安全）
+                return info;
+            }
+            return null;
         }
 
         public ItemInfo GetItemInfo(int index)
         {
+            if (_itemInfoIndexCache.TryGetValue(index, out var cached))
+                return cached;
+
             for (var i = 0; i < ItemInfoList.Count; i++)
             {
                 var info = ItemInfoList[i];
                 if (info.Index != index) continue;
+                _itemInfoIndexCache[index] = info; // 回填（线程安全）
                 return info;
             }
             return null;
