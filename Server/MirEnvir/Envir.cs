@@ -63,6 +63,41 @@ namespace Server.MirEnvir
         }
     }
 
+    /// <summary>
+    /// 熔断器：滑动窗口内统计主循环各隔离 catch 的触发次数，超阈值时返回 true，调用方以 rethrow
+    /// 把原异常送回 WorkLoop 内层致命 catch，走原封不动的有序停机路径（踢全服+存档），
+    /// 防系统性腐化（如批量对象同时损坏）被逐段隔离无限吞掉刷屏。
+    /// 仅主线程 WorkLoop 各段调用；Interlocked 防御未来误用，竞态语义良性（熔断本身是保护性降级）。
+    /// </summary>
+    public static class ErrorCircuitBreaker
+    {
+        private const int Threshold = 500;
+        private const long WindowMs = 60000; // 1 分钟滑动窗口
+
+        private static long _windowStart;
+        private static int _count;
+
+        /// <summary>记录一次隔离 catch；窗口内累计超阈值时返回 true（调用方应重抛原异常触发有序停机）。</summary>
+        public static bool Record()
+        {
+            long now = Envir.Main.Time;
+            long windowStart = _windowStart;
+
+            if (now - windowStart >= WindowMs)
+            {
+                // 窗口滚动：CAS 抢占新窗口，输家沿用旧窗口计数（少记，良性）
+                if (Interlocked.CompareExchange(ref _windowStart, now, windowStart) == windowStart)
+                    Interlocked.Exchange(ref _count, 0);
+            }
+
+            if (Interlocked.Increment(ref _count) <= Threshold) return false;
+
+            ErrorThrottle.Notify("CircuitBreakerTripped", () =>
+                MessageQueue.Instance.Enqueue($"熔断触发：主循环隔离异常 {WindowMs / 1000} 秒窗口内累计超阈值 {Threshold}，转入有序停机"));
+            return true;
+        }
+    }
+
     public class Envir
     {
         public static Envir Main { get; } = new Envir();
@@ -631,6 +666,7 @@ namespace Server.MirEnvir
                                     }
                                     catch (Exception ex)
                                     {
+                                        if (ErrorCircuitBreaker.Record()) throw; // 熔断：rethrow 出 lock 块时监视器随传播自动释放，走内层致命 catch 有序停机
                                         ErrorThrottle.Notify("WorkLoopConnection:" + i, () => MessageQueue.Enqueue($"主循环连接处理异常 [{i}] => {ex}"));
                                     }
                                 }
@@ -647,6 +683,7 @@ namespace Server.MirEnvir
                                     }
                                     catch (Exception ex)
                                     {
+                                        if (ErrorCircuitBreaker.Record()) throw; // 熔断：rethrow 出 lock 块时监视器随传播自动释放，走内层致命 catch 有序停机
                                         ErrorThrottle.Notify("WorkLoopStatus:" + i, () => MessageQueue.Enqueue($"主循环状态连接处理异常 [{i}] => {ex}"));
                                     }
                                 }
@@ -707,6 +744,7 @@ namespace Server.MirEnvir
                                     }
                                     catch (Exception ex)
                                     {
+                                        if (ErrorCircuitBreaker.Record()) throw; // 熔断：送回内层致命 catch 有序停机
                                         sliceObj.HandleProcessError(ex, "主循环切片");
                                         // 顺延该对象的下次处理时间，防毒对象每 20ms 切片被连续重锤
                                         sliceObj.OperateTime = Time + 5000;
@@ -728,6 +766,7 @@ namespace Server.MirEnvir
                             }
                             catch (Exception ex)
                             {
+                                if (ErrorCircuitBreaker.Record()) throw; // 熔断：送回内层致命 catch 有序停机
                                 ErrorThrottle.Notify("WorkLoopMap:" + i, () =>
                                     MessageQueue.Enqueue($"主循环地图处理异常 [{i}:{map.Info.FileName}] => {ex}"));
                             }
@@ -742,6 +781,7 @@ namespace Server.MirEnvir
                             }
                             catch (Exception ex)
                             {
+                                if (ErrorCircuitBreaker.Record()) throw; // 熔断：送回内层致命 catch 有序停机
                                 ErrorThrottle.Notify("WorkLoopDragon", () =>
                                     MessageQueue.Enqueue($"主循环龙系统处理异常 => {ex}"));
                             }
@@ -754,6 +794,7 @@ namespace Server.MirEnvir
                         }
                         catch (Exception ex)
                         {
+                            if (ErrorCircuitBreaker.Record()) throw; // 熔断：送回内层致命 catch 有序停机
                             ErrorThrottle.Notify("WorkLoopEnvir", () =>
                                 MessageQueue.Enqueue($"主循环全局系统处理异常 => {ex}"));
                         }
