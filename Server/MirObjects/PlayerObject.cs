@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 using C = ClientPackets;
 using Server.MirDatabase;
@@ -4353,6 +4354,9 @@ namespace Server.MirObjects
                 }
             }
         }
+        // 静态缓存：聊天物品链接的正则模式重复出现，避免每条消息新建 Regex 实例
+        private static readonly ConcurrentDictionary<string, Regex> ChatItemRegexCache = new ConcurrentDictionary<string, Regex>();
+
         private string ProcessChatItems(string text, List<PlayerObject> recipients, List<ChatItem> chatItems)
         {
             if (chatItems == null)
@@ -4362,7 +4366,8 @@ namespace Server.MirObjects
 
             foreach (var chatItem in chatItems)
             {
-                Regex r = new Regex(chatItem.RegexInternalName, RegexOptions.IgnoreCase);
+                // GetOrAdd 复用缓存实例，避免每条带物品链接的聊天消息都新建 Regex
+                Regex r = ChatItemRegexCache.GetOrAdd(chatItem.RegexInternalName, name => new Regex(name, RegexOptions.IgnoreCase));
 
                 text = r.Replace(text, chatItem.InternalName, 1);
 

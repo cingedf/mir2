@@ -1363,12 +1363,15 @@ namespace Server.MirObjects
             }
         }
 
+        // 静态化：四个模式均为常量，原代码玩家版 ReplaceValue 每次 NPC 对话每个词新建 4 个 Regex、
+        // 怪物版每次新建 2 个（两处均为 NPC 运行期高频路径）
+        private static readonly Regex regex = new Regex(@"\<\$(.*)\>");
+        private static readonly Regex varRegex = new Regex(@"(.*?)\(([A-Z][0-9])\)");
+        private static readonly Regex oneValRegex = new Regex(@"(.*?)\(((.*?))\)");
+        private static readonly Regex twoValRegex = new Regex(@"(.*?)\(((.*?),(.*?))\)");
+
         public string ReplaceValue(PlayerObject player, string param)
         {
-            var regex = new Regex(@"\<\$(.*)\>");
-            var varRegex = new Regex(@"(.*?)\(([A-Z][0-9])\)");
-            var oneValRegex = new Regex(@"(.*?)\(((.*?))\)");
-            var twoValRegex = new Regex(@"(.*?)\(((.*?),(.*?))\)");
             ConquestObject Conquest;
             ConquestGuildArcherInfo 弓箭;
             ConquestGuildGateInfo Gate;
@@ -1744,9 +1747,6 @@ namespace Server.MirObjects
         }
         public string ReplaceValue(MonsterObject Monster, string param)
         {
-            var regex = new Regex(@"\<\$(.*)\>");
-            var varRegex = new Regex(@"(.*?)\(([A-Z][0-9])\)");
-
             var match = regex.Match(param);
 
             if (!match.Success) return param;

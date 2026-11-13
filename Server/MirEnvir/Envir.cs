@@ -2970,49 +2970,51 @@ namespace Server.MirEnvir
             return item;
         }
 
+        // 静态化：模式为常量，原代码每件掉落物创建都新建两个 Regex 实例（掉落为全服高频路径）
+        private static readonly Regex ExpiryBracketRegex = new Regex(@"\[(.*?)\]");
+        private static readonly Regex ExpiryNumAlphaRegex = new Regex("(?<Numeric>[0-9]*)(?<Alpha>[a-zA-Z]*)");
+
         public void UpdateItemExpiry(UserItem item)
         {
+            // 短路：物品名不含 '[' 必无过期后缀，免去 Regex 匹配与 ExpireInfo 白分配
+            if (item.Info.Name.IndexOf('[') < 0) return;
+
+            var expiryMatch = ExpiryBracketRegex.Match(item.Info.Name);
+
+            if (!expiryMatch.Success) return;
+
             var expiryInfo = new ExpireInfo();
+            var parameter = expiryMatch.Groups[1].Captures[0].Value;
+            var match = ExpiryNumAlphaRegex.Match(parameter);
 
-            var r = new Regex(@"\[(.*?)\]");
-            var expiryMatch = r.Match(item.Info.Name);
+            var alpha = match.Groups["Alpha"].Value;
+            var num = 0;
 
-            if (expiryMatch.Success)
+            int.TryParse(match.Groups["Numeric"].Value, out num);
+
+            switch (alpha)
             {
-                var parameter = expiryMatch.Groups[1].Captures[0].Value;
-
-                var numAlpha = new Regex("(?<Numeric>[0-9]*)(?<Alpha>[a-zA-Z]*)");
-                var match = numAlpha.Match(parameter);
-
-                var alpha = match.Groups["Alpha"].Value;
-                var num = 0;
-
-                int.TryParse(match.Groups["Numeric"].Value, out num);
-
-                switch (alpha)
-                {
-                    case "m":
-                        expiryInfo.ExpiryDate = Now.AddMinutes(num);
-                        break;
-                    case "h":
-                        expiryInfo.ExpiryDate = Now.AddHours(num);
-                        break;
-                    case "d":
-                        expiryInfo.ExpiryDate = Now.AddDays(num);
-                        break;
-                    case "M":
-                        expiryInfo.ExpiryDate = Now.AddMonths(num);
-                        break;
-                    case "y":
-                        expiryInfo.ExpiryDate = Now.AddYears(num);
-                        break;
-                    default:
-                        expiryInfo.ExpiryDate = DateTime.MaxValue;
-                        break;
-                }
-
-                item.ExpireInfo = expiryInfo;
+                case "m":
+                    expiryInfo.ExpiryDate = Now.AddMinutes(num);
+                    break;
+                case "h":
+                    expiryInfo.ExpiryDate = Now.AddHours(num);
+                    break;
+                case "d":
+                    expiryInfo.ExpiryDate = Now.AddDays(num);
+                    break;
+                case "M":
+                    expiryInfo.ExpiryDate = Now.AddMonths(num);
+                    break;
+                case "y":
+                    expiryInfo.ExpiryDate = Now.AddYears(num);
+                    break;
+                default:
+                    expiryInfo.ExpiryDate = DateTime.MaxValue;
+                    break;
             }
+
+            item.ExpireInfo = expiryInfo;
         }
 
         public void UpgradeItem(UserItem item)
