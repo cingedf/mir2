@@ -831,10 +831,15 @@ namespace Server.MirObjects
 
             if (Spell == Spell.ExplosiveTrap && Caster != null)
             {
-                var linkedTraps = CurrentMap.GetSpellObjects(Spell.ExplosiveTrap, Owner).Where(x => x.ExplosiveTrapID == ExplosiveTrapID);
-
-                foreach (var trap in linkedTraps)
+                // 原 GetSpellObjects(...).Where(...)：GetSpellObjects 每次全量 new List + LINQ 延迟枚举；
+                // 手写循环直扫 Map.Spells，命中同组陷阱立即引爆，零临时分配
+                var spells = CurrentMap.Spells;
+                for (int i = 0; i < spells.Count; i++)
                 {
+                    var trap = spells[i];
+                    if (trap == null || trap.Spell != Spell.ExplosiveTrap || trap.Caster != Caster) continue;
+                    if (trap.ExplosiveTrapID != ExplosiveTrapID) continue;
+
                     trap.DetonateTrapNow();
                 }
             }

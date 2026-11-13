@@ -826,23 +826,40 @@ namespace Server.MirObjects
 
             if (GTIndex > -1)
             {
-                GTMap gt = Envir.GTMapList.First(x => x.Index == GTIndex);
-                if (GTBegin > Envir.Now)
-                    gt.Begin = (GTBegin - Envir.Now).Seconds;
-                else
-                    gt.Begin = 0;
-
-
-                if (Envir.Now > GTRent)
+                // FirstOrDefault+空判：领地图可能已被删档/清理（原 First 无匹配会抛异常炸掉调用方）
+                GTMap gt = Envir.GTMapList.FirstOrDefault(x => x.Index == GTIndex);
+                if (gt == null)
                 {
-                    EndGT();
-                    SendOutputMessage(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.GuildTerritoryExpired));
+                    GTIndex = -1;
+                    GTRent = DateTime.MinValue;
+                    GTKey = 0;
+                }
+                else
+                {
+                    if (GTBegin > Envir.Now)
+                        gt.Begin = (GTBegin - Envir.Now).Seconds;
+                    else
+                        gt.Begin = 0;
+
+                    if (Envir.Now > GTRent)
+                    {
+                        EndGT();
+                        SendOutputMessage(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.GuildTerritoryExpired));
+                    }
                 }
             }
         }
         public void EndGT()
         {
-            GTMap gt = Envir.GTMapList.First(x => x.Index == GTIndex);
+            GTMap gt = Envir.GTMapList.FirstOrDefault(x => x.Index == GTIndex);
+            if (gt == null)
+            {
+                // 领地图已不存在：仅清理行会侧状态（对应原「若地图已不存在则跳过」的注释意图）
+                GTIndex = -1;
+                GTRent = DateTime.MinValue;
+                GTKey = 0;
+                return;
+            }
             gt.Owner = "None";
             gt.Price = Settings.BuyGTGold;
             gt.Leader = "None";
@@ -869,7 +886,13 @@ namespace Server.MirObjects
 
         public bool GTForSale(PlayerObject player, int price)
         {
-            GTMap gt = Envir.GTMapList.First(x => x.Index == GTIndex);
+            // FirstOrDefault+空判：领地图可能已被删档/清理
+            GTMap gt = Envir.GTMapList.FirstOrDefault(x => x.Index == GTIndex);
+            if (gt == null)
+            {
+                player.ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.TerritoryAlreadyForSale), ChatType.System);
+                return false;
+            }
 
             if (gt.Price > 0)
             {
@@ -884,7 +907,13 @@ namespace Server.MirObjects
 
         public bool EndGTSale(PlayerObject player)
         {
-            GTMap gt = Envir.GTMapList.First(x => x.Index == GTIndex);
+            // FirstOrDefault+空判：领地图可能已被删档/清理
+            GTMap gt = Envir.GTMapList.FirstOrDefault(x => x.Index == GTIndex);
+            if (gt == null)
+            {
+                player.ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.TerritoryNotForSale), ChatType.System);
+                return false;
+            }
 
             if (gt.Price <= 0)
             {

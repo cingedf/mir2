@@ -752,8 +752,8 @@ namespace Server.MirObjects
                                     ConquestMap.Players[i].MyGuild.SendOutputMessage(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.GainingControlOf), ((double)controlFlagPoints[ConquestMap.Players[i].MyGuild] / MAX_CONTROL_POINTS), controlFlag.Info.Name));
                                 }
 
-                                List<GuildObject> guilds = controlFlagPoints.Keys.ToList();
-                                foreach (var guild in guilds)
+                                // 原 Keys.ToList()：每玩家每 tick 新分配 List；直接索引遍历 Dictionary.Keys 零分配
+                                foreach (var guild in controlFlagPoints.Keys)
                                 {
                                     if (ConquestMap.Players[i].MyGuild == guild) continue;
                                     controlFlagPoints.TryGetValue(ConquestMap.Players[i].MyGuild, out points);
