@@ -699,8 +699,21 @@ namespace Server.MirEnvir
                             current = next;
                         }
 
+                        // 第二步段位隔离②：单张地图 Process 异常不再冒泡到致命 catch 全服停机；
+                        // 捕获引用防解引用窗口，节流日志；MapList 运行期不增删，i 自然推进
                         for (var i = 0; i < MapList.Count; i++)
-                            MapList[i].Process();
+                        {
+                            var map = MapList[i];
+                            try
+                            {
+                                map.Process();
+                            }
+                            catch (Exception ex)
+                            {
+                                ErrorThrottle.Notify("WorkLoopMap:" + i, () =>
+                                    MessageQueue.Enqueue($"主循环地图处理异常 [{i}:{map.Info.FileName}] => {ex}"));
+                            }
+                        }
 
                         DragonSystem?.Process();
 
