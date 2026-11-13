@@ -22,6 +22,8 @@ namespace Server.MirEnvir
         public LinkedList<MapObject> ObjectsList = new LinkedList<MapObject>();
         public LinkedListNode<MapObject> _current = null;
         public bool Stop = false;
+        // ThreadLoop 恢复式容错：该线程累计处理异常次数（诊断用，也供后续熔断/毒对象治理参考）
+        public int ErrorCount = 0;
     }
     public class RandomProvider
     {
@@ -37,6 +39,28 @@ namespace Server.MirEnvir
             RandomWrapper.Value.Next(maxValue);
         public int Next(int minValue, int maxValue) =>
             RandomWrapper.Value.Next(minValue, maxValue);
+    }
+
+    /// <summary>
+    /// 节流日志器：同一 key 在窗口期内只输出一条，避免恢复式容错下持续失败的路径刷爆日志。
+    /// 竞态语义：多线程同时通过检查时可能重复输出一条，良性（下一窗口内收敛）；主循环各段的逐项隔离（后续加固）复用此基础设施。
+    /// </summary>
+    public static class ErrorThrottle
+    {
+        private static readonly ConcurrentDictionary<string, long> LastNotify = new ConcurrentDictionary<string, long>();
+
+        /// <summary>返回 true 表示本窗口首次触发（已执行 logAction）。</summary>
+        public static bool Notify(string key, Action logAction, long windowMs = 10000)
+        {
+            long now = Envir.Main.Time;
+            long last;
+            LastNotify.TryGetValue(key, out last);
+            if (now - last < windowMs) return false;
+
+            LastNotify[key] = now;
+            logAction();
+            return true;
+        }
     }
 
     public class Envir
@@ -745,76 +769,101 @@ namespace Server.MirEnvir
         {
             Info.Stop = false;
 
-            try
+            // 恢复式外层循环：原实现任一异常直接结束线程函数 = 该 mob 线程永久死亡；
+            // 主线程 stopping 判定（等所有子线程 Stop==true）永不满足 → 主线程被吞没在 ThreadLoop 内 → 全服静默冻结（无存档无踢人）。
+            // 现改为：异常 → 计数 + 节流日志 + 游标回绕 + Stop 复位 → 重新进入扫描循环（线程不再死亡；停机中断仍照常退出）。
+            while (Running)
             {
-                var stopping = false;
-                if (Info._current == null)
-                    Info._current = Info.ObjectsList.First;
-                stopping = Info._current == null;
-
-                while (Running)
+                try
                 {
+                    var stopping = false;
                     if (Info._current == null)
                         Info._current = Info.ObjectsList.First;
-                    else
+                    stopping = Info._current == null;
+
+                    while (Running)
                     {
-                        // 防护：节点可能已被并发 Despawn 移除（Value==null），回绕到链表头而不是让线程崩掉
-                        if (Info._current.Value == null)
-                        {
+                        if (Info._current == null)
                             Info._current = Info.ObjectsList.First;
-                            continue;
-                        }
-
-                        var next = Info._current.Next;
-
-                        //if we reach the end of our list > go back to the top (since we are running threaded, we dont want the system to sit there for xxms doing nothing)
-                        if (Info._current == Info.ObjectsList.Last)
+                        else
                         {
-                            next = Info.ObjectsList.First;
-                            Info.LastRunTime = (Info.LastRunTime + (Time - Info.StartTime)) / 2;
-                            //Info.LastRunTime = (Time - Info.StartTime) /*> 0 ? (Time - Info.StartTime) : Info.LastRunTime */;
-                            Info.StartTime = Time;
-                        }
-                        if (Time > Info._current.Value.OperateTime)
-                        {
-                            if (Info._current.Value.Master == null) //since we are running multithreaded, dont allow pets to be processed (unless you constantly move pets into their map appropriate thead)
+                            // 防护：节点可能已被并发 Despawn 移除（Value==null），回绕到链表头而不是让线程崩掉
+                            if (Info._current.Value == null)
                             {
-                                Info._current.Value.Process();
-                                Info._current.Value.SetOperateTime();
+                                Info._current = Info.ObjectsList.First;
+                                continue;
                             }
-                        }
-                        Info._current = next;
-                    }
 
-                    //if it's the main thread > make it loop till the subthreads are done, else make it stop after 'endtime'
-                    if (Info.Id == 0)
-                    {
-                        stopping = true;
-                        for (var x = 1; x < MobThreads.Length; x++)
-                        {
-                            if (MobThreads[x].Stop == false)
+                            var next = Info._current.Next;
+
+                            //if we reach the end of our list > go back to the top (since we are running threaded, we dont want the system to sit there for xxms doing nothing)
+                            if (Info._current == Info.ObjectsList.Last)
                             {
-                                stopping = false;
+                                next = Info.ObjectsList.First;
+                                Info.LastRunTime = (Info.LastRunTime + (Time - Info.StartTime)) / 2;
+                                //Info.LastRunTime = (Time - Info.StartTime) /*> 0 ? (Time - Info.StartTime) : Info.LastRunTime */;
+                                Info.StartTime = Time;
                             }
+                            if (Time > Info._current.Value.OperateTime)
+                            {
+                                if (Info._current.Value.Master == null) //since we are running multithreaded, dont allow pets to be processed (unless you constantly move pets into their map appropriate thead)
+                                {
+                                    // 逐对象隔离：单个对象 Process 异常只计数 + 节流日志 + 顺延重试，不炸掉整个 mob 线程
+                                    try
+                                    {
+                                        Info._current.Value.Process();
+                                        Info._current.Value.SetOperateTime();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Info.ErrorCount++;
+                                        ErrorThrottle.Notify("ThreadLoop:" + Info.Id, () =>
+                                            MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.ThreadLoopError), ex)));
+                                        // 顺延该对象的下次处理时间，防毒对象每轮扫描被连续重锤（直接赋值，不可能再抛）
+                                        Info._current.Value.OperateTime = Time + 5000;
+                                    }
+                                }
+                            }
+                            Info._current = next;
                         }
-                        if (!stopping) continue;
-                        Info.Stop = stopping;
-                        return;
-                    }
 
-                    if (Stopwatch.ElapsedMilliseconds <= Info.EndTime || !Running) continue;
-                    Info.Stop = true;
-                    lock (_locker)
-                    {
-                        while (Info.Stop) Monitor.Wait(_locker);
+                        //if it's the main thread > make it loop till the subthreads are done, else make it stop after 'endtime'
+                        if (Info.Id == 0)
+                        {
+                            stopping = true;
+                            for (var x = 1; x < MobThreads.Length; x++)
+                            {
+                                if (MobThreads[x].Stop == false)
+                                {
+                                    stopping = false;
+                                }
+                            }
+                            if (!stopping) continue;
+                            Info.Stop = stopping;
+                            return;
+                        }
+
+                        if (Stopwatch.ElapsedMilliseconds <= Info.EndTime || !Running) continue;
+                        Info.Stop = true;
+                        lock (_locker)
+                        {
+                            while (Info.Stop) Monitor.Wait(_locker);
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                if (ex is ThreadInterruptedException) return;
+                catch (Exception ex)
+                {
+                    if (ex is ThreadInterruptedException) return;
 
-                MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.ThreadLoopError), ex));
+                    Info.ErrorCount++;
+                    ErrorThrottle.Notify("ThreadLoop:" + Info.Id, () =>
+                        MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.ThreadLoopError), ex)));
+
+                    // 不再结束线程：游标回绕 + Stop 复位，下一轮继续服务；Sleep(1) 防错误路径热旋
+                    Info._current = Info.ObjectsList.First;
+                    Info.Stop = false;
+                    Thread.Sleep(1);
+                }
             }
         }
 
