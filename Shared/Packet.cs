@@ -8,6 +8,10 @@ public abstract class Packet
     public virtual bool Compressed => false;
     public abstract short Index { get; }
 
+    // 惰性序列化缓存：同一包实例（广播同实例扇出/超限重试重泵）只序列化一次；
+    // 发布用 Interlocked.CompareExchange，多连接泵并发序列化同实例时仅发布一份
+    private byte[] _serializedCache;
+
     public static Packet ReceivePacket(byte[] buffer, int offset, int count, out int consumed)
     {
         consumed = 0;
@@ -71,6 +75,9 @@ public abstract class Packet
     {
         if (Index < 0) return new byte[0];
 
+        byte[] cached = _serializedCache;
+        if (cached != null) return cached;
+
         byte[] data, mem;
 
         using (var ms = new MemoryStream())
@@ -99,7 +106,10 @@ public abstract class Packet
             }
         }
 
-        return data;
+        // 线程安全发布：同实例可能被多个连接的发送泵（主线程+异步IO线程）并发序列化，
+        // CompareExchange 失败方返回胜者已发布的数组（WritePacket 零非确定读取，内容与本方一致）
+        byte[] published = Interlocked.CompareExchange(ref _serializedCache, data, null);
+        return published ?? data;
     }
 
     protected abstract void ReadPacket(BinaryReader reader);
