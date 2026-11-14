@@ -44,13 +44,20 @@ namespace Server.MirObjects.Monsters
             ActionTime = Envir.Time + 300;
             AttackTime = Envir.Time + AttackSpeed;
 
-            var monsters = Envir.MonsterInfoList.Where(x => x.Level <= Level && x.Level >= (Level - 10));
-
-            if (monsters.Count() > 0)
+            // 体检遗留项：原 Where 惰性链在 Count()/Count()/ElementAt() 处各枚举全表一次（共 3 遍 + 迭代器/闭包分配）；
+            // 改为单遍 for 收集，仍逐条比较同一等级窗口，元素顺序与随机分布完全等价
+            var monsters = new List<MonsterInfo>();
+            var infoList = Envir.MonsterInfoList;
+            for (int i = 0; i < infoList.Count; i++)
             {
-                var idx = Envir.Random.Next(monsters.Count());
+                MonsterInfo info = infoList[i];
+                if (info.Level <= Level && info.Level >= (Level - 10))
+                    monsters.Add(info);
+            }
 
-                var monster = monsters.ElementAt(idx);
+            if (monsters.Count > 0)
+            {
+                var monster = monsters[Envir.Random.Next(monsters.Count)];
 
                 var mob = GetMonster(monster);
 
