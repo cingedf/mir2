@@ -2935,6 +2935,8 @@ namespace Server.MirObjects
                                 if (timer != null)
                                 {
                                     remainingTime = (timer.RelativeTime - Envir.Time) / 1000;
+                                    // 体检修复：原此分支直接 break 跳过比较，计时器存在时 CHECKTIMER 恒通过
+                                    failed = !Compare(param[0], remainingTime, time);
                                     break;
                                 }
 
