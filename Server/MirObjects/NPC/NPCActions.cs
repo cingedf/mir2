@@ -125,5 +125,6 @@
 		GiveStuntPoints,
         TakeStuntPoints,
         UnlockStuntAll,
+        GiveHeroBuff,
     }
 }

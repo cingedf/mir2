@@ -748,6 +748,14 @@ namespace Server.MirDatabase
                     Visible = true
                 },
 
+                // 20261115 素材③：英雄双倍经验（高级通行证 Shape=500 触发链，HeroUseItems.txt）
+                new BuffInfo
+                {
+                    Type = BuffType.双倍经验,
+                    StackType = BuffStackType.ResetStatAndDuration,
+                    Visible = true
+                },
+
                 // Battlefield
                 new BuffInfo
                 {

@@ -975,6 +975,26 @@ namespace Server.MirObjects
                     acts.Add(new NPCActions(ActionType.GiveBuff, allParams.ToArray()));
                     break;
 
+                case "GIVEHEROBUFF":
+                    // 20261115 素材③：给英雄加 buff，参数布局与 GIVEBUFF 完全一致
+                    if (parts.Length < 4) return;
+
+                    string heroVisible = parts.Length > 3 ? parts[3] : "";
+                    string heroInfinite = parts.Length > 4 ? parts[4] : "";
+                    string heroStackable = parts.Length > 5 ? parts[5] : "";
+
+                    var heroAdditionalParams = new List<string>();
+                    for (int i = 6; i < parts.Length; i++)
+                    {
+                        heroAdditionalParams.Add(parts[i]);
+                    }
+
+                    var heroAllParams = new List<string> { parts[1], parts[2], heroVisible, heroInfinite, heroStackable };
+                    heroAllParams.AddRange(heroAdditionalParams);
+
+                    acts.Add(new NPCActions(ActionType.GiveHeroBuff, heroAllParams.ToArray()));
+                    break;
+
                 case "REMOVEBUFF":
                     if (parts.Length < 2) return;
 
@@ -4171,6 +4191,67 @@ namespace Server.MirObjects
                             {
                                 player.AddBuff(type, player, Settings.Second * duration, buffStats, visible );
                             }
+                        }
+                        break;
+
+                    case ActionType.GiveHeroBuff:
+                        // 20261115 素材③：GIVEHEROBUFF——给英雄加 buff，解析与 GiveBuff 同构
+                        //（SetBuffs.txt 预设 + param[5..] Key=Val 直填），目标改为 player.Hero；
+                        // 脚本上下文 player 恒为英雄主人；第 5 参 refreshStats 为死参数，显式传 true
+                        {
+                            if (player.Hero == null || !player.HeroSpawned) return;
+
+                            var heroPath = Path.Combine(Settings.EnvirPath, "SetBuffs.txt");
+
+                            if (!File.Exists(heroPath))
+                                File.Create(heroPath).Dispose();
+
+                            var heroLines = File.ReadAllLines(heroPath);
+
+                            if (!Enum.TryParse<BuffType>(param[0], out var heroType))
+                                return;
+
+                            int.TryParse(param[1], out int heroDuration);
+
+                            var heroMatchedLine = heroLines.FirstOrDefault(l => l.StartsWith(param[0] + ";"));
+                            var heroBuffStats = new Stats();
+
+                            if (heroMatchedLine != null)
+                            {
+                                var heroStatsPart = heroMatchedLine.Substring(heroMatchedLine.IndexOf(';') + 1).Trim(';');
+                                var heroPotionStats = heroStatsPart.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+
+                                foreach (var heroStat in heroPotionStats)
+                                {
+                                    var heroStatParts = heroStat.Split('=');
+                                    if (heroStatParts.Length != 2) continue;
+
+                                    if (int.TryParse(heroStatParts[1].Trim(), out var heroStatValue) &&
+                                        Enum.TryParse(heroStatParts[0].Trim(), out Stat heroEnumValue))
+                                    {
+                                        heroBuffStats[heroEnumValue] = heroStatValue;
+                                    }
+                                }
+                            }
+
+                            if (param.Count > 5)
+                            {
+                                for (int hj = 5; hj < param.Count; hj++)
+                                {
+                                    var heroExtraParts = param[hj].Split('=');
+                                    if (heroExtraParts.Length != 2) continue;
+
+                                    if (!int.TryParse(heroExtraParts[1].Trim(), out var heroExtraValue))
+                                        continue;
+
+                                    if (!Enum.TryParse(heroExtraParts[0].Trim(), out Stat heroExtraEnum))
+                                        continue;
+
+                                    heroBuffStats[heroExtraEnum] = heroExtraValue;
+                                }
+                            }
+
+                            player.Hero.AddBuff(heroType, player.Hero, Settings.Second * heroDuration, heroBuffStats, true);
                         }
                         break;
 

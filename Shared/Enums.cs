@@ -1707,6 +1707,9 @@ public enum BuffType : ushort
     天龙防御,
     天龙攻击,
 
+    // ItemsEffect 段续（800-831 已占满，832 起空闲）
+    双倍经验 = 832,
+
     // Battlefield
     荣誉战场 = 1000,
 }

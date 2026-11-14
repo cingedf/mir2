@@ -619,6 +619,12 @@ namespace Server.MirObjects
                 case ItemType.攻城弹药:
                     //TODO;
                     break;
+                case ItemType.特殊消耗品:
+                    // 20261115 素材③：英雄此前落 default 直接 return（物品不消耗、不触发脚本）；
+                    // 现转给主人 CallDefaultNPC，与玩家用特殊消耗品同路（PlayerObject.cs:6470）。
+                    // 注意脚本上下文 player 恒为英雄主人（DelayedAction 挂主人 ActionList）。
+                    Owner.CallDefaultNPC(DefaultNPCType.UseItem, item.Info.Shape);
+                    break;
                 default:
                     return;
             }
