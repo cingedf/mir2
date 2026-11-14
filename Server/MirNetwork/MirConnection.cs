@@ -201,7 +201,7 @@ namespace Server.MirNetwork
         public List<MirConnection> Observers = new List<MirConnection>();
         public MirConnection Observing;
 
-        public List<ItemInfo> SentItemInfo = new List<ItemInfo>();
+        public readonly HashSet<ItemInfo> SentItemInfo = new HashSet<ItemInfo>(); // 体检遗留项：List.Contains O(n) → HashSet O(1)，引用相等语义不变（ItemInfo 未重写 Equals/GetHashCode）
         public List<MonsterInfo> SentMonsterInfo = new List<MonsterInfo>();
         public List<NPCInfo> SentNPCInfo = new List<NPCInfo>();
         public List<QuestInfo> SentQuestInfo = new List<QuestInfo>();
