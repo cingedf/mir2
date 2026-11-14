@@ -165,13 +165,13 @@ namespace Server.MirObjects.Monsters
 
         public static bool SpawnRandom(MonsterObject owner, Point spawn)
         {
-            var beads = Envir.MonsterInfoList.Where(x => x.AI == 375).ToList();
+            var beads = Envir.GetPowerBeadMonsterInfos(); // 体检遗留项：惰性缓存，原每次全表 Where+ToList
 
             if (beads.Count > 0)
             {
                 var randomBead = beads[Envir.Random.Next(beads.Count)];
 
-                var mob = GetMonster(Envir.GetMonsterInfo(randomBead.Name));
+                var mob = GetMonster(randomBead); // 体检遗留项：直接传 MonsterInfo 实例，省一次按名全表线性扫
 
                 if (mob.Spawn(owner.CurrentMap, spawn))
                 {

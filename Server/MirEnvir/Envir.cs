@@ -1572,6 +1572,7 @@ namespace Server.MirEnvir
                     count = reader.ReadInt32();
                     MonsterInfoList.Clear();
                     _monsterInfoIndexCache.Clear(); // 体检④修复：重载时同步失效索引缓存
+                    InvalidatePowerBeadCache(); // 体检遗留项：重载时同步失效灵珠资料缓存
                     for (var i = 0; i < count; i++)
                         MonsterInfoList.Add(new MonsterInfo(reader));
 
@@ -3017,6 +3018,7 @@ namespace Server.MirEnvir
         public void CreateMonsterInfo()
         {
             MonsterInfoList.Add(new MonsterInfo { Index = ++MonsterIndex });
+            InvalidatePowerBeadCache(); // 体检遗留项：新增资料同步失效灵珠缓存
         }
         public void CreateNPCInfo()
         {
@@ -3056,6 +3058,7 @@ namespace Server.MirEnvir
         {
             MonsterInfoList.Remove(info);
             _monsterInfoIndexCache.TryRemove(info.Index, out _); // 体检④修复：运行期删除同步失效索引缓存
+            InvalidatePowerBeadCache(); // 体检遗留项：移除资料同步失效灵珠缓存
             //Desync all objects\
         }
         public void Remove(NPCInfo info)
@@ -3336,6 +3339,35 @@ namespace Server.MirEnvir
         private readonly ConcurrentDictionary<int, ItemInfo> _itemInfoIndexCache = new ConcurrentDictionary<int, ItemInfo>();
         private readonly ConcurrentDictionary<int, MonsterInfo> _monsterInfoIndexCache = new ConcurrentDictionary<int, MonsterInfo>();
         private readonly ConcurrentDictionary<int, NPCInfo> _npcInfoIndexCache = new ConcurrentDictionary<int, NPCInfo>();
+
+        // 体检遗留项：PowerBead 召唤目标（AI==375 灵珠系）列表惰性缓存——原每次 SpawnRandom 全表 Where+ToList。
+        // 失效点：资料重载 MonsterInfoList.Clear、运行期 Remove(MonsterInfo)、CreateMonsterInfo 新增。
+        private List<MonsterInfo> _powerBeadMonsterCache;
+        private readonly object _powerBeadMonsterCacheLock = new object();
+
+        /// <summary>体检遗留项：AI==375 怪物资料列表（PowerBead.SpawnRandom 专用）；首次构建后缓存，资料增删/重载时失效。</summary>
+        public List<MonsterInfo> GetPowerBeadMonsterInfos()
+        {
+            lock (_powerBeadMonsterCacheLock)
+            {
+                if (_powerBeadMonsterCache != null) return _powerBeadMonsterCache;
+
+                var list = new List<MonsterInfo>();
+                for (int i = 0; i < MonsterInfoList.Count; i++)
+                {
+                    MonsterInfo info = MonsterInfoList[i];
+                    if (info.AI == 375) list.Add(info);
+                }
+
+                _powerBeadMonsterCache = list;
+                return list;
+            }
+        }
+
+        private void InvalidatePowerBeadCache()
+        {
+            lock (_powerBeadMonsterCacheLock) _powerBeadMonsterCache = null;
+        }
         private readonly ConcurrentDictionary<int, CharacterInfo> _characterInfoIndexCache = new ConcurrentDictionary<int, CharacterInfo>();
         private readonly ConcurrentDictionary<int, HeroInfo> _heroInfoIndexCache = new ConcurrentDictionary<int, HeroInfo>();
 
