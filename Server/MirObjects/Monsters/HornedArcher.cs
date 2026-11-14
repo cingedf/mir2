@@ -102,8 +102,9 @@ namespace Server.MirObjects.Monsters
                     }
                     else if (Info.Effect == 2)
                     {
+                        // 体检修复：此处为第三变体专属 buff（客户端 Magic 543 起光效已备），原复制粘贴误授 ColdArcherBuff
                         var stats = new Stats { [Stat.MinMAC] = min, [Stat.MaxMAC] = max, [Stat.MinDC] = min, [Stat.MaxDC] = max };
-                        friends[i].AddBuff(BuffType.ColdArcherBuff, this, Settings.Second * 10, stats);
+                        friends[i].AddBuff(BuffType.HornedColdArcherBuff, this, Settings.Second * 10, stats);
                     }
                     friends[i].OperateTime = 0;
                 }
