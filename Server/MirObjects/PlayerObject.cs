@@ -2349,6 +2349,20 @@ namespace Server.MirObjects
                         }
                         return;
 
+                    case "华丽雨光":
+                        if (!IsGM) return;
+
+                        {
+                            int minutes = 60;
+                            if (parts.Length >= 2 && (!int.TryParse(parts[1], out minutes) || minutes <= 0))
+                                minutes = 60;
+
+                            AddBuff(BuffType.华丽雨光, this, Settings.Minute * minutes, new Stats(), true);
+
+                            ReceiveChat($"华丽雨光光环已激活，持续 {minutes} 分钟。", ChatType.System);
+                        }
+                        return;
+
                     case "CHANGEGENDER":
                         if (!IsGM && !Settings.TestServer) return;
 
