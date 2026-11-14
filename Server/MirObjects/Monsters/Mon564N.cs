@@ -7,6 +7,10 @@ namespace Server.MirObjects.Monsters
 {
     public class Mon564N : MonsterObject
     {
+        // 体检登记项接线（doc 20261114登记未实装功能预留项）：仿 Mon562N 尊者之王的「绝对封锁」蓝图，
+        // 给尊者之魂的远程龙卷风分支补上封印 debuff（Mon564NSealing），30 秒内部冷却防连刷
+        public long _BuffTime;
+
         protected internal Mon564N(MonsterInfo info)
             : base(info)
         {
@@ -137,6 +141,17 @@ namespace Server.MirObjects.Monsters
 
                             int damage = GetAttackPower(Stats[Stat.MinMC], Stats[Stat.MaxMC] * 2);
                             if (damage == 0) return;
+
+                            // 封印技：单体大威力攻击附带 Mon564NSealing（HP/MP 强化 -25，300 秒），HasBuff 防重复 + 30 秒冷却，同 Mon562N 绝对封锁模式
+                            if (!Target.Dead && !Target.HasBuff(BuffType.Mon564NSealing) && Envir.Time >= _BuffTime)
+                            {
+                                Target.AddBuff(BuffType.Mon564NSealing, this, Settings.Second * 300, new Stats
+                                {
+                                    [Stat.生命值强化] = -25,
+                                    [Stat.法力值强化] = -25,
+                                });
+                                _BuffTime = Envir.Time + 30000;
+                            }
 
                             DelayedAction action = new(DelayedType.RangeDamage, Envir.Time + 500, Target, damage, DefenceType.MAC, true);
                             ActionList.Add(action);
