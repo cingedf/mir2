@@ -231,6 +231,7 @@ namespace Client.MirGraphics
 
             if (value == true)
             {
+                if (GrayScalePixelShader == null) return;
                 if (Device.PixelShader == GrayScalePixelShader) return;
                 Sprite.Flush();
                 Device.PixelShader = GrayScalePixelShader;
@@ -417,7 +418,7 @@ namespace Client.MirGraphics
 
         public static void SetNormal(float blend, Color tintcolor)
         {
-            if (Device.PixelShader == NormalPixelShader)
+            if (NormalPixelShader == null || Device.PixelShader == NormalPixelShader)
                 return;
 
             Sprite.Flush();
@@ -429,7 +430,7 @@ namespace Client.MirGraphics
 
         public static void SetGrayscale(float blend, Color tintcolor)
         {
-            if (Device.PixelShader == GrayScalePixelShader)
+            if (GrayScalePixelShader == null || Device.PixelShader == GrayScalePixelShader)
                 return;
 
             Sprite.Flush();
