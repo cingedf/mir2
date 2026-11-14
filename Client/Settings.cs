@@ -71,7 +71,7 @@ namespace Client
 
         //Graphics
         public static bool FullScreen = false, Borderless = true, TopMost = true, MouseClip = false;
-        public static string FontName = "Arial"; //"MS Sans Serif"
+        public static string FontName = "Microsoft YaHei"; //"MS Sans Serif"
         public static float FontSize = 8F;
         public static bool UseMouseCursors = true;
 
