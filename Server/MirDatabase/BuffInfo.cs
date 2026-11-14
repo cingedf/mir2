@@ -81,10 +81,10 @@ namespace Server.MirDatabase
                 new BuffInfo { Type = BuffType.寒冰护甲, StackType = BuffStackType.ResetDuration, Visible = true },
                 new BuffInfo { Type = BuffType.ReaperPriestBuff, StackType = BuffStackType.ResetDuration, Visible = true },
                 new BuffInfo { Type = BuffType.至尊威严, StackType = BuffStackType.ResetDuration, Visible = true },
-                new BuffInfo { Type = BuffType.伤口加深, StackType = BuffStackType.ResetDuration, Visible = true },
+                // 伤口加深（=306）/麻痹状态（=309）注册已删：授予途径零（伤口加深宿主 AI=505 未实装、麻痹已由 PoisonType.Paralysis 全面覆盖），
+                // 枚举成员保留防 ushort 序列化移位；角色存档若残留此类 buff 由 CharacterInfo.Load 的 Info==null 防御清理兜底
                 new BuffInfo { Type = BuffType.死亡印记, StackType = BuffStackType.ResetDuration, Visible = true },
                 new BuffInfo { Type = BuffType.RiklebitesShield, StackType = BuffStackType.ResetDuration, Visible = true },
-                new BuffInfo { Type = BuffType.麻痹状态, Properties = BuffProperty.Debuff, StackType = BuffStackType.ResetDuration, Visible = true },
                 new BuffInfo { Type = BuffType.绝对封锁, Properties = BuffProperty.Debuff, StackType = BuffStackType.ResetDuration, Visible = true },
                 new BuffInfo { Type = BuffType.Mon564NSealing, StackType = BuffStackType.ResetDuration, Visible = true },
                 new BuffInfo { Type = BuffType.防御诅咒, Properties = BuffProperty.Debuff, StackType = BuffStackType.ResetDuration, Visible = true },

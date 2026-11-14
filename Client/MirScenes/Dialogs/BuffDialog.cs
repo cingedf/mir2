@@ -624,10 +624,6 @@ namespace Client.MirScenes.Dialogs
                     return 111;
                 case BuffType.寒冰护甲:
                     return 4;
-                case BuffType.伤口加深:
-                    return 94;
-                case BuffType.麻痹状态:
-                    return 96;
                 case BuffType.绝对封锁:
                     return 61;
                 case BuffType.Mon564NSealing:

@@ -345,9 +345,8 @@ namespace Client.MirObjects
                 case BuffType.至尊威严:
                     Effects.Add(new BuffEffect(Libraries.Monsters[(ushort)Monster.NobleWarrior], 472, 6, 600, this, true, type) { Repeat = true, Light = 1 });
                     break;
-                case BuffType.伤口加深:
-                    Effects.Add(new BuffEffect(Libraries.Monsters[(ushort)Monster.NobleAssassin], 544, 6, 600, this, true, type) { Repeat = true, Light = 1 });
-                    break;
+                // 伤口加深（=306）光效 case 已删：授予途径零、宿主 NobleAssassin AI=505 未实装（马灵数据已改走 502），
+                // 枚举值保留防 ushort 序列化移位（BuffType 以 ReadUInt16 落盘发包与角色存档）
                 case BuffType.死亡印记:
                     Effects.Add(effect = new BuffEffect(Libraries.Monsters[(ushort)Monster.Butcher], 690, 1, 100, this, true, type) { Repeat = false, Light = 1 });
                     effect.Complete += (o, e) =>
