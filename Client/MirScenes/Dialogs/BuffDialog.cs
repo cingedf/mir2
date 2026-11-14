@@ -408,6 +408,11 @@ namespace Client.MirScenes.Dialogs
                     overridestats = true;
                     text += string.Format("封锁期间禁用药水\n生命值降低 25%\n法力值降低 25%\n");
                     break;
+                case BuffType.Mon564NSealing:
+                    // 20261115 顺手汉化：英文枚举名会原样显示为 "Mon 564 NSealing"，改为中文名+描述（同绝对封锁家族，效果=生命/法力 -25%）
+                    text = "尊者封印\n生命值降低 25%\n法力值降低 25%\n";
+                    overridestats = true;
+                    break;
                 case BuffType.古代宗师祝福:
                     text += "来自宗师的祝福\n";
                     break;
