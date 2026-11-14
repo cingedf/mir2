@@ -14,6 +14,23 @@ namespace Server.MirObjects
         private long NextTradeTime;
         private long NextGroupInviteTime;
 
+        // 死接线审计 P0-1：Stats 族增益此前仅 NPC 脚本 GIVEBUFF 一条授予途径且部署区脚本从未使用；
+        // 新增 GM 命令 @增益。白名单=BuffInfo 注册表中「提升」系正面属性增益（49 项），
+        // debuff/系统 buff（麻痹/监禁等）不在名单，防误授
+        private static readonly HashSet<BuffType> GrantableStatsBuffs = new HashSet<BuffType>
+        {
+            BuffType.防御提升, BuffType.魔法防御提升, BuffType.攻击力提升, BuffType.魔法力提升, BuffType.道术力提升,
+            BuffType.准确提升, BuffType.敏捷提升, BuffType.生命值提升, BuffType.法力值提升, BuffType.攻击速度提升,
+            BuffType.幸运提升, BuffType.背包重量提升, BuffType.腕力提升, BuffType.负重提升, BuffType.反弹伤害提升,
+            BuffType.强度提升, BuffType.神圣提升, BuffType.冰冻伤害提升, BuffType.毒素伤害提升, BuffType.魔法躲避提升,
+            BuffType.毒物躲避提升, BuffType.生命恢复提升, BuffType.法力恢复提升, BuffType.中毒恢复提升, BuffType.暴击率提升,
+            BuffType.暴击伤害提升, BuffType.防御强化提升, BuffType.魔法防御强化提升, BuffType.攻击强化提升, BuffType.魔法强化提升,
+            BuffType.道术强化提升, BuffType.攻速强化提升, BuffType.生命值强化提升, BuffType.法力值强化提升, BuffType.生命偷取提升,
+            BuffType.额外伤害提升, BuffType.经验收益提升, BuffType.物品掉落提升, BuffType.金币收益提升, BuffType.采矿收益提升,
+            BuffType.宝石收益提升, BuffType.钓鱼收益提升, BuffType.大师收益提升, BuffType.技能熟练提升, BuffType.武器增伤提升,
+            BuffType.伴侣经验提升, BuffType.师徒经验提升, BuffType.师徒增伤提升, BuffType.伤害减免提升
+        };
+
         public string GMPassword = Settings.GMPassword;
         public bool GMLogin, EnableGroupRecall, EnableGuildInvite, AllowMarriage, AllowLoverRecall, AllowMentor, HasMapShout, HasServerShout; //TODO - Remove        
 
@@ -2360,6 +2377,64 @@ namespace Server.MirObjects
                             AddBuff(BuffType.华丽雨光, this, Settings.Minute * minutes, new Stats(), true);
 
                             ReceiveChat($"华丽雨光光环已激活，持续 {minutes} 分钟。", ChatType.System);
+                        }
+                        return;
+
+                    case "增益":
+                        if (!IsGM) return;
+
+                        {
+                            // 用法：@增益 <buff名> [分钟] [Stat键=值 ...]
+                            // 分钟缺省 60；属性对缺省时回落 SetBuffs.txt 预设（与 GIVEBUFF 同源），预设也没有则空 Stats
+                            if (parts.Length < 2) return;
+                            if (!Enum.TryParse<BuffType>(parts[1], true, out var buffType) || !GrantableStatsBuffs.Contains(buffType))
+                            {
+                                ReceiveChat("未知的增益名称或不在可授予名单。", ChatType.System);
+                                return;
+                            }
+
+                            int minutes = 60;
+                            if (parts.Length >= 3 && (!int.TryParse(parts[2], out minutes) || minutes <= 0))
+                                minutes = 60;
+
+                            var buffStats = new Stats();
+
+                            for (int s = 3; s < parts.Length; s++)
+                            {
+                                var pair = parts[s].Split('=');
+                                if (pair.Length != 2 ||
+                                    !Enum.TryParse(pair[0].Trim(), true, out Stat statKey) ||
+                                    !int.TryParse(pair[1].Trim(), out int statVal))
+                                {
+                                    ReceiveChat($"属性参数无效（应为 Stat键=值）: {parts[s]}", ChatType.System);
+                                    return;
+                                }
+
+                                buffStats[statKey] = statVal;
+                            }
+
+                            if (buffStats.Count == 0)
+                            {
+                                var matchedLine = File.ReadAllLines(Path.Combine(Settings.EnvirPath, "SetBuffs.txt"))
+                                    .FirstOrDefault(l => l.StartsWith(parts[1] + ";"));
+                                if (matchedLine != null)
+                                {
+                                    var statsPart = matchedLine.Substring(matchedLine.IndexOf(';') + 1).Trim(';');
+                                    foreach (var stat in statsPart.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        var kv = stat.Split('=');
+                                        if (kv.Length == 2 && int.TryParse(kv[1].Trim(), out int v) &&
+                                            Enum.TryParse(kv[0].Trim(), out Stat enumValue))
+                                        {
+                                            buffStats[enumValue] = v;
+                                        }
+                                    }
+                                }
+                            }
+
+                            AddBuff(buffType, this, Settings.Minute * minutes, buffStats, true);
+
+                            ReceiveChat($"增益 {parts[1]} 已激活，持续 {minutes} 分钟。", ChatType.System);
                         }
                         return;
 
