@@ -5193,7 +5193,31 @@ namespace Server.MirObjects
                             bool.TryParse(param[4], out bool stackable);
 
                             BuffType type = (BuffType)Enum.Parse(typeof(BuffType), param[0], true);
-                            monster.AddBuff(type, monster, Settings.Second * tempInt, new Stats(), visible);
+
+                            // 体检修复：脚本第 6 段起的 Key=Val 属性对此前被整体忽略（固定 new Stats() 空加成）；
+                            // 现逐条解析进 Stats，键名与 Stat 枚举一致（MaxDC/MaxAC/MaxMAC/HP/MP...），非法键记日志不中断
+                            var buffStats = new Stats();
+                            for (int p = 5; p < param.Count; p++)
+                            {
+                                if (string.IsNullOrEmpty(param[p])) continue;
+
+                                var pair = param[p].Split('=');
+                                if (pair.Length != 2)
+                                {
+                                    MessageQueue.Enqueue($"NPC脚本 GIVEBUFF 属性参数格式错误（应为 键=值）: {param[p]}");
+                                    continue;
+                                }
+
+                                if (Enum.TryParse(pair[0], true, out Stat statKey) && int.TryParse(pair[1], out int statVal))
+                                    buffStats[statKey] = statVal;
+                                else
+                                    MessageQueue.Enqueue($"NPC脚本 GIVEBUFF 属性参数无法识别: {param[p]}");
+                            }
+
+                            // 体检修复：原把脚本 visible 旗标（param[3]）传入 AddBuff 第 5 参——该位置实为 refreshStats
+                            //（且 AddBuff 内 refreshStats 为死参数从未被消费，故历史无行为差异）；现显式传 true，
+                            // infinite/stackable/visible 旗标维持脚本兼容解析但不扩展语义
+                            monster.AddBuff(type, monster, Settings.Second * tempInt, buffStats, true);
                         }
                         break;
 
