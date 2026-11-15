@@ -127,6 +127,24 @@ public class IntelligentCreatureItemFilter
         }
     }
 
+    // 20261116 宠物过滤窗「取消」污染活引用修复：客户端选项窗需要副本编辑，保存时才整体写回
+    public IntelligentCreatureItemFilter Clone()
+    {
+        return new IntelligentCreatureItemFilter
+        {
+            PetPickupAll = PetPickupAll,
+            PetPickupGold = PetPickupGold,
+            PetPickupWeapons = PetPickupWeapons,
+            PetPickupArmours = PetPickupArmours,
+            PetPickupHelmets = PetPickupHelmets,
+            PetPickupBoots = PetPickupBoots,
+            PetPickupBelts = PetPickupBelts,
+            PetPickupAccessories = PetPickupAccessories,
+            PetPickupOthers = PetPickupOthers,
+            PickupGrade = PickupGrade
+        };
+    }
+
     public IntelligentCreatureItemFilter(BinaryReader reader)
     {
         PetPickupAll = reader.ReadBoolean();

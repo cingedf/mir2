@@ -1320,7 +1320,9 @@ namespace Client.MirScenes.Dialogs
         public void Show(IntelligentCreatureItemFilter filter)
         {
             if (Visible) return;
-            Filter = filter;
+            // 20261116 修复「取消」污染：Show 传入副本编辑，勾选不再直接改写 User.IntelligentCreatures 的活对象；
+            // 保存时 SaveItemFilter 把副本整体写回并同步服务端，取消则丢弃副本（与服务端状态保持一致）
+            Filter = filter.Clone();
             Visible = true;
             RefreshFilter();
         }
