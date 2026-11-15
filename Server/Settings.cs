@@ -398,6 +398,9 @@ namespace Server
             IPAddress = Reader.ReadString("Network", "IPAddress", IPAddress);
             Port = Reader.ReadUInt16("Network", "Port", Port);
             TimeOut = Reader.ReadUInt16("Network", "TimeOut", TimeOut);
+            // 20261116 连接超时下限钳制：历史上 MirConnection 硬编码 60000ms；审计接线后 ini 存量陈旧值（如 10000）
+            // 会让静态 ConnectionTimeout 锁死 10 秒，客户端 60 秒心跳间隔下进图稍慢即被踢「连接超时」。钳制下限 60000。
+            if (TimeOut < 60000) TimeOut = 60000;
             MaxUser = Reader.ReadUInt16("Network", "MaxUser", MaxUser);
             MaxIP = Reader.ReadUInt16("Network", "MaxIP", MaxIP);
             MaxPacket = Reader.ReadUInt16("Network", "MaxPacket", MaxPacket);
