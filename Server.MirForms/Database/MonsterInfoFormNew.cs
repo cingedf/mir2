@@ -105,7 +105,8 @@ namespace Server.Database
                 if (stat == Stat.Unknown) continue;
 
                 var key = stat.ToString();
-                var strKey = RegexFunctions.SeperateCamelCase(key.Replace("Rate", "").Replace("Multiplier", "").Replace("Percent", ""));
+                // 20261115 汉化（H1）：动态列头改走本地化映射（Chinese.json Enum 段，MinAC=下限防御 等），无映射回退枚举名
+                var strKey = stat.ToLocalizedServerString();
 
                 var sign = "";
 
