@@ -472,7 +472,9 @@ namespace Client.MirScenes.Dialogs
 
                         int matchStart = match.Index - offSet;
                         int matchLength = match.Length;
-                        currentLine = currentLine.Remove(matchStart, matchLength).Insert(matchStart, displayName);
+                        // 20261116 同字重影修复：主 Label 只画等宽空格占位，链接层 NewLink 成为该段文字唯一绘制者，
+                        // 消除主层白字与彩色链接层因测宽口径不一致产生的叠印；位置用 CalculateLinkOffset 统一口径
+                        currentLine = currentLine.Remove(matchStart, matchLength).Insert(matchStart, new string(' ', displayName.Length));
 
                         string textUpToLink = currentLine.Substring(0, matchStart);
                         Point offset = CalculateLinkOffset(textUpToLink, TextLabel[i]);
@@ -490,18 +492,21 @@ namespace Client.MirScenes.Dialogs
                         string txt = match.Groups[2].Captures[0].Value;
                         string action = match.Groups[3].Captures[0].Value;
 
-                        currentLine = currentLine.Remove(capture.Index - 1 - offSet, capture.Length + 2).Insert(capture.Index - 1 - offSet, txt);
-                        string text2 = currentLine.Substring(0, capture.Index - 1 - offSet) + " ";
-                        Size size2 = TextRenderer.MeasureText(CMain.Graphics, text2, TextLabel[i].Font, TextLabel[i].Size, TextFormatFlags.TextBoxControl);
+                        // 20261116 同字重影修复：主 Label 只画等宽空格占位，按钮层（黄字按钮/彩色字/链接按钮）
+                        // 成为该段文字唯一绘制者，消除主层白字与按钮层叠印；定位统一用 CalculateLinkOffset 口径
+                        string placeholder = new string(' ', txt.Length);
+                        currentLine = currentLine.Remove(capture.Index - 1 - offSet, capture.Length + 2).Insert(capture.Index - 1 - offSet, placeholder);
+                        string text2 = currentLine.Substring(0, capture.Index - 1 - offSet);
+                        Point buttonOffset = CalculateLinkOffset(text2, TextLabel[i]);
 
                         if (R.Match(match.Value).Success)
-                            NewButton(txt, action, TextLabel[i].Location.Add(new Point(size2.Width - 10, 0)));
+                            NewButton(txt, action, TextLabel[i].Location.Add(buttonOffset));
 
                         if (C.Match(match.Value).Success)
-                            NewColour(txt, action, TextLabel[i].Location.Add(new Point(size2.Width - 10, 0)));
+                            NewColour(txt, action, TextLabel[i].Location.Add(buttonOffset));
 
                         if (L.Match(match.Value).Success)
-                            NewButton(txt, null, TextLabel[i].Location.Add(new Point(size2.Width - 10, 0)), action);
+                            NewButton(txt, null, TextLabel[i].Location.Add(buttonOffset), action);
                     }
                 }
                 TextLabel[i].Text = currentLine;
