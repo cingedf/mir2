@@ -3137,9 +3137,28 @@ namespace Client.MirScenes.Dialogs
                 prompt = $"{prompt}{Environment.NewLine}{lastSet}";
             }
 
-            MirMessageBox changePrompt = new MirMessageBox(prompt, MirMessageBoxButtons.OKCancel);
-            changePrompt.OKButton.Click += (o, e) => BeginChangeStoragePassword();
+            // 20261115 实装（RemoveStoragePassword 客户端入口）：确认框 OKCancel→YesNoCancel
+            //（YesNoCancel 模式只有 Yes/No/Cancel 三键，OKButton 为 null，勿挂）
+            // Yes=移除密码（BeginRemoveStoragePassword→旧密码→C.RemoveStoragePassword）/OK=改密码/No·Cancel=关
+            MirMessageBox changePrompt = new MirMessageBox(prompt, MirMessageBoxButtons.YesNoCancel);
+            changePrompt.YesButton.Click += (o, e) => BeginRemoveStoragePassword();
+            changePrompt.NoButton.Click += (o, e) => BeginChangeStoragePassword();
             changePrompt.Show();
+        }
+
+        // 20261115 实装（RemoveStoragePassword 客户端入口）：输入旧密码后发 C.RemoveStoragePassword（服务端 MirConnection.cs:1976-2053 校验）
+        private void BeginRemoveStoragePassword()
+        {
+            PromptStoragePassword(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.StoragePasswordCurrentPrompt), currentPassword =>
+            {
+                if (string.IsNullOrEmpty(currentPassword))
+                {
+                    return false;
+                }
+
+                Network.Enqueue(new C.RemoveStoragePassword { CurrentPassword = currentPassword });
+                return true;
+            });
         }
 
         private void ForceStoragePasswordSetup()
