@@ -151,7 +151,8 @@ namespace Server.Database
             {
                 EnumRow = enumTable.NewRow();
                 EnumRow["Value"] = E;
-                EnumRow["Display"] = E.ToString();
+                // 20261115 汉化（H5）：显示列走本地化映射（英文枚举经中文 json Enum 段翻译，中文枚举回退原名），值列保持枚举本身
+                EnumRow["Display"] = (E as Enum)?.ToLocalizedServerString() ?? E.ToString();
                 enumTable.Rows.Add(EnumRow);
             }
 
