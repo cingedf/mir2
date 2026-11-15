@@ -832,6 +832,21 @@
     "LightSetting_Dawn": "黎明",
     "LightSetting_Day": "白天",
     "LightSetting_Evening": "黄昏",
-    "LightSetting_Night": "夜晚"
+    "LightSetting_Night": "夜晚",
+    "BuffType_None": "无",
+    "BuffType_HornedArcherBuff": "弓手战吼",
+    "BuffType_ColdArcherBuff": "冰弓庇佑",
+    "BuffType_HornedColdArcherBuff": "魔弓庇佑",
+    "BuffType_GeneralMeowMeowShield": "护体结界",
+    "BuffType_HornedWarriorShield": "石肤护盾",
+    "BuffType_Mon409BShieldBuff": "无敌护盾",
+    "BuffType_ChieftainSwordBuff": "狂怒之刃",
+    "BuffType_ReaperPriestBuff": "亡者祝福",
+    "BuffType_RiklebitesShield": "能量护盾",
+    "BuffType_Mon564NSealing": "尊者封印",
+    "BuffType_Mon579BShield": "冰晶护盾",
+    "BuffType_Mon580BShield": "寒潭护盾",
+    "BuffType_Mon615BShield": "护体罡气",
+    "BuffType_General": "通用"
   }
 }
