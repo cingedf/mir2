@@ -70,7 +70,8 @@ namespace Server.Database
             var types = Enum.GetValues(typeof(ItemType));
             foreach (ItemType type in types)
             {
-                filterItems.Add(((byte)type).ToString(), type.ToString());
+                // 20261115 汉化（十问③顺手）：筛选下拉显示走本地化映射，Key 保持字节值供 RowFilter 使用
+                filterItems.Add(((byte)type).ToString(), type.ToLocalizedServerString());
             }
 
             drpFilterType.DataSource = new BindingSource(filterItems, null);
@@ -143,7 +144,9 @@ namespace Server.Database
         public static DataTable Enum2DataTable<T>()
         {
             DataTable enumTable = new DataTable();
-            enumTable.Columns.Add(new DataColumn("Value", Enum.GetUnderlyingType(typeof(T))));
+            // 20261115 修复（十问③）：Value 列原用 GetUnderlyingType（byte），与网格单元格值（装箱枚举）类型不匹配，
+            // DataGridViewComboBoxCell Equals 永失配 → 单元格回退显示英文枚举名（MaxDC/MaxAC 等）。改为枚举本身类型即匹配。
+            enumTable.Columns.Add(new DataColumn("Value", typeof(T)));
             enumTable.Columns.Add(new DataColumn("Display", typeof(string)));
             DataRow EnumRow;
 

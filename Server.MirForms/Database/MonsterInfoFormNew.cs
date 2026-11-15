@@ -76,7 +76,8 @@ namespace Server.Database
         public static DataTable Enum2DataTable<T>(bool sort = false)
         {
             DataTable enumTable = new DataTable();
-            enumTable.Columns.Add(new DataColumn("Value", Enum.GetUnderlyingType(typeof(T))));
+            // 20261115 修复（十问③）：同 ItemInfoFormNew——Value 列改为枚举本身类型，与单元格值类型匹配，否则下拉显示英文回退
+            enumTable.Columns.Add(new DataColumn("Value", typeof(T)));
             enumTable.Columns.Add(new DataColumn("Display", typeof(string)));
             DataRow EnumRow;
 
