@@ -353,7 +353,20 @@
             // 
             Class_combo.DropDownStyle = ComboBoxStyle.DropDownList;
             Class_combo.FormattingEnabled = true;
-            Class_combo.Items.AddRange(new object[] { "All", "Warrior", "Assassin", "Taoist", "Wizard", "Archer" });
+            // 20261115 汉化（十问⑥）：原 designer 硬编码英文职业数组——改 DataSource 表绑定：
+            // Value=英文原值（GameShopInfo.Class 存盘字符串，保写盘/筛选数据链），Display=中文显示
+            var classTable = new System.Data.DataTable();
+            classTable.Columns.Add("Value", typeof(string));
+            classTable.Columns.Add("Display", typeof(string));
+            classTable.Rows.Add("All", "全部");
+            classTable.Rows.Add("Warrior", "战士");
+            classTable.Rows.Add("Assassin", "刺客");
+            classTable.Rows.Add("Taoist", "道士");
+            classTable.Rows.Add("Wizard", "法师");
+            classTable.Rows.Add("Archer", "弓箭手");
+            Class_combo.DataSource = classTable;
+            Class_combo.DisplayMember = "Display";
+            Class_combo.ValueMember = "Value";
             Class_combo.Location = new Point(97, 248);
             Class_combo.Margin = new Padding(4);
             Class_combo.Name = "Class_combo";

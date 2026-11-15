@@ -94,7 +94,7 @@ namespace Server
                 GPPrice_textbox.Text = String.Empty;
                 Stock_textbox.Text = String.Empty;
                 Individual_checkbox.Checked = false;
-                Class_combo.Text = "全部";
+                Class_combo.SelectedValue = "All";
                 Category_textbox.Text = "";
                 TopItem_checkbox.Checked = false;
                 DealofDay_checkbox.Checked = false;
@@ -118,7 +118,9 @@ namespace Server
             GPPrice_textbox.Text = SelectedItems[0].CreditPrice.ToString();
             Stock_textbox.Text = SelectedItems[0].Stock.ToString();
             Individual_checkbox.Checked = SelectedItems[0].iStock;
-            Class_combo.Text = SelectedItems[0].Class;
+            // 20261115 汉化（十问⑥）：DataSource 绑定后按 SelectedValue（英文原值）回显
+            Class_combo.SelectedValue = SelectedItems[0].Class;
+            if (Class_combo.SelectedIndex < 0) Class_combo.SelectedIndex = 0; // 非"全部"职业的存盘值（如 None）回退到"全部"显示，不误写回
             Category_textbox.Text = SelectedItems[0].Category;
             TopItem_checkbox.Checked = SelectedItems[0].TopItem;
             DealofDay_checkbox.Checked = SelectedItems[0].Deal;
@@ -213,7 +215,9 @@ namespace Server
         private void Class_combo_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (ActiveControl != sender) return;
-            string temp = ActiveControl.Text;
+
+            // 20261115 汉化（十问⑥）：DataSource 绑定后取 SelectedValue（英文原值）写回 item.Class，显示中文但存盘英文不变
+            string temp = Class_combo.SelectedValue as string;
 
             for (int i = 0; i < SelectedItems.Count; i++)
                 SelectedItems[i].Class = temp;
