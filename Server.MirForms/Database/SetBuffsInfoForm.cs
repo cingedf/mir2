@@ -1,4 +1,6 @@
-﻿namespace Server.Database
+﻿using System.Data;
+
+namespace Server.Database
 {
     public partial class SetBuffsInfoForm : Form
     {
@@ -22,10 +24,45 @@
         public SetBuffsInfoForm()
         {
             InitializeComponent();
-            cmbStat.DataSource = Enum.GetValues(typeof(Stat));
-            cmbBuffType.DataSource = Enum.GetValues(typeof(BuffType));
+
+            // 20261115 汉化（H8）：枚举下拉与属性列显示走本地化映射（写盘键保持枚举名不动）
+            var statTable = BuildEnumTable<Stat>();
+            cmbStat.DataSource = statTable;
+            cmbStat.DisplayMember = "Display";
+            cmbStat.ValueMember = "Value";
+
+            var buffTable = BuildEnumTable<BuffType>();
+            cmbBuffType.DataSource = buffTable;
+            cmbBuffType.DisplayMember = "Display";
+            cmbBuffType.ValueMember = "Value";
+
             cmbBuffType.DropDownStyle = ComboBoxStyle.DropDownList;
+
+            // 20261115 汉化（H8）：属性列显示中文映射（CellFormatting 只改显示，Value 仍为枚举）
+            dgvStats.CellFormatting += (s, args) =>
+            {
+                if (dgvStats.Columns[args.ColumnIndex]?.Name == "colStat" &&
+                    args.Value is Stat stat)
+                {
+                    args.Value = stat.ToLocalizedServerString();
+                    args.FormattingApplied = true;
+                }
+            };
+
             LoadSettings();
+        }
+
+        /// <summary>20261115 汉化（H8）：枚举→DataTable（Value=枚举本身保强转链，Display=本地化中文）</summary>
+        private static DataTable BuildEnumTable<T>() where T : struct, Enum
+        {
+            var table = new DataTable();
+            table.Columns.Add("Value", typeof(T));
+            table.Columns.Add("Display", typeof(string));
+
+            foreach (T value in Enum.GetValues(typeof(T)))
+                table.Rows.Add(value, value.ToLocalizedServerString());
+
+            return table;
         }
 
         private void LoadSettings()
@@ -104,7 +141,8 @@
                 _settings.Buffs[_editingIndex].Name,
                 out var type))
             {
-                cmbBuffType.SelectedItem = type;
+                // 20261115 汉化（H8）：DataSource 换 DataTable 后 SelectedItem 变 DataRowView，用 SelectedValue 定位
+                cmbBuffType.SelectedValue = type;
             }
             else
             {
@@ -119,9 +157,10 @@
 
         private void btnAddStat_Click(object sender, EventArgs e)
         {
-            if (cmbStat.SelectedItem == null) return;
+            // 20261115 汉化（H8）：DataSource 换 DataTable 后取 SelectedValue（枚举值本身）
+            if (cmbStat.SelectedValue == null) return;
 
-            dgvStats.Rows.Add(cmbStat.SelectedItem, 0);
+            dgvStats.Rows.Add((Stat)cmbStat.SelectedValue, 0);
             _changed = true;
         }
 
@@ -137,9 +176,10 @@
 
         private void btnAddBuff_Click(object sender, EventArgs e)
         {
-            if (cmbBuffType.SelectedItem == null) return;
+            // 20261115 汉化（H8）：DataSource 换 DataTable 后取 SelectedValue（枚举值本身）
+            if (cmbBuffType.SelectedValue == null) return;
 
-            var type = (BuffType)cmbBuffType.SelectedItem;
+            var type = (BuffType)cmbBuffType.SelectedValue;
             var name = type.ToString();
 
             if (_settings.Buffs.Any(x => x.Name == name))
@@ -161,7 +201,8 @@
             _updatingList = false;
 
             _editingIndex = lstBuffs.SelectedIndex;
-            cmbBuffType.SelectedItem = type;
+            // 20261115 汉化（H8）：DataSource 换 DataTable 后用 SelectedValue 定位
+            cmbBuffType.SelectedValue = type;
             dgvStats.Rows.Clear();
             _changed = true;
         }
@@ -187,15 +228,16 @@
 
             var buff = _settings.Buffs[_editingIndex];
 
-            if (cmbBuffType.SelectedItem != null)
+            if (cmbBuffType.SelectedValue != null)
             {
-                var newName = ((BuffType)cmbBuffType.SelectedItem).ToString();
+                var newName = ((BuffType)cmbBuffType.SelectedValue).ToString();
 
                 if (newName != buff.Name &&
                     _settings.Buffs.Any(x => x != buff && x.Name == newName))
                 {
                     MessageBox.Show("这个 Buff 已经存在！");
-                    cmbBuffType.SelectedItem = Enum.Parse<BuffType>(buff.Name);
+                    // 20261115 汉化（H8）：回退选中用 SelectedValue（原 Enum.Parse 语义等价）
+                    cmbBuffType.SelectedValue = Enum.Parse<BuffType>(buff.Name);
                     return;
                 }
 
