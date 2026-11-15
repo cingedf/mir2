@@ -69,6 +69,12 @@ namespace Server
                 UpdateHeroClassCapGridView();
                 Populating = false;
             }
+
+            // 20261115 修复（十问⑧顺手）：属性行/上限行枚举单元格闭合态显示走本地化映射（下拉列表 H6 已中文，闭合态此前仍英文枚举名）
+            classGridView.CellFormatting += LocalizedEnumCellFormatting;
+            classCapGridView.CellFormatting += LocalizedEnumCellFormatting;
+            heroGridView.CellFormatting += LocalizedEnumCellFormatting;
+            heroCapGridView.CellFormatting += LocalizedEnumCellFormatting;
         }
 
         // 20261115 汉化（H6）：枚举下拉数据源统一走本地化表（Value 列保持枚举类型，赋值/读取链 (Stat)/(StatFormula) 强转零影响）
@@ -116,11 +122,15 @@ namespace Server
             if (tabControl1.SelectedTab.Name == "tabPage3")
             {
                 lblClassStatExample.Visible = true;
+                // 20261115 修复（十问⑧）：进页即填充预览（原先仅点选属性行时触发，初始只见空白标题）
+                RefreshClassStatExample();
             }
 
             if (tabControl1.SelectedTab == tabHero)
             {
                 lblHeroStatExample.Visible = true;
+                // 20261115 修复（十问⑧）：同上（英雄页镜像）
+                RefreshHeroStatExample();
             }
         }
 
@@ -133,6 +143,8 @@ namespace Server
             UpdateClassStatGridView();
             UpdateClassCapGridView();
             Populating = false;
+            // 20261115 修复（十问⑧）：切换职业后立即刷新预览
+            RefreshClassStatExample();
         }
 
         private void UpdateStatInterface()
@@ -1716,7 +1728,8 @@ namespace Server
             if (Populating) return;
 
             // 20261115 汉化（H7）：示例标题中的属性名经本地化映射显示中文
-            var str = string.Format("{0} - {1}\r\r", ((MirClass)SelectedClassID), type.ToLocalizedServerString());
+            // 20261115 修复（十问⑧）：换行符归一（\r 无效、\n 单不换行），Label 才能按预期分行
+            var str = string.Format("{0} - {1}\r\n\r\n", ((MirClass)SelectedClassID), type.ToLocalizedServerString());
 
             BaseStats classStats = Settings.ClassBaseStats[SelectedClassID];
 
@@ -1730,11 +1743,23 @@ namespace Server
 
                 for (int level = 1; level <= 50; level++)
                 {
-                    str += string.Format("Level {0}\t: {1}\n", level, Math.Min(cap, stat.Calculate((MirClass)SelectedClassID, level)));
+                    str += string.Format("Level {0}: {1}\r\n", level, Math.Min(cap, stat.Calculate((MirClass)SelectedClassID, level)));
                 }
 
                 lblClassStatExample.Text = str;
             }
+        }
+
+        // 20261115 修复（十问⑧）：切页/切职业时自动填充预览——取选中属性行（无选中取首行）的 Type 调原填充链，零逻辑变化
+        private void RefreshClassStatExample()
+        {
+            if (classGridView.Rows.Count == 0) return;
+
+            DataGridViewRow row = classGridView.SelectedRows.Count == 1 ? classGridView.SelectedRows[0] : classGridView.Rows[0];
+
+            if (row.Cells["BaseStatType"].Value == null) return;
+
+            UpdateClassStatExample((Stat)row.Cells["BaseStatType"].Value);
         }
 
         private void UpdateClassStatGridView()
@@ -1849,6 +1874,8 @@ namespace Server
             UpdateHeroClassStatGridView();
             UpdateHeroClassCapGridView();
             Populating = false;
+            // 20261115 修复（十问⑧）：切换英雄职业后立即刷新预览
+            RefreshHeroStatExample();
         }
 
         private void heroGridView_CellValidating(object sender, DataGridViewCellValidatingEventArgs e)
@@ -1969,7 +1996,8 @@ namespace Server
         {
             if (Populating) return;
 
-            var str = string.Format("{0} - {1}\r\r", ((MirClass)HeroSelectedClassID), type);
+            // 20261115 修复（十问⑧）：type 汉化（原样英文枚举名）+换行符归一
+            var str = string.Format("{0} - {1}\r\n\r\n", ((MirClass)HeroSelectedClassID), type.ToLocalizedServerString());
 
             BaseStats classStats = Settings.HeroBaseStats[HeroSelectedClassID];
 
@@ -1983,11 +2011,40 @@ namespace Server
 
                 for (int level = 1; level <= 50; level++)
                 {
-                    str += string.Format("Level {0}\t: {1}\n", level, Math.Min(cap, stat.Calculate((MirClass)HeroSelectedClassID, level)));
+                    str += string.Format("Level {0}: {1}\r\n", level, Math.Min(cap, stat.Calculate((MirClass)HeroSelectedClassID, level)));
                 }
 
                 if (lblHeroStatExample != null)
                     lblHeroStatExample.Text = str;
+            }
+        }
+
+        // 20261115 修复（十问⑧）：英雄页镜像（同 RefreshClassStatExample）
+        private void RefreshHeroStatExample()
+        {
+            if (heroGridView.Rows.Count == 0) return;
+
+            DataGridViewRow row = heroGridView.SelectedRows.Count == 1 ? heroGridView.SelectedRows[0] : heroGridView.Rows[0];
+
+            if (row.Cells["HeroBaseStatType"].Value == null) return;
+
+            UpdateHeroClassStatExample((Stat)row.Cells["HeroBaseStatType"].Value);
+        }
+
+        // 20261115 修复（十问⑧顺手）：属性行/上限行枚举单元格闭合态显示走本地化映射（下拉列表 H6 已中文，闭合态此前仍英文枚举名）
+        private void LocalizedEnumCellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.ColumnIndex < 0 || e.RowIndex < 0 || e.Value == null) return;
+
+            string name = ((DataGridView)sender).Columns[e.ColumnIndex].Name;
+
+            if (name != "BaseStatType" && name != "BaseStatFormula" && name != "CapType" &&
+                name != "HeroBaseStatType" && name != "HeroBaseStatFormula" && name != "HeroCapType") return;
+
+            if (e.Value is Enum)
+            {
+                e.Value = ((Enum)e.Value).ToLocalizedServerString();
+                e.FormattingApplied = true;
             }
         }
 
