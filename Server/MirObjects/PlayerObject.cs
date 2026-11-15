@@ -2380,6 +2380,23 @@ namespace Server.MirObjects
                         }
                         return;
 
+                    case "安息之气":
+                    case "远古气息":
+                        if (!IsGM) return;
+
+                        {
+                            // 20261115 实装上游预留 buff：与华丽雨光同模式（GM 光环命令组，空 Stats 纯视觉，时长缺省 60 分钟）
+                            int minutes = 60;
+                            if (parts.Length >= 2 && (!int.TryParse(parts[1], out minutes) || minutes <= 0))
+                                minutes = 60;
+
+                            BuffType auraType = parts[0].Equals("安息之气") ? BuffType.安息之气 : BuffType.远古气息;
+                            AddBuff(auraType, this, Settings.Minute * minutes, new Stats(), true);
+
+                            ReceiveChat($"{parts[0]}光环已激活，持续 {minutes} 分钟。", ChatType.System);
+                        }
+                        return;
+
                     case "增益":
                         if (!IsGM) return;
 
