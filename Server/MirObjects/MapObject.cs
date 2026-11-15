@@ -548,7 +548,8 @@ namespace Server.MirObjects
                     armour = GetDefencePower(Stats[Stat.MinAC], Stats[Stat.MaxAC]);
                     break;
                 case DefenceType.MACAgility:
-                    if (Envir.Random.Next(Settings.MagicResistWeight) < Stats[Stat.魔法躲避])
+                    // 体检④接线：PvpCanResistMagic 配置此前有 GUI/INI 无消费点——施法者为玩家时由该配置门控魔法躲避生效（与 PvpCanResistPoison 在 ApplyPoison 的门控模式同构；怪物施法不受限）
+                    if (((attacker.Race != ObjectType.Player) || Settings.PvpCanResistMagic) && Envir.Random.Next(Settings.MagicResistWeight) < Stats[Stat.魔法躲避])
                     {
                         BroadcastDamageIndicator(DamageType.Miss);
                         hit = false;
@@ -561,7 +562,8 @@ namespace Server.MirObjects
                     armour = GetDefencePower(Stats[Stat.MinMAC], Stats[Stat.MaxMAC]);
                     break;
                 case DefenceType.MAC:
-                    if (Envir.Random.Next(Settings.MagicResistWeight) < Stats[Stat.魔法躲避])
+                    // 体检④接线：PvpCanResistMagic 配置此前有 GUI/INI 无消费点——施法者为玩家时由该配置门控魔法躲避生效（与 PvpCanResistPoison 在 ApplyPoison 的门控模式同构；怪物施法不受限）
+                    if (((attacker.Race != ObjectType.Player) || Settings.PvpCanResistMagic) && Envir.Random.Next(Settings.MagicResistWeight) < Stats[Stat.魔法躲避])
                     {
                         BroadcastDamageIndicator(DamageType.Miss);
                         hit = false;
