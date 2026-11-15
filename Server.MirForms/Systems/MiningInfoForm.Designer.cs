@@ -45,7 +45,6 @@
             label66 = new Label();
             label65 = new Label();
             tabPage2 = new TabPage();
-            label78 = new Label();
             MineDropsIndexcomboBox = new ComboBox();
             groupBox8 = new GroupBox();
             MineMaxBonustextBox = new TextBox();
@@ -113,7 +112,7 @@
             groupBox7.Controls.Add(label65);
             groupBox7.Location = new Point(10, 6);
             groupBox7.Name = "groupBox7";
-            groupBox7.Size = new Size(403, 121);
+            groupBox7.Size = new Size(403, 103);
             groupBox7.TabIndex = 27;
             groupBox7.TabStop = false;
             groupBox7.Text = "矿石";
@@ -121,7 +120,7 @@
             // label79
             // 
             label79.AutoSize = true;
-            label79.Location = new Point(16, 20);
+            label79.Location = new Point(14, 19);
             label79.Name = "label79";
             label79.Size = new Size(80, 17);
             label79.TabIndex = 23;
@@ -129,24 +128,24 @@
             // 
             // MineNametextBox
             // 
-            MineNametextBox.Location = new Point(97, 16);
+            MineNametextBox.Location = new Point(100, 16);
             MineNametextBox.Name = "MineNametextBox";
-            MineNametextBox.Size = new Size(100, 23);
+            MineNametextBox.Size = new Size(120, 23);
             MineNametextBox.TabIndex = 22;
             MineNametextBox.TextChanged += MineNametextBox_TextChanged;
             // 
             // MineSlotstextBox
             // 
-            MineSlotstextBox.Location = new Point(97, 92);
+            MineSlotstextBox.Location = new Point(310, 68);
             MineSlotstextBox.Name = "MineSlotstextBox";
-            MineSlotstextBox.Size = new Size(34, 23);
+            MineSlotstextBox.Size = new Size(60, 23);
             MineSlotstextBox.TabIndex = 10;
             MineSlotstextBox.TextChanged += MineSlotstextBox_TextChanged;
             // 
             // label70
             // 
             label70.AutoSize = true;
-            label70.Location = new Point(63, 96);
+            label70.Location = new Point(230, 71);
             label70.Name = "label70";
             label70.Size = new Size(32, 17);
             label70.TabIndex = 9;
@@ -155,7 +154,7 @@
             // label69
             // 
             label69.AutoSize = true;
-            label69.Location = new Point(292, 45);
+            label69.Location = new Point(230, 45);
             label69.Name = "label69";
             label69.Size = new Size(68, 17);
             label69.TabIndex = 8;
@@ -164,7 +163,7 @@
             // label68
             // 
             label68.AutoSize = true;
-            label68.Location = new Point(291, 20);
+            label68.Location = new Point(230, 19);
             label68.Name = "label68";
             label68.Size = new Size(68, 17);
             label68.TabIndex = 7;
@@ -172,40 +171,40 @@
             // 
             // MineDropRatetextBox
             // 
-            MineDropRatetextBox.Location = new Point(362, 42);
+            MineDropRatetextBox.Location = new Point(310, 42);
             MineDropRatetextBox.Name = "MineDropRatetextBox";
-            MineDropRatetextBox.Size = new Size(34, 23);
+            MineDropRatetextBox.Size = new Size(60, 23);
             MineDropRatetextBox.TabIndex = 6;
             MineDropRatetextBox.TextChanged += MineDropRatetextBox_TextChanged;
             // 
             // MineHitRatetextBox
             // 
-            MineHitRatetextBox.Location = new Point(362, 16);
+            MineHitRatetextBox.Location = new Point(310, 16);
             MineHitRatetextBox.Name = "MineHitRatetextBox";
-            MineHitRatetextBox.Size = new Size(34, 23);
+            MineHitRatetextBox.Size = new Size(60, 23);
             MineHitRatetextBox.TabIndex = 5;
             MineHitRatetextBox.TextChanged += MineHitRatetextBox_TextChanged;
             // 
             // MineAttemptstextBox
             // 
-            MineAttemptstextBox.Location = new Point(97, 68);
+            MineAttemptstextBox.Location = new Point(100, 68);
             MineAttemptstextBox.Name = "MineAttemptstextBox";
-            MineAttemptstextBox.Size = new Size(34, 23);
+            MineAttemptstextBox.Size = new Size(60, 23);
             MineAttemptstextBox.TabIndex = 4;
             MineAttemptstextBox.TextChanged += MineAttemptstextBox_TextChanged;
             // 
             // MineRegenDelaytextBox
             // 
-            MineRegenDelaytextBox.Location = new Point(97, 42);
+            MineRegenDelaytextBox.Location = new Point(100, 42);
             MineRegenDelaytextBox.Name = "MineRegenDelaytextBox";
-            MineRegenDelaytextBox.Size = new Size(34, 23);
+            MineRegenDelaytextBox.Size = new Size(60, 23);
             MineRegenDelaytextBox.TabIndex = 3;
             MineRegenDelaytextBox.TextChanged += MineRegenDelaytextBox_TextChanged;
             // 
             // label67
             // 
             label67.AutoSize = true;
-            label67.Location = new Point(40, 71);
+            label67.Location = new Point(14, 71);
             label67.Name = "label67";
             label67.Size = new Size(56, 17);
             label67.TabIndex = 2;
@@ -214,7 +213,7 @@
             // label66
             // 
             label66.AutoSize = true;
-            label66.Location = new Point(133, 47);
+            label66.Location = new Point(164, 45);
             label66.Name = "label66";
             label66.Size = new Size(40, 17);
             label66.TabIndex = 1;
@@ -223,7 +222,7 @@
             // label65
             // 
             label65.AutoSize = true;
-            label65.Location = new Point(14, 46);
+            label65.Location = new Point(14, 45);
             label65.Name = "label65";
             label65.Size = new Size(80, 17);
             label65.TabIndex = 0;
@@ -231,7 +230,6 @@
             // 
             // tabPage2
             // 
-            tabPage2.Controls.Add(label78);
             tabPage2.Controls.Add(MineDropsIndexcomboBox);
             tabPage2.Controls.Add(groupBox8);
             tabPage2.Controls.Add(MineRemoveDropbutton);
@@ -243,22 +241,13 @@
             tabPage2.Text = "矿石开采率";
             tabPage2.UseVisualStyleBackColor = true;
             // 
-            // label78
-            // 
-            label78.AutoSize = true;
-            label78.Location = new Point(7, 40);
-            label78.Name = "label78";
-            label78.Size = new Size(56, 17);
-            label78.TabIndex = 26;
-            label78.Text = "采矿几率";
-            // 
             // MineDropsIndexcomboBox
             // 
             MineDropsIndexcomboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             MineDropsIndexcomboBox.FormattingEnabled = true;
             MineDropsIndexcomboBox.Location = new Point(12, 12);
             MineDropsIndexcomboBox.Name = "MineDropsIndexcomboBox";
-            MineDropsIndexcomboBox.Size = new Size(129, 25);
+            MineDropsIndexcomboBox.Size = new Size(160, 25);
             MineDropsIndexcomboBox.TabIndex = 22;
             MineDropsIndexcomboBox.SelectedIndexChanged += MineDropsIndexcomboBox_SelectedIndexChanged;
             // 
@@ -278,24 +267,26 @@
             groupBox8.Controls.Add(label72);
             groupBox8.Controls.Add(MineItemNametextBox);
             groupBox8.Controls.Add(label71);
-            groupBox8.Location = new Point(10, 39);
+            groupBox8.Location = new Point(10, 40);
             groupBox8.Name = "groupBox8";
-            groupBox8.Size = new Size(188, 188);
+            groupBox8.Size = new Size(400, 125);
             groupBox8.TabIndex = 25;
             groupBox8.TabStop = false;
+            // 20261115 修复（十问⑨）：框无标题且 label78 被埋在框后——标题并入框，label78 移除
+            groupBox8.Text = "采矿几率";
             // 
             // MineMaxBonustextBox
             // 
-            MineMaxBonustextBox.Location = new Point(99, 153);
+            MineMaxBonustextBox.Location = new Point(280, 65);
             MineMaxBonustextBox.Name = "MineMaxBonustextBox";
-            MineMaxBonustextBox.Size = new Size(34, 23);
+            MineMaxBonustextBox.Size = new Size(60, 23);
             MineMaxBonustextBox.TabIndex = 34;
             MineMaxBonustextBox.TextChanged += MineMaxBonustextBox_TextChanged;
             // 
             // label77
             // 
             label77.AutoSize = true;
-            label77.Location = new Point(41, 156);
+            label77.Location = new Point(210, 68);
             label77.Name = "label77";
             label77.Size = new Size(56, 17);
             label77.TabIndex = 33;
@@ -303,16 +294,16 @@
             // 
             // MineBonusChancetextBox
             // 
-            MineBonusChancetextBox.Location = new Point(99, 130);
+            MineBonusChancetextBox.Location = new Point(280, 41);
             MineBonusChancetextBox.Name = "MineBonusChancetextBox";
-            MineBonusChancetextBox.Size = new Size(34, 23);
+            MineBonusChancetextBox.Size = new Size(60, 23);
             MineBonusChancetextBox.TabIndex = 32;
             MineBonusChancetextBox.TextChanged += MineBonusChancetextBox_TextChanged;
             // 
             // label76
             // 
             label76.AutoSize = true;
-            label76.Location = new Point(41, 132);
+            label76.Location = new Point(210, 44);
             label76.Name = "label76";
             label76.Size = new Size(56, 17);
             label76.TabIndex = 31;
@@ -320,16 +311,16 @@
             // 
             // MineMaxQualitytextBox
             // 
-            MineMaxQualitytextBox.Location = new Point(99, 106);
+            MineMaxQualitytextBox.Location = new Point(280, 17);
             MineMaxQualitytextBox.Name = "MineMaxQualitytextBox";
-            MineMaxQualitytextBox.Size = new Size(34, 23);
+            MineMaxQualitytextBox.Size = new Size(60, 23);
             MineMaxQualitytextBox.TabIndex = 30;
             MineMaxQualitytextBox.TextChanged += MineMaxQualitytextBox_TextChanged;
             // 
             // label75
             // 
             label75.AutoSize = true;
-            label75.Location = new Point(41, 110);
+            label75.Location = new Point(210, 20);
             label75.Name = "label75";
             label75.Size = new Size(56, 17);
             label75.TabIndex = 29;
@@ -337,16 +328,16 @@
             // 
             // MineMinQualitytextBox
             // 
-            MineMinQualitytextBox.Location = new Point(99, 83);
+            MineMinQualitytextBox.Location = new Point(90, 89);
             MineMinQualitytextBox.Name = "MineMinQualitytextBox";
-            MineMinQualitytextBox.Size = new Size(34, 23);
+            MineMinQualitytextBox.Size = new Size(60, 23);
             MineMinQualitytextBox.TabIndex = 28;
             MineMinQualitytextBox.TextChanged += MineMinQualitytextBox_TextChanged;
             // 
             // label74
             // 
             label74.AutoSize = true;
-            label74.Location = new Point(41, 86);
+            label74.Location = new Point(14, 92);
             label74.Name = "label74";
             label74.Size = new Size(56, 17);
             label74.TabIndex = 27;
@@ -354,16 +345,16 @@
             // 
             // MineMaxSlottextBox
             // 
-            MineMaxSlottextBox.Location = new Point(99, 60);
+            MineMaxSlottextBox.Location = new Point(90, 65);
             MineMaxSlottextBox.Name = "MineMaxSlottextBox";
-            MineMaxSlottextBox.Size = new Size(34, 23);
+            MineMaxSlottextBox.Size = new Size(60, 23);
             MineMaxSlottextBox.TabIndex = 26;
             MineMaxSlottextBox.TextChanged += MineMaxSlottextBox_TextChanged;
             // 
             // label73
             // 
             label73.AutoSize = true;
-            label73.Location = new Point(41, 63);
+            label73.Location = new Point(14, 68);
             label73.Name = "label73";
             label73.Size = new Size(56, 17);
             label73.TabIndex = 25;
@@ -371,16 +362,16 @@
             // 
             // MineMinSlottextBox
             // 
-            MineMinSlottextBox.Location = new Point(99, 37);
+            MineMinSlottextBox.Location = new Point(90, 41);
             MineMinSlottextBox.Name = "MineMinSlottextBox";
-            MineMinSlottextBox.Size = new Size(34, 23);
+            MineMinSlottextBox.Size = new Size(60, 23);
             MineMinSlottextBox.TabIndex = 24;
             MineMinSlottextBox.TextChanged += MineMinSlottextBox_TextChanged;
             // 
             // label72
             // 
             label72.AutoSize = true;
-            label72.Location = new Point(41, 41);
+            label72.Location = new Point(14, 44);
             label72.Name = "label72";
             label72.Size = new Size(56, 17);
             label72.TabIndex = 23;
@@ -388,16 +379,16 @@
             // 
             // MineItemNametextBox
             // 
-            MineItemNametextBox.Location = new Point(99, 13);
+            MineItemNametextBox.Location = new Point(90, 17);
             MineItemNametextBox.Name = "MineItemNametextBox";
-            MineItemNametextBox.Size = new Size(83, 23);
+            MineItemNametextBox.Size = new Size(120, 23);
             MineItemNametextBox.TabIndex = 22;
             MineItemNametextBox.TextChanged += MineItemNametextBox_TextChanged;
             // 
             // label71
             // 
             label71.AutoSize = true;
-            label71.Location = new Point(41, 17);
+            label71.Location = new Point(14, 20);
             label71.Name = "label71";
             label71.Size = new Size(56, 17);
             label71.TabIndex = 21;
@@ -405,8 +396,8 @@
             // 
             // MineRemoveDropbutton
             // 
-            // 20261115 修复（十问⑨）：掉落组 +/- 按钮原 (148/176,12) 与方案组 (189/218,6) x 交错混排，移到方案组右侧消除视觉混淆
-            MineRemoveDropbutton.Location = new Point(276, 12);
+            // 20261115 修复（十问⑨）：掉落组 +/- 按钮紧贴下拉右侧（原 (247/276,12) 远离 129px 下拉，视觉脱节）
+            MineRemoveDropbutton.Location = new Point(204, 12);
             MineRemoveDropbutton.Name = "MineRemoveDropbutton";
             MineRemoveDropbutton.Size = new Size(21, 21);
             MineRemoveDropbutton.TabIndex = 24;
@@ -416,7 +407,7 @@
             // 
             // MineAddDropbutton
             // 
-            MineAddDropbutton.Location = new Point(247, 12);
+            MineAddDropbutton.Location = new Point(178, 12);
             MineAddDropbutton.Name = "MineAddDropbutton";
             MineAddDropbutton.Size = new Size(21, 21);
             MineAddDropbutton.TabIndex = 23;
@@ -512,7 +503,6 @@
         private System.Windows.Forms.Label label66;
         private System.Windows.Forms.Label label65;
         private System.Windows.Forms.TabPage tabPage2;
-        private System.Windows.Forms.Label label78;
         private System.Windows.Forms.ComboBox MineDropsIndexcomboBox;
         private System.Windows.Forms.GroupBox groupBox8;
         private System.Windows.Forms.TextBox MineMaxBonustextBox;
