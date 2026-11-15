@@ -405,7 +405,8 @@
             // 
             // MineRemoveDropbutton
             // 
-            MineRemoveDropbutton.Location = new Point(176, 12);
+            // 20261115 修复（十问⑨）：掉落组 +/- 按钮原 (148/176,12) 与方案组 (189/218,6) x 交错混排，移到方案组右侧消除视觉混淆
+            MineRemoveDropbutton.Location = new Point(276, 12);
             MineRemoveDropbutton.Name = "MineRemoveDropbutton";
             MineRemoveDropbutton.Size = new Size(21, 21);
             MineRemoveDropbutton.TabIndex = 24;
@@ -415,7 +416,7 @@
             // 
             // MineAddDropbutton
             // 
-            MineAddDropbutton.Location = new Point(148, 12);
+            MineAddDropbutton.Location = new Point(247, 12);
             MineAddDropbutton.Name = "MineAddDropbutton";
             MineAddDropbutton.Size = new Size(21, 21);
             MineAddDropbutton.TabIndex = 23;
