@@ -4117,17 +4117,22 @@ public static class GameLanguage
     [
         typeof(MirClass),
         typeof(RequiredClass),
+        typeof(RequiredType),
         typeof(Stat),
         typeof(BuffType),
         typeof(PoisonType),
         typeof(AwakeType),
         typeof(MonsterType),
-        typeof(HeroBehaviour)
+        typeof(HeroBehaviour),
+        typeof(BindMode),
+        typeof(SpecialItemMode),
+        typeof(LightSetting)
     ];
 
     static GameLanguage()
     {
         PopulateEnumToClientTextMap(localizationEnumTypes);
+        PopulateEnumToServerTextMap(localizationEnumTypes);
     }
 
     private static void PopulateEnumToClientTextMap(Type[] localizationEnumTypes)
@@ -4138,6 +4143,20 @@ public static class GameLanguage
             foreach (var enumName in Enum.GetNames(enumType))
             {
                 ClientTextMap.Enum.TryAdd($"{enumType.Name}_{enumName}", enumName);
+            }
+        }
+    }
+
+    // 20261115 基础设施：服务端枚举本地化预填充（Server.MirForms UI 列头/下拉经 ToLocalizedServerString 消费；
+    // 运行时被 Server.MirForms\Localization\{Language}.json 的 Enum 段覆盖）
+    private static void PopulateEnumToServerTextMap(Type[] localizationEnumTypes)
+    {
+        foreach (var enumType in localizationEnumTypes)
+        {
+            if (!enumType.IsEnum) continue;
+            foreach (var enumName in Enum.GetNames(enumType))
+            {
+                ServerTextMap.Enum.TryAdd($"{enumType.Name}_{enumName}", enumName);
             }
         }
     }
@@ -4213,17 +4232,17 @@ public static class GameLanguage
                 }
             }
 
-            foreach (var item in ServerTextMap.Enum)
+            // 20261115 基础设施：以 json 键集为基准合并（原以内存字典为基准迭代——内存 Enum 字典预填充前为空时
+            // json 里的键全部丢失，且数量不等会触发 SaveServerLanguage 重写把 json Enum 段抹掉，均与预期相反）
+            foreach (var item in language.Enum)
             {
-                if (language.Enum.TryGetValue(item.Key, out var value))
-                {
-                    ServerTextMap.Enum[item.Key] = value;
-                }
+                ServerTextMap.Enum[item.Key] = item.Value;
             }
 
-            if (language.Text.Count + language.Enum.Count != ServerTextMap.Text.Count + ServerTextMap.Enum.Count)
+            // 20261115 基础设施：服务端进程内共用 ClientTextMap.Enum 查询路径（ToLocalizedString 保持客户端语义不变）
+            foreach (var item in language.Enum)
             {
-                SaveServerLanguage(languageJsonPath);
+                ClientTextMap.Enum[item.Key] = item.Value;
             }
         }
         catch (Exception)
@@ -4272,6 +4291,21 @@ public static class GameLanguage
     public static string ToLocalizedString(this Enum @enum)
     {
         if (ClientTextMap.Enum.TryGetValue($"{@enum.GetType().Name}_{@enum}", out var value))
+        {
+            return value;
+        }
+
+        return @enum.ToString();
+    }
+
+    /// <summary>
+    /// 20261115 基础设施：服务端（Server.MirForms UI）枚举本地化扩展，查 ServerTextMap.Enum
+    ///（键=类型_成员名，由 PopulateEnumToServerTextMap 预填充 + 服务端 Localization json Enum 段覆盖）。
+    /// 查不到回退枚举原 ToString()，与客户端 ToLocalizedString 语义一致。
+    /// </summary>
+    public static string ToLocalizedServerString(this Enum @enum)
+    {
+        if (ServerTextMap.Enum.TryGetValue($"{@enum.GetType().Name}_{@enum}", out var value))
         {
             return value;
         }
