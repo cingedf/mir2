@@ -4046,7 +4046,20 @@ namespace Server.MirObjects
                                     MonsterObject monOb = (MonsterObject)ob;
                                     ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.MonsterInfoTitle), ChatType.System2);
                                     ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.MonsterInfo1), monOb.Info.Index, monOb.Name), ChatType.System2);
-                                    ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.MonsterInfo2), monOb.Level, monOb.CurrentLocation.X, monOb.CurrentLocation.Y, monOb.Direction), ChatType.System2);
+                                    // 20261115 汉化（H13）：方向枚举名直接输出英文（Up/DownRight），改为中文方位
+                                    string dirText = monOb.Direction switch
+                                    {
+                                        MirDirection.Up => "上",
+                                        MirDirection.UpRight => "右上",
+                                        MirDirection.Right => "右",
+                                        MirDirection.DownRight => "右下",
+                                        MirDirection.Down => "下",
+                                        MirDirection.DownLeft => "左下",
+                                        MirDirection.Left => "左",
+                                        MirDirection.UpLeft => "左上",
+                                        _ => monOb.Direction.ToString(),
+                                    };
+                                    ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.MonsterInfo2), monOb.Level, monOb.CurrentLocation.X, monOb.CurrentLocation.Y, dirText), ChatType.System2);
                                     ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.MonsterInfo3), monOb.Info.Stats[Stat.HP], monOb.Stats[Stat.MinDC], monOb.Stats[Stat.MaxDC]), ChatType.System2);
                                     break;
                                 case ObjectType.Merchant:
