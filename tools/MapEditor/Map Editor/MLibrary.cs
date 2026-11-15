@@ -38,7 +38,7 @@ namespace Map_Editor
             ListItems[2] = new ListItem("Objects", 2);
             MapLibs[90] = new MLibrary(@".\Data\Map\WemadeMir2\Objects_32bit");
 
-            for (int i = 2; i < 28; i++)
+            for (int i = 2; i < 29; i++) //与客户端 MirGraphics/MLibrary.cs 对齐：加载 Objects2~Objects28
             {
                 if (File.Exists(@".\Data\Map\WemadeMir2\Objects" + i + ".lib"))
                 {
