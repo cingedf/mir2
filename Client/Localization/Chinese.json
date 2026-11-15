@@ -1094,5 +1094,32 @@
     "BadBrowserFormat": "错误的 BROWSER 格式",
     "BadHostFormat": "错误的 HOST 格式",
     "Max": "最大"
+  },
+  "Enum": {
+    "BuffType_HornedArcherBuff": "弓手战吼",
+    "BuffType_ColdArcherBuff": "冰弓庇佑",
+    "BuffType_HornedColdArcherBuff": "魔弓庇佑",
+    "BuffType_GeneralMeowMeowShield": "护体结界",
+    "BuffType_HornedWarriorShield": "石肤护盾",
+    "BuffType_Mon409BShieldBuff": "无敌护盾",
+    "BuffType_ChieftainSwordBuff": "狂怒之刃",
+    "BuffType_ReaperPriestBuff": "亡者祝福",
+    "BuffType_RiklebitesShield": "能量护盾",
+    "BuffType_Mon579BShield": "冰晶护盾",
+    "BuffType_Mon580BShield": "寒潭护盾",
+    "BuffType_Mon615BShield": "护体罡气",
+    "BuffType_Mon564NSealing": "尊者封印",
+    "Stat_MinAC": "下限防御",
+    "Stat_MaxAC": "上限防御",
+    "Stat_MinMAC": "下限魔御",
+    "Stat_MaxMAC": "上限魔御",
+    "Stat_MinDC": "下限攻击",
+    "Stat_MaxDC": "上限攻击",
+    "Stat_MinMC": "下限魔法",
+    "Stat_MaxMC": "上限魔法",
+    "Stat_MinSC": "下限道术",
+    "Stat_MaxSC": "上限道术",
+    "Stat_HP": "生命值",
+    "Stat_MP": "魔法值"
   }
 }

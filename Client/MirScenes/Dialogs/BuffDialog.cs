@@ -285,7 +285,8 @@ namespace Client.MirScenes.Dialogs
 
         public string BuffString(ClientBuff buff)
         {
-            string text = RegexFunctions.SeperateCamelCase(buff.Type.ToString()) + "\n";
+            // 20261115 汉化统一：首行改用 ToLocalizedString（中文枚举无映射回退原名显示不变；英文枚举经 Chinese.json Enum 段映射显示中文）
+            string text = buff.Type.ToLocalizedString() + "\n";
             
             bool overridestats = false;
 
@@ -381,7 +382,7 @@ namespace Client.MirScenes.Dialogs
                     text += "远古气息的加成\n";
                     break;
                 case BuffType.华丽雨光:
-                    text += "来自雨光的加成\n";
+                    text += "华丽雨光：光效加身（纯外观光环，无属性加成）\n";
                     break;
                 case BuffType.龙之特效:
                     text += "特效增益加成\n";
@@ -411,6 +412,41 @@ namespace Client.MirScenes.Dialogs
                 case BuffType.Mon564NSealing:
                     // 20261115 顺手汉化：英文枚举名会原样显示为 "Mon 564 NSealing"，改为中文名+描述（同绝对封锁家族，效果=生命/法力 -25%）
                     text = "尊者封印\n生命值降低 25%\n法力值降低 25%\n";
+                    overridestats = true;
+                    break;
+                // 20261115 buff 悬浮统一汉化：12 个英文怪物 buff 补中文悬浮描述（文案取自各授予技能实际效果）
+                case BuffType.HornedArcherBuff:
+                    text += "弓手战吼：攻击与魔法提升\n";
+                    break;
+                case BuffType.ColdArcherBuff:
+                    text += "冰弓庇佑：双防提升\n";
+                    break;
+                case BuffType.HornedColdArcherBuff:
+                    text += "魔弓庇佑：魔御与攻击提升\n";
+                    break;
+                case BuffType.GeneralMeowMeowShield:
+                    text += "护体结界：防御大增\n";
+                    break;
+                case BuffType.HornedWarriorShield:
+                    text += "石肤护盾：防御激增\n";
+                    break;
+                case BuffType.Mon409BShieldBuff:
+                    text += "无敌护盾：免疫伤害\n";
+                    overridestats = true;
+                    break;
+                case BuffType.ChieftainSwordBuff:
+                    text += "狂怒之刃：攻击大增\n";
+                    break;
+                case BuffType.ReaperPriestBuff:
+                    text += "亡者祝福：攻击提升\n";
+                    break;
+                case BuffType.RiklebitesShield:
+                    text += "能量护盾：防御大增\n";
+                    break;
+                case BuffType.Mon579BShield:
+                case BuffType.Mon580BShield:
+                case BuffType.Mon615BShield:
+                    text += "护体罡气：防御提升\n";
                     overridestats = true;
                     break;
                 case BuffType.古代宗师祝福:
@@ -444,7 +480,8 @@ namespace Client.MirScenes.Dialogs
                     var c = val.Value < 0 ? GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.Decreases) : GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.Increases);
                     var key = val.Key.ToString();
 
-                    var strKey = RegexFunctions.SeperateCamelCase(key);
+                    // 20261115 汉化统一：英文 Stat 键（MinAC/MaxAC/HP/MP 等）经 Enum 映射显示中文
+                    var strKey = val.Key.ToLocalizedString();
 
                     var sign = GetStatSign(val.Key);
 
@@ -488,7 +525,8 @@ namespace Client.MirScenes.Dialogs
                 var c = val.Value < 0 ? GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.Decreases) : GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.Increases);
                 var key = val.Key.ToString();
 
-                var strKey = RegexFunctions.SeperateCamelCase(key);
+                // 20261115 汉化统一：英文 Stat 键经 Enum 映射显示中文
+                var strKey = val.Key.ToLocalizedString();
 
                 var sign = GetStatSign(val.Key);
 
