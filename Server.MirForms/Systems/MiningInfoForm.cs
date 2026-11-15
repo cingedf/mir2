@@ -19,6 +19,11 @@ namespace Server
             MineIndexcomboBox.Items.Add(i);
             MineIndexcomboBox.DataSource = mineIndexItems;
 
+            // 20261115 修复（三轮⑨缺陷）：DataSource 初始绑定自动选中首项并触发 SelectedIndexChanged，
+            // 但此刻 ActiveControl 守卫（if (ActiveControl != sender) return）不成立提前返回，几率编号列表从未填充，
+            // 打开窗体后采矿几率下拉为空，须手动重选方案才出现编号。此处按原事件意图补填当前选中方案的几率列表。
+            RefreshMineDropsItems();
+
             UpdateMines();
         }
 
@@ -92,13 +97,20 @@ namespace Server
         private void MineIndexcomboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (ActiveControl != sender) return;
+            RefreshMineDropsItems();
+            UpdateMines();
+        }
+
+        // 20261115 修复（三轮⑨缺陷）：按选中方案填充采矿几率下拉编号（原逻辑内联于 SelectedIndexChanged 事件，
+        // 抽出复用；对 SelectedIndex 越界加 >= 0 防御，其余逻辑逐字保留）
+        private void RefreshMineDropsItems()
+        {
             MineDropsIndexcomboBox.Items.Clear();
-            if (MineIndexcomboBox.SelectedIndex < Settings.MineSetList.Count)
+            if (MineIndexcomboBox.SelectedIndex >= 0 && MineIndexcomboBox.SelectedIndex < Settings.MineSetList.Count)
             {
                 for (int i = 0; i < Settings.MineSetList[MineIndexcomboBox.SelectedIndex].Drops.Count; i++)
                     MineDropsIndexcomboBox.Items.Add(i);
             }
-            UpdateMines();
         }
 
         private void MineAddIndexbutton_Click(object sender, EventArgs e)
