@@ -283,7 +283,8 @@ namespace Server
             // 
             // ClearStoragePasswordButton
             // 
-            ClearStoragePasswordButton.Location = new Point(701, 170);
+            // 20261115 修复（十问②）：按钮顶部与 CharactersListView（701,0 高 184）重叠 14px 且列表 z 序在上导致遮挡，下移至列表正下方
+            ClearStoragePasswordButton.Location = new Point(701, 188);
             ClearStoragePasswordButton.Margin = new Padding(4, 3, 4, 3);
             ClearStoragePasswordButton.Name = "ClearStoragePasswordButton";
             ClearStoragePasswordButton.Size = new Size(160, 27);

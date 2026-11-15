@@ -168,10 +168,12 @@ namespace Server
             EMailTextBox.Text = info.EMailAddress;
 
             CreationIPTextBox.Text = info.CreationIP;
-            CreationDateTextBox.Text = info.CreationDate.ToString();
+            // 20261115 修复（十问①）：CreationDate 写入端存 Envir.Now（UTC），显示端转本地时区（写入端 :96 与归档比较 :150 依赖 Envir.Now 基准，勿动）
+            CreationDateTextBox.Text = info.CreationDate.ToLocalTime().ToString();
 
             LastIPTextBox.Text = info.LastIP;
-            LastDateTextBox.Text = info.LastDate.ToString();
+            // 20261115 修复（十问①）：LastDate 同款 UTC 显示问题顺手同修
+            LastDateTextBox.Text = info.LastDate.ToLocalTime().ToString();
 
             BanReasonTextBox.Text = info.BanReason;
             BannedCheckBox.CheckState = info.Banned ? CheckState.Checked : CheckState.Unchecked;
@@ -191,11 +193,11 @@ namespace Server
                 if (EMailTextBox.Text != info.EMailAddress) EMailTextBox.Text = string.Empty;
 
                 if (CreationIPTextBox.Text != info.CreationIP) CreationIPTextBox.Text = string.Empty;
-                if (CreationDateTextBox.Text != info.CreationDate.ToString()) CreationDateTextBox.Text = string.Empty;
+                if (CreationDateTextBox.Text != info.CreationDate.ToLocalTime().ToString()) CreationDateTextBox.Text = string.Empty;
 
 
                 if (LastIPTextBox.Text != info.LastIP) LastIPTextBox.Text = string.Empty;
-                if (LastDateTextBox.Text != info.LastDate.ToString()) LastDateTextBox.Text = string.Empty;
+                if (LastDateTextBox.Text != info.LastDate.ToLocalTime().ToString()) LastDateTextBox.Text = string.Empty;
 
 
                 if (BanReasonTextBox.Text != info.BanReason) BanReasonTextBox.Text = string.Empty;
