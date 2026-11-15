@@ -49,8 +49,8 @@ namespace Server
             CategoryFilter_lb.Items.Clear();
             GameShopListBox.Items.Clear();
 
-            ClassFilter_lb.Items.Add("All Classes");
-            CategoryFilter_lb.Items.Add("All Categories");
+            ClassFilter_lb.Items.Add("全部职业");
+            CategoryFilter_lb.Items.Add("全部分类");
 
             for (int i = 0; i < SMain.EditEnvir.GameShopList.Count; i++)
             {
@@ -60,9 +60,9 @@ namespace Server
                 GameShopListBox.Items.Add(SMain.EditEnvir.GameShopList[i]);
             }
 
-            ClassFilter_lb.Text = "All Classes";
-            CategoryFilter_lb.Text = "All Categories";
-            SectionFilter_lb.Text = "All Items";
+            ClassFilter_lb.Text = "全部职业";
+            CategoryFilter_lb.Text = "全部分类";
+            SectionFilter_lb.Text = "全部物品";
         }
 
         private void UpdateGameShopList()
@@ -71,9 +71,10 @@ namespace Server
             GameShopListBox.Items.Clear();
             for (int i = 0; i < SMain.EditEnvir.GameShopList.Count; i++)
             {
-                if (ClassFilter_lb.Text == "All Classes" || SMain.EditEnvir.GameShopList[i].Class == ClassFilter_lb.Text)
-                    if (SectionFilter_lb.Text == "All Items" || SMain.EditEnvir.GameShopList[i].TopItem && SectionFilter_lb.Text == "Top Items" || SMain.EditEnvir.GameShopList[i].Deal && SectionFilter_lb.Text == "Sale Items" || SMain.EditEnvir.GameShopList[i].Date > Envir.Now.AddDays(-7) && SectionFilter_lb.Text == "New Items")
-                        if (CategoryFilter_lb.Text == "All Categories" || SMain.EditEnvir.GameShopList[i].Category == CategoryFilter_lb.Text)
+                // 20261115 汉化（H10）：过滤哨兵标签与显示标签整体一致替换为中文（designer 预置同步），比较逻辑等价
+                if (ClassFilter_lb.Text == "全部职业" || SMain.EditEnvir.GameShopList[i].Class == ClassFilter_lb.Text)
+                    if (SectionFilter_lb.Text == "全部物品" || SMain.EditEnvir.GameShopList[i].TopItem && SectionFilter_lb.Text == "推荐物品" || SMain.EditEnvir.GameShopList[i].Deal && SectionFilter_lb.Text == "特价物品" || SMain.EditEnvir.GameShopList[i].Date > Envir.Now.AddDays(-7) && SectionFilter_lb.Text == "新品物品")
+                        if (CategoryFilter_lb.Text == "全部分类" || SMain.EditEnvir.GameShopList[i].Category == CategoryFilter_lb.Text)
                             GameShopListBox.Items.Add(SMain.EditEnvir.GameShopList[i]);
             }
         }
@@ -93,7 +94,7 @@ namespace Server
                 GPPrice_textbox.Text = String.Empty;
                 Stock_textbox.Text = String.Empty;
                 Individual_checkbox.Checked = false;
-                Class_combo.Text = "All";
+                Class_combo.Text = "全部";
                 Category_textbox.Text = "";
                 TopItem_checkbox.Checked = false;
                 DealofDay_checkbox.Checked = false;
@@ -344,9 +345,9 @@ namespace Server
 
         private void ResetFilter_button_Click(object sender, EventArgs e)
         {
-            ClassFilter_lb.Text = "All Classes";
-            CategoryFilter_lb.Text = "All Categories";
-            SectionFilter_lb.Text = "All Items";
+            ClassFilter_lb.Text = "全部职业";
+            CategoryFilter_lb.Text = "全部分类";
+            SectionFilter_lb.Text = "全部物品";
             UpdateGameShopList();
 
         }
