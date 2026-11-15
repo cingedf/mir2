@@ -433,7 +433,7 @@
             // 
             SectionFilter_lb.DropDownStyle = ComboBoxStyle.DropDownList;
             SectionFilter_lb.FormattingEnabled = true;
-            SectionFilter_lb.Items.AddRange(new object[] { "All Items", "Top Items", "Sale Items", "New Items" });
+            SectionFilter_lb.Items.AddRange(new object[] { "全部物品", "推荐物品", "特价物品", "新品物品" });
             SectionFilter_lb.Location = new Point(14, 37);
             SectionFilter_lb.Margin = new Padding(4);
             SectionFilter_lb.Name = "SectionFilter_lb";
