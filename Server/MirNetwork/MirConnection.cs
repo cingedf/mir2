@@ -187,7 +187,9 @@ namespace Server.MirNetwork
         private long _sendBytes;
 
         private const long KeepAliveInterval = 10000;
-        private const long ConnectionTimeout = 60000;
+        // 20261115 审计接线：连接超时改读 Settings.TimeOut（原硬编码 60000ms 与配置默认 10000 不一致且配置从不生效）；
+        // Settings.TimeOut 单位=毫秒、默认值已改为 60000 与原硬编码一致，行为零变化、配置框从此生效
+        private static readonly long ConnectionTimeout = Settings.TimeOut;
         private const long DisconnectGracePeriod = 500;
         public readonly long TimeConnected;
         public long TimeDisconnected, TimeOutTime;

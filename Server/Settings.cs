@@ -65,7 +65,7 @@ namespace Server
         public static string IPAddress = "127.0.0.1";
 
         public static ushort Port = 7000,
-                             TimeOut = 10000,
+                             TimeOut = 60000,
                              MaxUser = 500,
                              RelogDelay = 50,
                              MaxIP = 5,
