@@ -165,7 +165,8 @@ namespace Server.Database
                 if (stat == Stat.Unknown) continue;
 
                 var key = stat.ToString();
-                var strKey = RegexFunctions.SeperateCamelCase(key.Replace("Rate", "").Replace("Multiplier", "").Replace("Percent", ""));
+                // 20261115 汉化（H2）：Stat 列头走本地化映射（中文 json Enum 段），英文枚举命中映射，中文枚举回退原名
+                var strKey = stat.ToLocalizedServerString();
 
                 var sign = "";
 
@@ -191,7 +192,8 @@ namespace Server.Database
 
                 var col = new DataGridViewCheckBoxColumn
                 {
-                    HeaderText = bind.ToString(),
+                    // 20261115 汉化（H3）：BindMode 列头走本地化映射；列名（回写/CSV 链）保持英文枚举名不动
+                    HeaderText = bind.ToLocalizedServerString(),
                     Name = "Bind" + bind.ToString(),
                     ValueType = typeof(bool),
                     DataPropertyName = "Bind" + bind.ToString()
@@ -206,7 +208,8 @@ namespace Server.Database
 
                 var col = new DataGridViewCheckBoxColumn
                 {
-                    HeaderText = special.ToString(),
+                    // 20261115 汉化（H3）：SpecialItemMode 列头走本地化映射；列名（回写/CSV 链）保持英文枚举名不动
+                    HeaderText = special.ToLocalizedServerString(),
                     Name = "Special" + special.ToString(),
                     ValueType = typeof(bool),
                     DataPropertyName = "Special" + special.ToString()
@@ -1133,52 +1136,55 @@ namespace Server.Database
 
             foreach (var entry in _defaultItemHeaderMappings)
             {
-                switch (entry.Value.Trim())
+                // 20261115 汉化（H4）：原按 HeaderText 英文串匹配——列头汉化后会全部 miss 导致宝石视图静默失效；
+                // 改为按列名（Name）匹配：Special 列名="Special"+枚举名，四个 Stat 列名="Stat"+枚举名（nameof 对中文成员名合法）；
+                // 宝石视图目标标签一并汉化（顺手汉化规则）
+                switch (itemInfoGridView.Columns[entry.Key].Name)
                 {
-                    case nameof(SpecialItemMode.Paralize):
-                        _gemItemHeaderMappings.Add(entry.Key, "Weapon");
+                    case "Special" + nameof(SpecialItemMode.Paralize):
+                        _gemItemHeaderMappings.Add(entry.Key, "武器");
                         break;
-                    case nameof(SpecialItemMode.Teleport):
-                        _gemItemHeaderMappings.Add(entry.Key, "Armour");
+                    case "Special" + nameof(SpecialItemMode.Teleport):
+                        _gemItemHeaderMappings.Add(entry.Key, "衣服");
                         break;
-                    case nameof(SpecialItemMode.ClearRing):
-                        _gemItemHeaderMappings.Add(entry.Key, "Helmet");
+                    case "Special" + nameof(SpecialItemMode.ClearRing):
+                        _gemItemHeaderMappings.Add(entry.Key, "头盔");
                         break;
-                    case nameof(SpecialItemMode.Protection):
-                        _gemItemHeaderMappings.Add(entry.Key, "Necklace");
+                    case "Special" + nameof(SpecialItemMode.Protection):
+                        _gemItemHeaderMappings.Add(entry.Key, "项链");
                         break;
-                    case nameof(SpecialItemMode.Revival):
-                        _gemItemHeaderMappings.Add(entry.Key, "Bracelet");
+                    case "Special" + nameof(SpecialItemMode.Revival):
+                        _gemItemHeaderMappings.Add(entry.Key, "手镯");
                         break;
-                    case nameof(SpecialItemMode.Muscle):
-                        _gemItemHeaderMappings.Add(entry.Key, "Ring");
+                    case "Special" + nameof(SpecialItemMode.Muscle):
+                        _gemItemHeaderMappings.Add(entry.Key, "戒指");
                         break;
-                    case nameof(SpecialItemMode.Flame):
-                        _gemItemHeaderMappings.Add(entry.Key, "Amulet");
+                    case "Special" + nameof(SpecialItemMode.Flame):
+                        _gemItemHeaderMappings.Add(entry.Key, "护身符");
                         break;
-                    case nameof(SpecialItemMode.Healing):
-                        _gemItemHeaderMappings.Add(entry.Key, "Belt");
+                    case "Special" + nameof(SpecialItemMode.Healing):
+                        _gemItemHeaderMappings.Add(entry.Key, "腰带");
                         break;
-                    case nameof(SpecialItemMode.Probe):
-                        _gemItemHeaderMappings.Add(entry.Key, "Boots");
+                    case "Special" + nameof(SpecialItemMode.Probe):
+                        _gemItemHeaderMappings.Add(entry.Key, "鞋子");
                         break;
-                    case nameof(SpecialItemMode.Skill):
-                        _gemItemHeaderMappings.Add(entry.Key, "Stone");
+                    case "Special" + nameof(SpecialItemMode.Skill):
+                        _gemItemHeaderMappings.Add(entry.Key, "宝石");
                         break;
-                    case nameof(SpecialItemMode.NoDuraLoss):
-                        _gemItemHeaderMappings.Add(entry.Key, "Torch");
+                    case "Special" + nameof(SpecialItemMode.NoDuraLoss):
+                        _gemItemHeaderMappings.Add(entry.Key, "照明");
                         break;
-                    case "Critical Damage":
-                        _gemItemHeaderMappings.Add(entry.Key, "Max Stats (All)");
+                    case nameof(Stat.暴击伤害):
+                        _gemItemHeaderMappings.Add(entry.Key, "全属性上限");
                         break;
-                    case "Critical":
-                        _gemItemHeaderMappings.Add(entry.Key, "Base Rate %");
+                    case nameof(Stat.暴击率):
+                        _gemItemHeaderMappings.Add(entry.Key, "基础概率");
                         break;
-                    case "Reflect":
-                        _gemItemHeaderMappings.Add(entry.Key, "Success Drop");
+                    case nameof(Stat.反弹伤害):
+                        _gemItemHeaderMappings.Add(entry.Key, "成功概率");
                         break;
-                    case "HP Drain %":
-                        _gemItemHeaderMappings.Add(entry.Key, "Max Gem Stat");
+                    case nameof(Stat.法力值消耗百分比):
+                        _gemItemHeaderMappings.Add(entry.Key, "宝石属性上限");
                         break;
                 }
             }
