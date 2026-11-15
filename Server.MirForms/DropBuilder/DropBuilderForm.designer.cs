@@ -477,7 +477,7 @@
             this.listBoxCraftingMaterial.Name = "listBoxCraftingMaterial";
             this.listBoxCraftingMaterial.Size = new System.Drawing.Size(462, 350);
             this.listBoxCraftingMaterial.TabIndex = 3;
-            this.listBoxCraftingMaterial.Tag = "Crafting Material";
+            this.listBoxCraftingMaterial.Tag = "工艺材料";
             // 
             // tabPageFinder
             // 
