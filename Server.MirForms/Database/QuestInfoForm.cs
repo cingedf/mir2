@@ -256,7 +256,8 @@ namespace Server
 
             using (StreamWriter sw = File.CreateText(sfd.FileNames[0]))
             {
-                sw.WriteLine("Index,Name,Group,Type,FileName,GotoMessage,KillMessage,ItemMessage,FlagMessage,RequiredMinLevel,RequiredMaxLevel,RequiredQuest,RequiredClass");
+                // 20261115 汉化（H11）：CSV 表头汉化——导入（QuestInfo.FromText）按列序 Skip(1) 解析，不读表头，可自由汉化
+                sw.WriteLine("编号,名称,分组,类型,脚本文件,传送提示,击杀提示,物品提示,标记提示,最低等级,最高等级,前置任务,职业限制");
                 for (int j = 0; j < Quests.Count; j++)
                 {
                     sw.WriteLine(Quests[j].ToText());

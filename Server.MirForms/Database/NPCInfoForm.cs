@@ -329,7 +329,8 @@ namespace Server
 
             using (StreamWriter sw = File.CreateText(sfd.FileName))
             {
-                string colume = "Index,FileName,MapFileName,LocationX,LocationY,Name,Image,Rate,ShowOnBigMap,BigMapIcon,CanTeleportTo,ConquestVisible,MinLev,MaxLev,TimeVisible,HourStart,MinuteStart,HourEnd,MinuteEnd";
+                // 20261115 汉化（H11）：CSV 表头汉化——导入按列序 Skip(1) 解析，不读表头，可自由汉化
+                string colume = "编号,文件名,地图文件名,坐标X,坐标Y,名称,形象,出现率,大地图显示,大地图图标,可传送,攻城可见,最低等级,最高等级,定时显示,开始小时,开始分钟,结束小时,结束分钟";
                 sw.WriteLine(colume);
                 for (int j = 0; j < NPCs.Count; j++)
                 {
