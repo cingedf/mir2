@@ -49,12 +49,15 @@ namespace Server
             CategoryFilter_lb.Items.Clear();
             GameShopListBox.Items.Clear();
 
-            ClassFilter_lb.Items.Add("全部职业");
+            // 20261115 修复（十问⑥）：职业筛选列表原样列数据英文 Class 值（Warrior/Archer...），改 ListBoxItem 显示中文、值保英文原值
+            ClassFilter_lb.Items.Add(new ListBoxItem { DisplayMember = "全部职业", ValueMember = null });
             CategoryFilter_lb.Items.Add("全部分类");
 
+            HashSet<string> seenClasses = new HashSet<string>(StringComparer.Ordinal);
             for (int i = 0; i < SMain.EditEnvir.GameShopList.Count; i++)
             {
-                if (!ClassFilter_lb.Items.Contains(SMain.EditEnvir.GameShopList[i].Class)) ClassFilter_lb.Items.Add(SMain.EditEnvir.GameShopList[i].Class);
+                string cls = SMain.EditEnvir.GameShopList[i].Class;
+                if (seenClasses.Add(cls)) ClassFilter_lb.Items.Add(new ListBoxItem { DisplayMember = ClassDisplay(cls), ValueMember = cls });
                 if (!CategoryFilter_lb.Items.Contains(SMain.EditEnvir.GameShopList[i].Category)) CategoryFilter_lb.Items.Add(SMain.EditEnvir.GameShopList[i].Category);
 
                 GameShopListBox.Items.Add(SMain.EditEnvir.GameShopList[i]);
@@ -65,14 +68,32 @@ namespace Server
             SectionFilter_lb.Text = "全部物品";
         }
 
+        // 20261115 修复（十问⑥）：英文 Class 原值→中文显示名映射（未知值回退原样）
+        private static string ClassDisplay(string value)
+        {
+            switch (value)
+            {
+                case "All": return "全部";
+                case "Warrior": return "战士";
+                case "Assassin": return "刺客";
+                case "Taoist": return "道士";
+                case "Wizard": return "法师";
+                case "Archer": return "弓箭手";
+                default: return value;
+            }
+        }
+
         private void UpdateGameShopList()
         {
 
             GameShopListBox.Items.Clear();
             for (int i = 0; i < SMain.EditEnvir.GameShopList.Count; i++)
             {
+                // 20261115 修复（十问⑥）：职业筛选改按选中项 ValueMember（英文原值）比对数据；哨兵 ValueMember=null 即全选
                 // 20261115 汉化（H10）：过滤哨兵标签与显示标签整体一致替换为中文（designer 预置同步），比较逻辑等价
-                if (ClassFilter_lb.Text == "全部职业" || SMain.EditEnvir.GameShopList[i].Class == ClassFilter_lb.Text)
+                ListBoxItem selectedClassItem = ClassFilter_lb.SelectedItem as ListBoxItem;
+                string selectedClass = selectedClassItem?.ValueMember as string;
+                if (selectedClass == null || SMain.EditEnvir.GameShopList[i].Class == selectedClass)
                     if (SectionFilter_lb.Text == "全部物品" || SMain.EditEnvir.GameShopList[i].TopItem && SectionFilter_lb.Text == "推荐物品" || SMain.EditEnvir.GameShopList[i].Deal && SectionFilter_lb.Text == "特价物品" || SMain.EditEnvir.GameShopList[i].Date > Envir.Now.AddDays(-7) && SectionFilter_lb.Text == "新品物品")
                         if (CategoryFilter_lb.Text == "全部分类" || SMain.EditEnvir.GameShopList[i].Category == CategoryFilter_lb.Text)
                             GameShopListBox.Items.Add(SMain.EditEnvir.GameShopList[i]);
