@@ -180,6 +180,12 @@
             PathTextBox = new System.Windows.Forms.TextBox();
             OpenMapDirectory = new System.Windows.Forms.Button();
             TreeViewBox = new System.Windows.Forms.GroupBox();
+            splitMain = new System.Windows.Forms.SplitContainer();
+            splitWemdeMir2 = new System.Windows.Forms.SplitContainer();
+            splitShandaMir2 = new System.Windows.Forms.SplitContainer();
+            splitWemdeMir3 = new System.Windows.Forms.SplitContainer();
+            splitShandaMir3 = new System.Windows.Forms.SplitContainer();
+            splitTiles = new System.Windows.Forms.SplitContainer();
             toolStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabMap.SuspendLayout();
@@ -216,6 +222,22 @@
             ((System.ComponentModel.ISupportInitialize)pictureBox_Image).BeginInit();
             menuStrip1.SuspendLayout();
             TreeViewBox.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir2).BeginInit();
+            splitWemdeMir2.Panel1.SuspendLayout();
+            splitWemdeMir2.Panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir2).BeginInit();
+            splitShandaMir2.Panel1.SuspendLayout();
+            splitShandaMir2.Panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir3).BeginInit();
+            splitWemdeMir3.Panel1.SuspendLayout();
+            splitWemdeMir3.Panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir3).BeginInit();
+            splitShandaMir3.Panel1.SuspendLayout();
+            splitShandaMir3.Panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitTiles).BeginInit();
+            splitTiles.Panel1.SuspendLayout();
+            splitTiles.Panel2.SuspendLayout();
             SuspendLayout();
             // 
             // toolStrip1
@@ -639,9 +661,9 @@
             tabControl1.Controls.Add(tabTiles);
             tabControl1.Controls.Add(tabTileCutter);
             tabControl1.Controls.Add(tabHelp);
-            tabControl1.Dock = System.Windows.Forms.DockStyle.Left;
+            tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
             tabControl1.Font = new System.Drawing.Font("Microsoft YaHei", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            tabControl1.Location = new System.Drawing.Point(0, 54);
+            tabControl1.Location = new System.Drawing.Point(0, 0);
             tabControl1.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             tabControl1.Multiline = true;
             tabControl1.Name = "tabControl1";
@@ -671,7 +693,7 @@
             tableLayoutPanel1.Controls.Add(vScrollBar, 1, 0);
             tableLayoutPanel1.Controls.Add(MapPanel, 0, 0);
             tableLayoutPanel1.Controls.Add(hScrollBar, 0, 1);
-            tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Left;
+            tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
             tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
             tableLayoutPanel1.Name = "tableLayoutPanel1";
             tableLayoutPanel1.RowCount = 2;
@@ -781,13 +803,7 @@
             // 
             // tabWemadeMir2
             // 
-            tabWemadeMir2.Controls.Add(labWemadeMir2OffSetY);
-            tabWemadeMir2.Controls.Add(labeWemadeMir2OffSetX);
-            tabWemadeMir2.Controls.Add(LabWemadeMir2Height);
-            tabWemadeMir2.Controls.Add(LabWemadeMir2Width);
-            tabWemadeMir2.Controls.Add(picWemdeMir2);
-            tabWemadeMir2.Controls.Add(WemadeMir2LibListBox);
-            tabWemadeMir2.Controls.Add(WemadeMir2LibListView);
+            tabWemadeMir2.Controls.Add(splitWemdeMir2);
             tabWemadeMir2.Location = new System.Drawing.Point(4, 29);
             tabWemadeMir2.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             tabWemadeMir2.Name = "tabWemadeMir2";
@@ -797,12 +813,36 @@
             tabWemadeMir2.ToolTipText = "(F1)";
             tabWemadeMir2.UseVisualStyleBackColor = true;
             // 
+            // splitWemdeMir2（左右可拖分割：左侧图库列表 / 右侧编号缩略图+预览）
+            // 
+            splitWemdeMir2.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitWemdeMir2.Location = new System.Drawing.Point(0, 0);
+            splitWemdeMir2.Name = "splitWemdeMir2";
+            // 
+            // splitWemdeMir2.Panel1
+            // 
+            splitWemdeMir2.Panel1.Controls.Add(WemadeMir2LibListBox);
+            // 
+            // splitWemdeMir2.Panel2
+            // 
+            splitWemdeMir2.Panel2.Controls.Add(labWemadeMir2OffSetY);
+            splitWemdeMir2.Panel2.Controls.Add(labeWemadeMir2OffSetX);
+            splitWemdeMir2.Panel2.Controls.Add(LabWemadeMir2Height);
+            splitWemdeMir2.Panel2.Controls.Add(LabWemadeMir2Width);
+            splitWemdeMir2.Panel2.Controls.Add(picWemdeMir2);
+            splitWemdeMir2.Panel2.Controls.Add(WemadeMir2LibListView);
+            splitWemdeMir2.Panel2MinSize = 200;
+            splitWemdeMir2.Size = new System.Drawing.Size(1721, 974);
+            splitWemdeMir2.SplitterDistance = 200;
+            splitWemdeMir2.SplitterWidth = 6;
+            splitWemdeMir2.TabIndex = 10;
+            // 
             // labWemadeMir2OffSetY
             // 
             labWemadeMir2OffSetY.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labWemadeMir2OffSetY.AutoSize = true;
             labWemadeMir2OffSetY.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labWemadeMir2OffSetY.Location = new System.Drawing.Point(1740, 73);
+            labWemadeMir2OffSetY.Location = new System.Drawing.Point(1380, 73);
             labWemadeMir2OffSetY.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labWemadeMir2OffSetY.Name = "labWemadeMir2OffSetY";
             labWemadeMir2OffSetY.Size = new System.Drawing.Size(59, 20);
@@ -814,7 +854,7 @@
             labeWemadeMir2OffSetX.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labeWemadeMir2OffSetX.AutoSize = true;
             labeWemadeMir2OffSetX.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labeWemadeMir2OffSetX.Location = new System.Drawing.Point(1740, 25);
+            labeWemadeMir2OffSetX.Location = new System.Drawing.Point(1380, 25);
             labeWemadeMir2OffSetX.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labeWemadeMir2OffSetX.Name = "labeWemadeMir2OffSetX";
             labeWemadeMir2OffSetX.Size = new System.Drawing.Size(60, 20);
@@ -826,7 +866,7 @@
             LabWemadeMir2Height.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             LabWemadeMir2Height.AutoSize = true;
             LabWemadeMir2Height.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            LabWemadeMir2Height.Location = new System.Drawing.Point(1625, 73);
+            LabWemadeMir2Height.Location = new System.Drawing.Point(1265, 73);
             LabWemadeMir2Height.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             LabWemadeMir2Height.Name = "LabWemadeMir2Height";
             LabWemadeMir2Height.Size = new System.Drawing.Size(55, 20);
@@ -838,7 +878,7 @@
             LabWemadeMir2Width.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             LabWemadeMir2Width.AutoSize = true;
             LabWemadeMir2Width.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            LabWemadeMir2Width.Location = new System.Drawing.Point(1625, 25);
+            LabWemadeMir2Width.Location = new System.Drawing.Point(1265, 25);
             LabWemadeMir2Width.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             LabWemadeMir2Width.Name = "LabWemadeMir2Width";
             LabWemadeMir2Width.Size = new System.Drawing.Size(50, 20);
@@ -849,7 +889,7 @@
             // 
             picWemdeMir2.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             picWemdeMir2.BackColor = System.Drawing.Color.Black;
-            picWemdeMir2.Location = new System.Drawing.Point(1630, 135);
+            picWemdeMir2.Location = new System.Drawing.Point(1270, 135);
             picWemdeMir2.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             picWemdeMir2.Name = "picWemdeMir2";
             picWemdeMir2.Size = new System.Drawing.Size(100, 50);
@@ -859,10 +899,11 @@
             // 
             // WemadeMir2LibListBox
             // 
-            WemadeMir2LibListBox.Dock = System.Windows.Forms.DockStyle.Left;
+            WemadeMir2LibListBox.Dock = System.Windows.Forms.DockStyle.Fill;
             WemadeMir2LibListBox.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             WemadeMir2LibListBox.FormattingEnabled = true;
             WemadeMir2LibListBox.ItemHeight = 19;
+            WemadeMir2LibListBox.IntegralHeight = false;
             WemadeMir2LibListBox.Location = new System.Drawing.Point(0, 0);
             WemadeMir2LibListBox.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             WemadeMir2LibListBox.Name = "WemadeMir2LibListBox";
@@ -872,12 +913,12 @@
             // 
             // WemadeMir2LibListView
             // 
-            WemadeMir2LibListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            WemadeMir2LibListView.Dock = System.Windows.Forms.DockStyle.Fill;
             WemadeMir2LibListView.LargeImageList = WemadeMir2ImageList;
-            WemadeMir2LibListView.Location = new System.Drawing.Point(188, 5);
+            WemadeMir2LibListView.Location = new System.Drawing.Point(0, 0);
             WemadeMir2LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             WemadeMir2LibListView.Name = "WemadeMir2LibListView";
-            WemadeMir2LibListView.Size = new System.Drawing.Size(1331, 1010);
+            WemadeMir2LibListView.Size = new System.Drawing.Size(1515, 974);
             WemadeMir2LibListView.TabIndex = 9;
             WemadeMir2LibListView.UseCompatibleStateImageBehavior = false;
             WemadeMir2LibListView.VirtualMode = true;
@@ -893,13 +934,7 @@
             // 
             // tabShandaMir2
             // 
-            tabShandaMir2.Controls.Add(labshandaMir2OffSetY);
-            tabShandaMir2.Controls.Add(labShandaMir2OffSetX);
-            tabShandaMir2.Controls.Add(labShandaMir2Height);
-            tabShandaMir2.Controls.Add(labShandaMir2Width);
-            tabShandaMir2.Controls.Add(picShandaMir2);
-            tabShandaMir2.Controls.Add(ShandaMir2LibListBox);
-            tabShandaMir2.Controls.Add(ShandaMir2LibListView);
+            tabShandaMir2.Controls.Add(splitShandaMir2);
             tabShandaMir2.Location = new System.Drawing.Point(4, 29);
             tabShandaMir2.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             tabShandaMir2.Name = "tabShandaMir2";
@@ -909,12 +944,36 @@
             tabShandaMir2.ToolTipText = "(F2)";
             tabShandaMir2.UseVisualStyleBackColor = true;
             // 
+            // splitShandaMir2（左右可拖分割：左侧图库列表 / 右侧编号缩略图+预览）
+            // 
+            splitShandaMir2.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitShandaMir2.Location = new System.Drawing.Point(0, 0);
+            splitShandaMir2.Name = "splitShandaMir2";
+            // 
+            // splitShandaMir2.Panel1
+            // 
+            splitShandaMir2.Panel1.Controls.Add(ShandaMir2LibListBox);
+            // 
+            // splitShandaMir2.Panel2
+            // 
+            splitShandaMir2.Panel2.Controls.Add(labshandaMir2OffSetY);
+            splitShandaMir2.Panel2.Controls.Add(labShandaMir2OffSetX);
+            splitShandaMir2.Panel2.Controls.Add(labShandaMir2Height);
+            splitShandaMir2.Panel2.Controls.Add(labShandaMir2Width);
+            splitShandaMir2.Panel2.Controls.Add(picShandaMir2);
+            splitShandaMir2.Panel2.Controls.Add(ShandaMir2LibListView);
+            splitShandaMir2.Panel2MinSize = 200;
+            splitShandaMir2.Size = new System.Drawing.Size(1721, 974);
+            splitShandaMir2.SplitterDistance = 175;
+            splitShandaMir2.SplitterWidth = 6;
+            splitShandaMir2.TabIndex = 8;
+            // 
             // labshandaMir2OffSetY
             // 
             labshandaMir2OffSetY.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labshandaMir2OffSetY.AutoSize = true;
             labshandaMir2OffSetY.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labshandaMir2OffSetY.Location = new System.Drawing.Point(1732, 70);
+            labshandaMir2OffSetY.Location = new System.Drawing.Point(1380, 70);
             labshandaMir2OffSetY.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labshandaMir2OffSetY.Name = "labshandaMir2OffSetY";
             labshandaMir2OffSetY.Size = new System.Drawing.Size(59, 20);
@@ -926,7 +985,7 @@
             labShandaMir2OffSetX.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labShandaMir2OffSetX.AutoSize = true;
             labShandaMir2OffSetX.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labShandaMir2OffSetX.Location = new System.Drawing.Point(1732, 22);
+            labShandaMir2OffSetX.Location = new System.Drawing.Point(1380, 22);
             labShandaMir2OffSetX.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labShandaMir2OffSetX.Name = "labShandaMir2OffSetX";
             labShandaMir2OffSetX.Size = new System.Drawing.Size(60, 20);
@@ -938,7 +997,7 @@
             labShandaMir2Height.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labShandaMir2Height.AutoSize = true;
             labShandaMir2Height.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labShandaMir2Height.Location = new System.Drawing.Point(1617, 70);
+            labShandaMir2Height.Location = new System.Drawing.Point(1265, 70);
             labShandaMir2Height.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labShandaMir2Height.Name = "labShandaMir2Height";
             labShandaMir2Height.Size = new System.Drawing.Size(55, 20);
@@ -950,7 +1009,7 @@
             labShandaMir2Width.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labShandaMir2Width.AutoSize = true;
             labShandaMir2Width.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labShandaMir2Width.Location = new System.Drawing.Point(1617, 22);
+            labShandaMir2Width.Location = new System.Drawing.Point(1265, 22);
             labShandaMir2Width.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labShandaMir2Width.Name = "labShandaMir2Width";
             labShandaMir2Width.Size = new System.Drawing.Size(50, 20);
@@ -961,7 +1020,7 @@
             // 
             picShandaMir2.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             picShandaMir2.BackColor = System.Drawing.Color.Black;
-            picShandaMir2.Location = new System.Drawing.Point(1622, 125);
+            picShandaMir2.Location = new System.Drawing.Point(1270, 125);
             picShandaMir2.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             picShandaMir2.Name = "picShandaMir2";
             picShandaMir2.Size = new System.Drawing.Size(100, 50);
@@ -971,10 +1030,11 @@
             // 
             // ShandaMir2LibListBox
             // 
-            ShandaMir2LibListBox.Dock = System.Windows.Forms.DockStyle.Left;
+            ShandaMir2LibListBox.Dock = System.Windows.Forms.DockStyle.Fill;
             ShandaMir2LibListBox.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             ShandaMir2LibListBox.FormattingEnabled = true;
             ShandaMir2LibListBox.ItemHeight = 19;
+            ShandaMir2LibListBox.IntegralHeight = false;
             ShandaMir2LibListBox.Location = new System.Drawing.Point(0, 0);
             ShandaMir2LibListBox.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             ShandaMir2LibListBox.Name = "ShandaMir2LibListBox";
@@ -984,12 +1044,12 @@
             // 
             // ShandaMir2LibListView
             // 
-            ShandaMir2LibListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            ShandaMir2LibListView.Dock = System.Windows.Forms.DockStyle.Fill;
             ShandaMir2LibListView.LargeImageList = ShandaMir2ImageList;
-            ShandaMir2LibListView.Location = new System.Drawing.Point(176, 2);
+            ShandaMir2LibListView.Location = new System.Drawing.Point(0, 0);
             ShandaMir2LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             ShandaMir2LibListView.Name = "ShandaMir2LibListView";
-            ShandaMir2LibListView.Size = new System.Drawing.Size(1432, 1013);
+            ShandaMir2LibListView.Size = new System.Drawing.Size(1540, 974);
             ShandaMir2LibListView.TabIndex = 7;
             ShandaMir2LibListView.UseCompatibleStateImageBehavior = false;
             ShandaMir2LibListView.VirtualMode = true;
@@ -1005,13 +1065,7 @@
             // 
             // tabWemadeMir3
             // 
-            tabWemadeMir3.Controls.Add(labWemadeMir3OffSetY);
-            tabWemadeMir3.Controls.Add(labeWemadeMir3OffSetX);
-            tabWemadeMir3.Controls.Add(LabWemadeMir3Height);
-            tabWemadeMir3.Controls.Add(LabWemadeMir3Width);
-            tabWemadeMir3.Controls.Add(picWemdeMir3);
-            tabWemadeMir3.Controls.Add(WemadeMir3LibListBox);
-            tabWemadeMir3.Controls.Add(WemadeMir3LibListView);
+            tabWemadeMir3.Controls.Add(splitWemdeMir3);
             tabWemadeMir3.Location = new System.Drawing.Point(4, 29);
             tabWemadeMir3.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             tabWemadeMir3.Name = "tabWemadeMir3";
@@ -1021,12 +1075,36 @@
             tabWemadeMir3.ToolTipText = "(F3)";
             tabWemadeMir3.UseVisualStyleBackColor = true;
             // 
+            // splitWemdeMir3（左右可拖分割：左侧图库列表 / 右侧编号缩略图+预览）
+            // 
+            splitWemdeMir3.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitWemdeMir3.Location = new System.Drawing.Point(0, 0);
+            splitWemdeMir3.Name = "splitWemdeMir3";
+            // 
+            // splitWemdeMir3.Panel1
+            // 
+            splitWemdeMir3.Panel1.Controls.Add(WemadeMir3LibListBox);
+            // 
+            // splitWemdeMir3.Panel2
+            // 
+            splitWemdeMir3.Panel2.Controls.Add(labWemadeMir3OffSetY);
+            splitWemdeMir3.Panel2.Controls.Add(labeWemadeMir3OffSetX);
+            splitWemdeMir3.Panel2.Controls.Add(LabWemadeMir3Height);
+            splitWemdeMir3.Panel2.Controls.Add(LabWemadeMir3Width);
+            splitWemdeMir3.Panel2.Controls.Add(picWemdeMir3);
+            splitWemdeMir3.Panel2.Controls.Add(WemadeMir3LibListView);
+            splitWemdeMir3.Panel2MinSize = 200;
+            splitWemdeMir3.Size = new System.Drawing.Size(1721, 974);
+            splitWemdeMir3.SplitterDistance = 224;
+            splitWemdeMir3.SplitterWidth = 6;
+            splitWemdeMir3.TabIndex = 10;
+            // 
             // labWemadeMir3OffSetY
             // 
             labWemadeMir3OffSetY.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labWemadeMir3OffSetY.AutoSize = true;
             labWemadeMir3OffSetY.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labWemadeMir3OffSetY.Location = new System.Drawing.Point(1733, 76);
+            labWemadeMir3OffSetY.Location = new System.Drawing.Point(1380, 76);
             labWemadeMir3OffSetY.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labWemadeMir3OffSetY.Name = "labWemadeMir3OffSetY";
             labWemadeMir3OffSetY.Size = new System.Drawing.Size(59, 20);
@@ -1038,7 +1116,7 @@
             labeWemadeMir3OffSetX.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labeWemadeMir3OffSetX.AutoSize = true;
             labeWemadeMir3OffSetX.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labeWemadeMir3OffSetX.Location = new System.Drawing.Point(1733, 29);
+            labeWemadeMir3OffSetX.Location = new System.Drawing.Point(1380, 29);
             labeWemadeMir3OffSetX.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labeWemadeMir3OffSetX.Name = "labeWemadeMir3OffSetX";
             labeWemadeMir3OffSetX.Size = new System.Drawing.Size(60, 20);
@@ -1050,7 +1128,7 @@
             LabWemadeMir3Height.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             LabWemadeMir3Height.AutoSize = true;
             LabWemadeMir3Height.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            LabWemadeMir3Height.Location = new System.Drawing.Point(1618, 76);
+            LabWemadeMir3Height.Location = new System.Drawing.Point(1265, 76);
             LabWemadeMir3Height.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             LabWemadeMir3Height.Name = "LabWemadeMir3Height";
             LabWemadeMir3Height.Size = new System.Drawing.Size(55, 20);
@@ -1062,7 +1140,7 @@
             LabWemadeMir3Width.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             LabWemadeMir3Width.AutoSize = true;
             LabWemadeMir3Width.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            LabWemadeMir3Width.Location = new System.Drawing.Point(1618, 29);
+            LabWemadeMir3Width.Location = new System.Drawing.Point(1265, 29);
             LabWemadeMir3Width.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             LabWemadeMir3Width.Name = "LabWemadeMir3Width";
             LabWemadeMir3Width.Size = new System.Drawing.Size(50, 20);
@@ -1073,7 +1151,7 @@
             // 
             picWemdeMir3.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             picWemdeMir3.BackColor = System.Drawing.Color.Black;
-            picWemdeMir3.Location = new System.Drawing.Point(1624, 131);
+            picWemdeMir3.Location = new System.Drawing.Point(1270, 131);
             picWemdeMir3.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             picWemdeMir3.Name = "picWemdeMir3";
             picWemdeMir3.Size = new System.Drawing.Size(100, 50);
@@ -1083,10 +1161,11 @@
             // 
             // WemadeMir3LibListBox
             // 
-            WemadeMir3LibListBox.Dock = System.Windows.Forms.DockStyle.Left;
+            WemadeMir3LibListBox.Dock = System.Windows.Forms.DockStyle.Fill;
             WemadeMir3LibListBox.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             WemadeMir3LibListBox.FormattingEnabled = true;
             WemadeMir3LibListBox.ItemHeight = 19;
+            WemadeMir3LibListBox.IntegralHeight = false;
             WemadeMir3LibListBox.Location = new System.Drawing.Point(0, 0);
             WemadeMir3LibListBox.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             WemadeMir3LibListBox.Name = "WemadeMir3LibListBox";
@@ -1096,12 +1175,12 @@
             // 
             // WemadeMir3LibListView
             // 
-            WemadeMir3LibListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            WemadeMir3LibListView.Dock = System.Windows.Forms.DockStyle.Fill;
             WemadeMir3LibListView.LargeImageList = WemadeMir3ImageList;
-            WemadeMir3LibListView.Location = new System.Drawing.Point(224, 2);
+            WemadeMir3LibListView.Location = new System.Drawing.Point(0, 0);
             WemadeMir3LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             WemadeMir3LibListView.Name = "WemadeMir3LibListView";
-            WemadeMir3LibListView.Size = new System.Drawing.Size(1375, 1013);
+            WemadeMir3LibListView.Size = new System.Drawing.Size(1491, 974);
             WemadeMir3LibListView.TabIndex = 9;
             WemadeMir3LibListView.UseCompatibleStateImageBehavior = false;
             WemadeMir3LibListView.VirtualMode = true;
@@ -1117,13 +1196,7 @@
             // 
             // tabShandaMir3
             // 
-            tabShandaMir3.Controls.Add(labshandaMir3OffSetY);
-            tabShandaMir3.Controls.Add(labShandaMir3OffSetX);
-            tabShandaMir3.Controls.Add(labShandaMir3Height);
-            tabShandaMir3.Controls.Add(labShandaMir3Width);
-            tabShandaMir3.Controls.Add(picShandaMir3);
-            tabShandaMir3.Controls.Add(ShandaMir3LibListBox);
-            tabShandaMir3.Controls.Add(ShandaMir3LibListView);
+            tabShandaMir3.Controls.Add(splitShandaMir3);
             tabShandaMir3.Location = new System.Drawing.Point(4, 29);
             tabShandaMir3.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             tabShandaMir3.Name = "tabShandaMir3";
@@ -1132,12 +1205,36 @@
             tabShandaMir3.Text = "ShandaMir3(盛大3)";
             tabShandaMir3.UseVisualStyleBackColor = true;
             // 
+            // splitShandaMir3（左右可拖分割：左侧图库列表 / 右侧编号缩略图+预览）
+            // 
+            splitShandaMir3.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitShandaMir3.Location = new System.Drawing.Point(0, 0);
+            splitShandaMir3.Name = "splitShandaMir3";
+            // 
+            // splitShandaMir3.Panel1
+            // 
+            splitShandaMir3.Panel1.Controls.Add(ShandaMir3LibListBox);
+            // 
+            // splitShandaMir3.Panel2
+            // 
+            splitShandaMir3.Panel2.Controls.Add(labshandaMir3OffSetY);
+            splitShandaMir3.Panel2.Controls.Add(labShandaMir3OffSetX);
+            splitShandaMir3.Panel2.Controls.Add(labShandaMir3Height);
+            splitShandaMir3.Panel2.Controls.Add(labShandaMir3Width);
+            splitShandaMir3.Panel2.Controls.Add(picShandaMir3);
+            splitShandaMir3.Panel2.Controls.Add(ShandaMir3LibListView);
+            splitShandaMir3.Panel2MinSize = 200;
+            splitShandaMir3.Size = new System.Drawing.Size(1721, 974);
+            splitShandaMir3.SplitterDistance = 220;
+            splitShandaMir3.SplitterWidth = 6;
+            splitShandaMir3.TabIndex = 10;
+            // 
             // labshandaMir3OffSetY
             // 
             labshandaMir3OffSetY.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labshandaMir3OffSetY.AutoSize = true;
             labshandaMir3OffSetY.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labshandaMir3OffSetY.Location = new System.Drawing.Point(1745, 73);
+            labshandaMir3OffSetY.Location = new System.Drawing.Point(1380, 73);
             labshandaMir3OffSetY.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labshandaMir3OffSetY.Name = "labshandaMir3OffSetY";
             labshandaMir3OffSetY.Size = new System.Drawing.Size(59, 20);
@@ -1149,7 +1246,7 @@
             labShandaMir3OffSetX.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labShandaMir3OffSetX.AutoSize = true;
             labShandaMir3OffSetX.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labShandaMir3OffSetX.Location = new System.Drawing.Point(1745, 25);
+            labShandaMir3OffSetX.Location = new System.Drawing.Point(1380, 25);
             labShandaMir3OffSetX.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labShandaMir3OffSetX.Name = "labShandaMir3OffSetX";
             labShandaMir3OffSetX.Size = new System.Drawing.Size(60, 20);
@@ -1161,7 +1258,7 @@
             labShandaMir3Height.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labShandaMir3Height.AutoSize = true;
             labShandaMir3Height.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labShandaMir3Height.Location = new System.Drawing.Point(1630, 73);
+            labShandaMir3Height.Location = new System.Drawing.Point(1265, 73);
             labShandaMir3Height.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labShandaMir3Height.Name = "labShandaMir3Height";
             labShandaMir3Height.Size = new System.Drawing.Size(55, 20);
@@ -1173,7 +1270,7 @@
             labShandaMir3Width.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             labShandaMir3Width.AutoSize = true;
             labShandaMir3Width.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 134);
-            labShandaMir3Width.Location = new System.Drawing.Point(1630, 25);
+            labShandaMir3Width.Location = new System.Drawing.Point(1265, 25);
             labShandaMir3Width.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             labShandaMir3Width.Name = "labShandaMir3Width";
             labShandaMir3Width.Size = new System.Drawing.Size(50, 20);
@@ -1184,7 +1281,7 @@
             // 
             picShandaMir3.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             picShandaMir3.BackColor = System.Drawing.Color.Black;
-            picShandaMir3.Location = new System.Drawing.Point(1636, 130);
+            picShandaMir3.Location = new System.Drawing.Point(1270, 130);
             picShandaMir3.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             picShandaMir3.Name = "picShandaMir3";
             picShandaMir3.Size = new System.Drawing.Size(100, 50);
@@ -1194,10 +1291,11 @@
             // 
             // ShandaMir3LibListBox
             // 
-            ShandaMir3LibListBox.Dock = System.Windows.Forms.DockStyle.Left;
+            ShandaMir3LibListBox.Dock = System.Windows.Forms.DockStyle.Fill;
             ShandaMir3LibListBox.Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             ShandaMir3LibListBox.FormattingEnabled = true;
             ShandaMir3LibListBox.ItemHeight = 19;
+            ShandaMir3LibListBox.IntegralHeight = false;
             ShandaMir3LibListBox.Location = new System.Drawing.Point(0, 0);
             ShandaMir3LibListBox.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             ShandaMir3LibListBox.Name = "ShandaMir3LibListBox";
@@ -1207,12 +1305,12 @@
             // 
             // ShandaMir3LibListView
             // 
-            ShandaMir3LibListView.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            ShandaMir3LibListView.Dock = System.Windows.Forms.DockStyle.Fill;
             ShandaMir3LibListView.LargeImageList = ShandaMir3ImageList;
-            ShandaMir3LibListView.Location = new System.Drawing.Point(219, 0);
+            ShandaMir3LibListView.Location = new System.Drawing.Point(0, 0);
             ShandaMir3LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             ShandaMir3LibListView.Name = "ShandaMir3LibListView";
-            ShandaMir3LibListView.Size = new System.Drawing.Size(1377, 1015);
+            ShandaMir3LibListView.Size = new System.Drawing.Size(1495, 974);
             ShandaMir3LibListView.TabIndex = 9;
             ShandaMir3LibListView.UseCompatibleStateImageBehavior = false;
             ShandaMir3LibListView.VirtualMode = true;
@@ -1323,8 +1421,7 @@
             // 
             // tabTiles
             // 
-            tabTiles.Controls.Add(picTile);
-            tabTiles.Controls.Add(TileslistView);
+            tabTiles.Controls.Add(splitTiles);
             tabTiles.Location = new System.Drawing.Point(4, 29);
             tabTiles.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             tabTiles.Name = "tabTiles";
@@ -1334,27 +1431,46 @@
             tabTiles.ToolTipText = "(T)";
             tabTiles.UseVisualStyleBackColor = true;
             // 
+            // splitTiles（左右可拖分割：左侧图块编号 / 右侧大图预览）
+            // 
+            splitTiles.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitTiles.Location = new System.Drawing.Point(0, 0);
+            splitTiles.Name = "splitTiles";
+            // 
+            // splitTiles.Panel1
+            // 
+            splitTiles.Panel1.Controls.Add(TileslistView);
+            // 
+            // splitTiles.Panel2
+            // 
+            splitTiles.Panel2.Controls.Add(picTile);
+            splitTiles.Panel2MinSize = 100;
+            splitTiles.Size = new System.Drawing.Size(1721, 974);
+            splitTiles.SplitterDistance = 1000;
+            splitTiles.SplitterWidth = 6;
+            splitTiles.TabIndex = 10;
+            // 
             // picTile
             // 
-            picTile.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             picTile.BackColor = System.Drawing.Color.Black;
             picTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            picTile.Location = new System.Drawing.Point(1563, 24);
+            picTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            picTile.Location = new System.Drawing.Point(0, 0);
             picTile.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             picTile.Name = "picTile";
-            picTile.Size = new System.Drawing.Size(935, 762);
-            picTile.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+            picTile.Size = new System.Drawing.Size(715, 974);
+            picTile.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             picTile.TabIndex = 11;
             picTile.TabStop = false;
             // 
             // TileslistView
             // 
-            TileslistView.Dock = System.Windows.Forms.DockStyle.Left;
+            TileslistView.Dock = System.Windows.Forms.DockStyle.Fill;
             TileslistView.LargeImageList = TilesImageList;
             TileslistView.Location = new System.Drawing.Point(0, 0);
             TileslistView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             TileslistView.Name = "TileslistView";
-            TileslistView.Size = new System.Drawing.Size(1539, 974);
+            TileslistView.Size = new System.Drawing.Size(1000, 974);
             TileslistView.TabIndex = 10;
             TileslistView.UseCompatibleStateImageBehavior = false;
             TileslistView.VirtualMode = true;
@@ -1749,19 +1865,37 @@
             TreeViewBox.Controls.Add(TreeBrowser);
             TreeViewBox.Controls.Add(PathTextBox);
             TreeViewBox.Controls.Add(OpenMapDirectory);
-            TreeViewBox.Location = new System.Drawing.Point(1729, 54);
+            TreeViewBox.Dock = System.Windows.Forms.DockStyle.Fill;
             TreeViewBox.Name = "TreeViewBox";
             TreeViewBox.Size = new System.Drawing.Size(253, 1007);
             TreeViewBox.TabIndex = 9;
             TreeViewBox.TabStop = false;
+            // 
+            // splitMain（主分割条：左侧标签页编辑区 / 右侧地图文件树，可拖动调整宽度）
+            // 
+            splitMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitMain.Location = new System.Drawing.Point(0, 54);
+            splitMain.Name = "splitMain";
+            // 
+            // splitMain.Panel1
+            // 
+            splitMain.Panel1.Controls.Add(tabControl1);
+            // 
+            // splitMain.Panel2
+            // 
+            splitMain.Panel2.Controls.Add(TreeViewBox);
+            splitMain.Panel2MinSize = 180;
+            splitMain.Size = new System.Drawing.Size(1982, 1007);
+            splitMain.SplitterDistance = 1729;
+            splitMain.SplitterWidth = 6;
+            splitMain.TabIndex = 6;
             // 
             // Main
             // 
             AutoScaleDimensions = new System.Drawing.SizeF(8F, 19F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             ClientSize = new System.Drawing.Size(1982, 1061);
-            Controls.Add(TreeViewBox);
-            Controls.Add(tabControl1);
+            Controls.Add(splitMain);
             Controls.Add(toolStrip1);
             Controls.Add(menuStrip1);
             Font = new System.Drawing.Font("Microsoft YaHei", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
@@ -1823,6 +1957,32 @@
             menuStrip1.PerformLayout();
             TreeViewBox.ResumeLayout(false);
             TreeViewBox.PerformLayout();
+            splitWemdeMir2.Panel1.ResumeLayout(false);
+            splitWemdeMir2.Panel2.ResumeLayout(false);
+            splitWemdeMir2.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir2).EndInit();
+            splitWemdeMir2.ResumeLayout(false);
+            splitShandaMir2.Panel1.ResumeLayout(false);
+            splitShandaMir2.Panel2.ResumeLayout(false);
+            splitShandaMir2.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir2).EndInit();
+            splitShandaMir2.ResumeLayout(false);
+            splitWemdeMir3.Panel1.ResumeLayout(false);
+            splitWemdeMir3.Panel2.ResumeLayout(false);
+            splitWemdeMir3.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir3).EndInit();
+            splitWemdeMir3.ResumeLayout(false);
+            splitShandaMir3.Panel1.ResumeLayout(false);
+            splitShandaMir3.Panel2.ResumeLayout(false);
+            splitShandaMir3.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir3).EndInit();
+            splitShandaMir3.ResumeLayout(false);
+            splitTiles.Panel1.ResumeLayout(false);
+            splitTiles.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitTiles).EndInit();
+            splitTiles.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitMain).EndInit();
+            splitMain.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -1979,6 +2139,12 @@
         private System.Windows.Forms.TextBox PathTextBox;
         private System.Windows.Forms.Button OpenMapDirectory;
         private System.Windows.Forms.GroupBox TreeViewBox;
+        private System.Windows.Forms.SplitContainer splitMain;
+        private System.Windows.Forms.SplitContainer splitWemdeMir2;
+        private System.Windows.Forms.SplitContainer splitShandaMir2;
+        private System.Windows.Forms.SplitContainer splitWemdeMir3;
+        private System.Windows.Forms.SplitContainer splitShandaMir3;
+        private System.Windows.Forms.SplitContainer splitTiles;
     }
 }
 
