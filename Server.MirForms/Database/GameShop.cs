@@ -50,10 +50,15 @@ namespace Server
             GameShopListBox.Items.Clear();
 
             // 20261115 修复（十问⑥）：职业筛选列表原样列数据英文 Class 值（Warrior/Archer...），改 ListBoxItem 显示中文、值保英文原值
+            // 20261115 修复（三轮⑥）：职业筛选固定列出全六项（原数据驱动方式在商城数据只有 All 时只剩「全部职业」一项）；
+            // 数据里出现固定集之外的 Class 值仍追加兜底，显示走 ClassDisplay、值保英文原值
             ClassFilter_lb.Items.Add(new ListBoxItem { DisplayMember = "全部职业", ValueMember = null });
             CategoryFilter_lb.Items.Add("全部分类");
 
-            HashSet<string> seenClasses = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<string> seenClasses = new HashSet<string>(StringComparer.Ordinal) { "All", "Warrior", "Assassin", "Taoist", "Wizard", "Archer" };
+            foreach (string fixedClass in new[] { "Warrior", "Assassin", "Taoist", "Wizard", "Archer" })
+                ClassFilter_lb.Items.Add(new ListBoxItem { DisplayMember = ClassDisplay(fixedClass), ValueMember = fixedClass });
+
             for (int i = 0; i < SMain.EditEnvir.GameShopList.Count; i++)
             {
                 string cls = SMain.EditEnvir.GameShopList[i].Class;
