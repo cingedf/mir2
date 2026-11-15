@@ -366,6 +366,70 @@ namespace Map_Editor
             graphics = Graphics.FromHwnd(MapPanel.Handle);
         }
 
+        /// <summary>
+        /// 修复：帮助页原为英文背景大图，现改为运行时注入中文帮助文本（只读 RichTextBox，深底浅字）。
+        /// </summary>
+        private void InitHelpTab()
+        {
+            var help = new System.Windows.Forms.RichTextBox
+            {
+                Dock = System.Windows.Forms.DockStyle.Fill,
+                ReadOnly = true,
+                BackColor = System.Drawing.Color.FromArgb(45, 45, 48),
+                ForeColor = System.Drawing.Color.Gainsboro,
+                Font = new System.Drawing.Font("Microsoft YaHei", 10F),
+                BorderStyle = System.Windows.Forms.BorderStyle.None,
+                DetectUrls = false,
+                WordWrap = true
+            };
+
+            help.Text =
+                "════════════ 地图编辑器使用帮助 ════════════\n\n" +
+                "【基本操作（地图页）】\n" +
+                "  • 新建地图(N)：指定地图宽度/高度后创建新地图\n" +
+                "  • 打开地图(O)：选择客户端 Map 文件夹中的 .Map 文件打开\n" +
+                "  • 保存地图(Ctrl-S)：保存当前地图（放置背面图块或笔刷模式选中时保存会触发图块刷制）\n" +
+                "  • 坐标跳转(J)：在跳转窗口输入 X/Y 坐标，按 Tab 切换输入框，回车跳转\n" +
+                "  • 释放内存：清理未使用的图库资源\n\n" +
+                "【图库页（WemadeMir2 / ShandaMir2 / WemadeMir3 / ShandaMir3）】\n" +
+                "  • 快捷键：F1 / F2 / F3 直接跳到对应图库页\n" +
+                "  • 先在左侧列表选择图库文件，右侧网格即显示图块预览，点击图块可放大查看\n" +
+                "  • 页面右上角显示当前图块的 宽度/高度/偏移X/偏移Y\n" +
+                "  • 上一块(<) / 下一块(小键盘 -)：浏览大图块\n" +
+                "  • 缩小(小键盘 -，分几步) / 放大(小键盘 +，分几步)\n" +
+                "    Shift & -：一步缩到底    Shift & +：一步放到最大\n" +
+                "  • 撤销(Z) / 重做(Ctrl-Z)\n" +
+                "  • 创建小地图(M)：为当前地图生成 MiniMap 参考图\n\n" +
+                "【显示开关（视图菜单 / 勾选框）】\n" +
+                "  • 显示/隐藏 前景图、中间层图、背景图\n" +
+                "  • 显示/隐藏 单元格信息、前景标记、中间层标记\n" +
+                "  • F11 显示/隐藏 背面移动限制（黄色区域）\n" +
+                "  • F12 / Ctrl-F12 显示/隐藏 前景移动限制（红色区域）\n" +
+                "  • 显示/隐藏 网格\n\n" +
+                "【编辑层下拉（编辑层菜单）】\n" +
+                "  • 选择要绘制的图层：无(Esc)、背景图、中间层图、前景图、抓取Mir2前景、\n" +
+                "    放置物件、抓取Mir3前景&中间层、清除前景/中间层/背景图、\n" +
+                "    刷Mir2大图块、刷小图块、刷Mir3大图块、放置背面限制、放置前景限制、清除限制\n" +
+                "  • 按快捷键切换图层后，再按一次 Esc（或再次点击菜单）回到选取状态\n" +
+                "  • 菜单保持选中状态时，部分按键会误触发菜单项，按 Esc 取消选中更稳妥\n" +
+                "  • 技巧：按住 Ctrl 可将图块刷在背面图层（适用于黑色背景等场景）\n\n" +
+                "【物件与另存】\n" +
+                "  • 物件页：列出 Data\\Objects 下的 .X 物件文件；在地图上框选后可用\n" +
+                "    “将选区另存为物件(.X)”保存，供以后整组摆放\n" +
+                "  • 另存为 Object.X(Ctrl-X)：保存地图或选区为物件文件\n" +
+                "  • 反转Mir3图层(Ctrl-I)：将 Mir3 地图的中间层与前景层互换后另存为 .Mir3，\n" +
+                "    当前地图同时反转。此操作无法撤销！\n\n" +
+                "【图块裁剪页】\n" +
+                "  • 载入图片后按图块尺寸(48x32 / 96x64)切分，可用“#”切换网格，\n" +
+                "    选好后“保存图库”导出为 .lib\n" +
+                "  • 载入图片处也可用于快速载入参考图\n\n" +
+                "【其他】\n" +
+                "  • 关于(Ctrl-A)：版本与作者信息\n" +
+                "  • 地图信息按钮：查看当前地图的图库引用状态（可用/文件缺失/无效索引）并支持重映射";
+
+            tabHelp.Controls.Add(help);
+        }
+
         private void Main_Load(object sender, EventArgs e)
         {
             Libraries.LoadGameLibraries();
@@ -378,6 +442,8 @@ namespace Map_Editor
             ReadObjectsToListBox();
 
             DXManager.Create(MapPanel);
+
+            InitHelpTab();
 
             //TileCutter
             comboBox_cellSize.SelectedIndex = 0;
@@ -1580,7 +1646,7 @@ namespace Map_Editor
             _shandaMir2IndexList.Add(e.ItemIndex, ShandaMir2ImageList.Images.Count);
             Libraries.MapLibs[shangdaMir2ListItem.Value].CheckImage(e.ItemIndex);
             ShandaMir2ImageList.Images.Add(Libraries.MapLibs[shangdaMir2ListItem.Value].GetPreview(e.ItemIndex));
-            e.Item = new ListViewItem {ImageIndex = index, Text = e.ItemIndex.ToString()};
+            e.Item = new ListViewItem {ImageIndex = ShandaMir2ImageList.Images.Count - 1, Text = e.ItemIndex.ToString()}; //修复：缓存未命中时应用刚添加的预览图索引，原代码误用未赋值的 index（恒为0）导致图块页错位/空白
             Libraries.MapLibs[shangdaMir2ListItem.Value].Images[e.ItemIndex] = null;
         }
 
@@ -1597,7 +1663,7 @@ namespace Map_Editor
             _wemadeMir2IndexList.Add(e.ItemIndex, WemadeMir2ImageList.Images.Count);
             Libraries.MapLibs[wemadeMir2ListItem.Value].CheckImage(e.ItemIndex);
             WemadeMir2ImageList.Images.Add(Libraries.MapLibs[wemadeMir2ListItem.Value].GetPreview(e.ItemIndex));
-            e.Item = new ListViewItem {ImageIndex = index, Text = e.ItemIndex.ToString()};
+            e.Item = new ListViewItem {ImageIndex = WemadeMir2ImageList.Images.Count - 1, Text = e.ItemIndex.ToString()}; //修复：缓存未命中时应用刚添加的预览图索引，原代码误用未赋值的 index（恒为0）导致图块页错位/空白
             Libraries.MapLibs[wemadeMir2ListItem.Value].Images[e.ItemIndex] = null;
         }
 
@@ -1624,7 +1690,7 @@ namespace Map_Editor
             _wemadeMir3IndexList.Add(e.ItemIndex, WemadeMir3ImageList.Images.Count);
             Libraries.MapLibs[wemadeMir3ListItem.Value].CheckImage(e.ItemIndex);
             WemadeMir3ImageList.Images.Add(Libraries.MapLibs[wemadeMir3ListItem.Value].GetPreview(e.ItemIndex));
-            e.Item = new ListViewItem {ImageIndex = index, Text = e.ItemIndex.ToString()};
+            e.Item = new ListViewItem {ImageIndex = WemadeMir3ImageList.Images.Count - 1, Text = e.ItemIndex.ToString()}; //修复：缓存未命中时应用刚添加的预览图索引，原代码误用未赋值的 index（恒为0）导致图块页错位/空白
             Libraries.MapLibs[wemadeMir3ListItem.Value].Images[e.ItemIndex] = null;
         }
 
@@ -1668,7 +1734,7 @@ namespace Map_Editor
             _shandaMir3IndexList.Add(e.ItemIndex, ShandaMir3ImageList.Images.Count);
             Libraries.MapLibs[shangdaMir3ListItem.Value].CheckImage(e.ItemIndex);
             ShandaMir3ImageList.Images.Add(Libraries.MapLibs[shangdaMir3ListItem.Value].GetPreview(e.ItemIndex));
-            e.Item = new ListViewItem {ImageIndex = index, Text = e.ItemIndex.ToString()};
+            e.Item = new ListViewItem {ImageIndex = ShandaMir3ImageList.Images.Count - 1, Text = e.ItemIndex.ToString()}; //修复：缓存未命中时应用刚添加的预览图索引，原代码误用未赋值的 index（恒为0）导致图块页错位/空白
             Libraries.MapLibs[shangdaMir3ListItem.Value].Images[e.ItemIndex] = null;
         }
 
@@ -4469,7 +4535,7 @@ namespace Map_Editor
             _tilesIndexList.Add(e.ItemIndex, TilesImageList.Images.Count);
 
             TilesImageList.Images.Add(GetTilesPreview(selectListItem, e.ItemIndex));
-            e.Item = new ListViewItem {ImageIndex = index, Text = e.ItemIndex.ToString()};
+            e.Item = new ListViewItem {ImageIndex = TilesImageList.Images.Count - 1, Text = e.ItemIndex.ToString()}; //修复：缓存未命中时应用刚添加的预览图索引，原代码误用未赋值的 index（恒为0）导致图块页错位/空白
             Libraries.MapLibs[selectListItem.Value].Images[e.ItemIndex] = null;
         }
 

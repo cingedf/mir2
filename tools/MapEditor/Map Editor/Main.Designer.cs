@@ -793,7 +793,7 @@
             tabWemadeMir2.Name = "tabWemadeMir2";
             tabWemadeMir2.Size = new System.Drawing.Size(1721, 974);
             tabWemadeMir2.TabIndex = 5;
-            tabWemadeMir2.Text = "WemadeMir2";
+            tabWemadeMir2.Text = "WemadeMir2(2D经典)";
             tabWemadeMir2.ToolTipText = "(F1)";
             tabWemadeMir2.UseVisualStyleBackColor = true;
             // 
@@ -905,7 +905,7 @@
             tabShandaMir2.Name = "tabShandaMir2";
             tabShandaMir2.Size = new System.Drawing.Size(1721, 974);
             tabShandaMir2.TabIndex = 4;
-            tabShandaMir2.Text = "ShandaMir2";
+            tabShandaMir2.Text = "ShandaMir2(盛大2)";
             tabShandaMir2.ToolTipText = "(F2)";
             tabShandaMir2.UseVisualStyleBackColor = true;
             // 
@@ -1017,7 +1017,7 @@
             tabWemadeMir3.Name = "tabWemadeMir3";
             tabWemadeMir3.Size = new System.Drawing.Size(1721, 974);
             tabWemadeMir3.TabIndex = 6;
-            tabWemadeMir3.Text = "WemadeMir3";
+            tabWemadeMir3.Text = "WemadeMir3(3D经典)";
             tabWemadeMir3.ToolTipText = "(F3)";
             tabWemadeMir3.UseVisualStyleBackColor = true;
             // 
@@ -1129,7 +1129,7 @@
             tabShandaMir3.Name = "tabShandaMir3";
             tabShandaMir3.Size = new System.Drawing.Size(1721, 974);
             tabShandaMir3.TabIndex = 7;
-            tabShandaMir3.Text = "ShandaMir3";
+            tabShandaMir3.Text = "ShandaMir3(盛大3)";
             tabShandaMir3.UseVisualStyleBackColor = true;
             // 
             // labshandaMir3OffSetY
@@ -1560,8 +1560,7 @@
             // 
             tabHelp.AutoScroll = true;
             tabHelp.BackColor = System.Drawing.SystemColors.ControlDarkDark;
-            tabHelp.BackgroundImage = (System.Drawing.Image)resources.GetObject("tabHelp.BackgroundImage");
-            tabHelp.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
+            //修复：移除英文帮助背景大图（tabHelp.BackgroundImage），帮助内容改由 Main.cs 运行时注入的中文 RichTextBox 呈现
             tabHelp.Location = new System.Drawing.Point(4, 29);
             tabHelp.Name = "tabHelp";
             tabHelp.Padding = new System.Windows.Forms.Padding(3);
@@ -1759,7 +1758,7 @@
             // Main
             // 
             AutoScaleDimensions = new System.Drawing.SizeF(8F, 19F);
-            AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             ClientSize = new System.Drawing.Size(1982, 1061);
             Controls.Add(TreeViewBox);
             Controls.Add(tabControl1);
