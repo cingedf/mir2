@@ -29,22 +29,34 @@ namespace Server
             UpdateRandomItemStats();
 
             this.BaseStatType.ValueType = typeof(Stat);
-            this.BaseStatType.DataSource = Enum.GetValues(typeof(Stat));
+            this.BaseStatType.DataSource = BuildEnumTable<Stat>();
+            this.BaseStatType.ValueMember = "Value";
+            this.BaseStatType.DisplayMember = "Display";
 
             this.BaseStatFormula.ValueType = typeof(StatFormula);
-            this.BaseStatFormula.DataSource = Enum.GetValues(typeof(StatFormula));
+            this.BaseStatFormula.DataSource = BuildEnumTable<StatFormula>();
+            this.BaseStatFormula.ValueMember = "Value";
+            this.BaseStatFormula.DisplayMember = "Display";
 
             this.CapType.ValueType = typeof(Stat);
-            this.CapType.DataSource = Enum.GetValues(typeof(Stat));
+            this.CapType.DataSource = BuildEnumTable<Stat>();
+            this.CapType.ValueMember = "Value";
+            this.CapType.DisplayMember = "Display";
 
             this.HeroBaseStatType.ValueType = typeof(Stat);
-            this.HeroBaseStatType.DataSource = Enum.GetValues(typeof(Stat));
+            this.HeroBaseStatType.DataSource = BuildEnumTable<Stat>();
+            this.HeroBaseStatType.ValueMember = "Value";
+            this.HeroBaseStatType.DisplayMember = "Display";
 
             this.HeroBaseStatFormula.ValueType = typeof(StatFormula);
-            this.HeroBaseStatFormula.DataSource = Enum.GetValues(typeof(StatFormula));
+            this.HeroBaseStatFormula.DataSource = BuildEnumTable<StatFormula>();
+            this.HeroBaseStatFormula.ValueMember = "Value";
+            this.HeroBaseStatFormula.DisplayMember = "Display";
 
             this.HeroCapType.ValueType = typeof(Stat);
-            this.HeroCapType.DataSource = Enum.GetValues(typeof(Stat));
+            this.HeroCapType.DataSource = BuildEnumTable<Stat>();
+            this.HeroCapType.ValueMember = "Value";
+            this.HeroCapType.DisplayMember = "Display";
 
             // Populate hero tab (keep it simple, like other tabs).
             if (HeroClassComboBox.Items.Count > 0)
@@ -57,6 +69,24 @@ namespace Server
                 UpdateHeroClassCapGridView();
                 Populating = false;
             }
+        }
+
+        // 20261115 汉化（H6）：枚举下拉数据源统一走本地化表（Value 列保持枚举类型，赋值/读取链 (Stat)/(StatFormula) 强转零影响）
+        private static System.Data.DataTable BuildEnumTable<T>() where T : struct, Enum
+        {
+            var table = new System.Data.DataTable();
+            table.Columns.Add("Value", typeof(T));
+            table.Columns.Add("Display", typeof(string));
+
+            foreach (T value in Enum.GetValues(typeof(T)))
+            {
+                var row = table.NewRow();
+                row["Value"] = value;
+                row["Display"] = value.ToLocalizedServerString();
+                table.Rows.Add(row);
+            }
+
+            return table;
         }
 
         private void BalanceConfigForm_FormClosed(object sender, FormClosedEventArgs e)
@@ -1685,7 +1715,8 @@ namespace Server
         {
             if (Populating) return;
 
-            var str = string.Format("{0} - {1}\r\r", ((MirClass)SelectedClassID), type);
+            // 20261115 汉化（H7）：示例标题中的属性名经本地化映射显示中文
+            var str = string.Format("{0} - {1}\r\r", ((MirClass)SelectedClassID), type.ToLocalizedServerString());
 
             BaseStats classStats = Settings.ClassBaseStats[SelectedClassID];
 
