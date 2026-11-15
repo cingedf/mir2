@@ -128,9 +128,10 @@
             // 
             // MineNametextBox
             // 
-            MineNametextBox.Location = new Point(100, 16);
+            // 20261115 修复（三轮⑨）：100→110 拉开与「采矿方案名称」的紧贴（label 右缘 94）；宽度 120→110 保持与右列（x=230）间距
+            MineNametextBox.Location = new Point(110, 16);
             MineNametextBox.Name = "MineNametextBox";
-            MineNametextBox.Size = new Size(120, 23);
+            MineNametextBox.Size = new Size(110, 23);
             MineNametextBox.TabIndex = 22;
             MineNametextBox.TextChanged += MineNametextBox_TextChanged;
             // 
@@ -417,7 +418,8 @@
             // 
             // MineRemoveIndexbutton
             // 
-            MineRemoveIndexbutton.Location = new Point(218, 6);
+            // 20261115 修复（三轮⑨）：+/- 按钮随方案下拉右移保持紧贴（下拉 91→104 清开 label64 压叠）
+            MineRemoveIndexbutton.Location = new Point(229, 6);
             MineRemoveIndexbutton.Name = "MineRemoveIndexbutton";
             MineRemoveIndexbutton.Size = new Size(21, 21);
             MineRemoveIndexbutton.TabIndex = 26;
@@ -427,7 +429,8 @@
             // 
             // MineAddIndexbutton
             // 
-            MineAddIndexbutton.Location = new Point(189, 6);
+            // 20261115 修复（三轮⑨）：随方案下拉右移保持紧贴（189→202，下拉右缘 196 + 6px）
+            MineAddIndexbutton.Location = new Point(202, 6);
             MineAddIndexbutton.Name = "MineAddIndexbutton";
             MineAddIndexbutton.Size = new Size(21, 21);
             MineAddIndexbutton.TabIndex = 25;
@@ -439,7 +442,8 @@
             // 
             MineIndexcomboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             MineIndexcomboBox.FormattingEnabled = true;
-            MineIndexcomboBox.Location = new Point(91, 6);
+            // 20261115 修复（三轮⑨）：91→104，清开与「选择矿石方案」label64 的压叠（label 右缘 ~89，DPI 放大后曾侵入下拉）
+            MineIndexcomboBox.Location = new Point(104, 6);
             MineIndexcomboBox.Name = "MineIndexcomboBox";
             MineIndexcomboBox.Size = new Size(92, 25);
             MineIndexcomboBox.TabIndex = 23;
