@@ -453,10 +453,12 @@
             heroGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             heroGridView.Columns.AddRange(new DataGridViewColumn[] { HeroBaseStatType, HeroBaseStatFormula, HeroBaseStatBase, HeroBaseStatGain, HeroBaseStatGainRate, HeroBaseStatMax });
             heroGridView.Dock = DockStyle.Bottom;
-            heroGridView.Location = new Point(0, -30);
+            // 20261116 修复英雄页网格列头不可见：原 Location(0,-30)+Size 948 高把列头顶出 panelHeroLeft 可视区，
+            // 对齐职业页 classGridView 模式（y=42 给顶部职业下拉让位，高度 918-42=876）
+            heroGridView.Location = new Point(0, 42);
             heroGridView.Margin = new Padding(4, 4, 4, 4);
             heroGridView.Name = "heroGridView";
-            heroGridView.Size = new Size(575, 948);
+            heroGridView.Size = new Size(575, 876);
             heroGridView.TabIndex = 0;
             heroGridView.CellValidating += heroGridView_CellValidating;
             heroGridView.CellValueChanged += heroGridView_CellValueChanged;
