@@ -1,4 +1,5 @@
-﻿using Server.MirDatabase;
+﻿using System.Data;
+using Server.MirDatabase;
 using Server.MirEnvir;
 
 
@@ -25,7 +26,10 @@ namespace Server
 
             MineZoneComboBox.DataSource = mineItems;
 
-            LightsComboBox.Items.AddRange(Enum.GetValues(typeof(LightSetting)).Cast<object>().ToArray());
+            // 20261115 汉化（H12）：光照下拉改 DataTable 绑定（Display=本地化映射，Value=枚举本身），值/写盘链不变
+            LightsComboBox.DataSource = BuildLightTable();
+            LightsComboBox.DisplayMember = "Display";
+            LightsComboBox.ValueMember = "Value";
 
             List<MonsterInfo> monsterInfoItems = new();
             Envir.MonsterInfoList.ForEach(x => monsterInfoItems.Add(x));
@@ -42,6 +46,31 @@ namespace Server
         private void MapInfoForm_FormClosed(object sender, FormClosedEventArgs e)
         {
             Envir.SaveDB();
+        }
+
+        // 20261115 汉化（H12）：光照枚举表（Value 列保枚举强转，Display 走本地化映射）
+        private static DataTable BuildLightTable()
+        {
+            DataTable table = new DataTable();
+            table.Columns.Add(new DataColumn("Value", typeof(LightSetting)));
+            table.Columns.Add(new DataColumn("Display", typeof(string)));
+
+            foreach (LightSetting setting in Enum.GetValues(typeof(LightSetting)))
+            {
+                DataRow row = table.NewRow();
+                row["Value"] = setting;
+                row["Display"] = setting.ToLocalizedServerString();
+                table.Rows.Add(row);
+            }
+
+            return table;
+        }
+
+        // 20261115 汉化（H12）：从下拉选中项取枚举值（DataTable 绑定后 SelectedItem 是 DataRowView）
+        private LightSetting? GetSelectedLight()
+        {
+            if (LightsComboBox.SelectedItem == null) return null;
+            return (LightSetting)LightsComboBox.SelectedValue;
         }
 
 
@@ -85,7 +114,7 @@ namespace Server
                 MapNameTextBox.Text = string.Empty;
                 MiniMapTextBox.Text = string.Empty;
                 BigMapTextBox.Text = string.Empty;
-                LightsComboBox.SelectedItem = null;
+                if (GetSelectedLight() == null) LightsComboBox.SelectedItem = null;
                 MineComboBox.SelectedItem = null;
                 MusicTextBox.Text = string.Empty;
                 lstParticles.SelectedItems.Clear();
@@ -131,7 +160,7 @@ namespace Server
             MapNameTextBox.Text = mi.Title;
             MiniMapTextBox.Text = mi.MiniMap.ToString();
             BigMapTextBox.Text = mi.BigMap.ToString();
-            LightsComboBox.SelectedItem = mi.Light;
+            LightsComboBox.SelectedValue = mi.Light;
             MineComboBox.SelectedIndex = mi.MineIndex;
             MusicTextBox.Text = mi.Music.ToString();
 
@@ -199,7 +228,7 @@ namespace Server
                 if (MapNameTextBox.Text != mi.Title) MapNameTextBox.Text = string.Empty;
                 if (MiniMapTextBox.Text != mi.MiniMap.ToString()) MiniMapTextBox.Text = string.Empty;
                 if (BigMapTextBox.Text != mi.BigMap.ToString()) BigMapTextBox.Text = string.Empty;
-                if (LightsComboBox.SelectedItem == null || (LightSetting)LightsComboBox.SelectedItem != mi.Light) LightsComboBox.SelectedItem = null;
+                if (GetSelectedLight() == null || GetSelectedLight() != mi.Light) LightsComboBox.SelectedItem = null;
                 if (MineComboBox.SelectedItem == null || MineComboBox.SelectedIndex != mi.MineIndex) MineComboBox.SelectedIndex = 1;
                 if (MusicTextBox.Text != mi.Music.ToString()) MusicTextBox.Text = string.Empty;
 
@@ -736,7 +765,7 @@ namespace Server
             if (ActiveControl != sender) return;
 
             for (int i = 0; i < _selectedMapInfos.Count; i++)
-                _selectedMapInfos[i].Light = (LightSetting)LightsComboBox.SelectedItem;
+                _selectedMapInfos[i].Light = (LightSetting)LightsComboBox.SelectedValue;
         }
         private void AddSZButton_Click(object sender, EventArgs e)
         {
