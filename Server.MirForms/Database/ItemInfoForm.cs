@@ -32,10 +32,38 @@ namespace Server
             ISetComboBox.Items.AddRange(Enum.GetValues(typeof(ItemSet)).Cast<object>().ToArray());
 
             ITypeFilterComboBox.Items.AddRange(Enum.GetValues(typeof(ItemType)).Cast<object>().ToArray());
-            ITypeFilterComboBox.Items.Add(new ComboBoxItem { Text = "All" });
+            // 20261115 汉化（三轮③顺手）：筛选哨兵 "All" → "全部"（判断逻辑按 SelectedIndex==Count-1，与文案无关，安全）
+            ITypeFilterComboBox.Items.Add(new ComboBoxItem { Text = "全部" });
             ITypeFilterComboBox.SelectedIndex = ITypeFilterComboBox.Items.Count - 1;
 
+            // 20261115 修复（三轮③）：用户实开窗体为旧版「物品信息列表」（SMain 物品信息菜单 → ItemInfoForm），
+            // 其枚举下拉闭合态直接显示英文枚举名（MaxDC/MaxAC 等）。DrawMode 改 OwnerDrawFixed 后经 DrawItem
+            // 统一走 ToLocalizedServerString 显示中文（json 无键回退原名）；Items 保持原始枚举，
+            // SelectedItem/SelectedIndex 语义完全不变，编辑与回写逻辑零改动。
+            foreach (ComboBox combo in new ComboBox[]
+                     { ITypeComboBox, IGradeComboBox, RTypeComboBox, RClassComboBox, RGenderComboBox, ISetComboBox, ITypeFilterComboBox })
+            {
+                combo.DrawMode = DrawMode.OwnerDrawFixed;
+                combo.DrawItem += LocalizedEnumDrawItem;
+            }
+
             UpdateInterface();
+        }
+
+        // 20261115 修复（三轮③）：枚举下拉闭合态与列表项统一本地化绘制（英文枚举经中文 json Enum 段翻译，无键/非枚举回退原名）
+        private static void LocalizedEnumDrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (sender is ComboBox combo && e.Index >= 0 && e.Index < combo.Items.Count)
+            {
+                object item = combo.Items[e.Index];
+                string text = (item as Enum)?.ToLocalizedServerString() ?? item?.ToString() ?? string.Empty;
+
+                e.DrawBackground();
+                TextRenderer.DrawText(e.Graphics, text, e.Font ?? combo.Font, e.Bounds, e.ForeColor,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+                if ((e.State & DrawItemState.Focus) != 0)
+                    e.DrawFocusRectangle();
+            }
         }
 
         public void RefreshUniqueTab()

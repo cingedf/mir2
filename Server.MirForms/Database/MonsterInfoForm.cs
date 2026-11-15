@@ -16,7 +16,28 @@ namespace Server
             InitializeComponent();
 
             ImageComboBox.Items.AddRange(Enum.GetValues(typeof(Monster)).Cast<object>().ToArray());
+
+            // 20261115 汉化（三轮③顺手）：旧版怪物窗图像下拉闭合态显示英文 Monster 枚举名，同物品窗方案本地化绘制
+            ImageComboBox.DrawMode = DrawMode.OwnerDrawFixed;
+            ImageComboBox.DrawItem += LocalizedEnumDrawItem;
+
             UpdateInterface();
+        }
+
+        // 20261115 修复（三轮③）：枚举下拉闭合态与列表项统一本地化绘制（英文枚举经中文 json Enum 段翻译，无键/非枚举回退原名）
+        private static void LocalizedEnumDrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (sender is ComboBox combo && e.Index >= 0 && e.Index < combo.Items.Count)
+            {
+                object item = combo.Items[e.Index];
+                string text = (item as Enum)?.ToLocalizedServerString() ?? item?.ToString() ?? string.Empty;
+
+                e.DrawBackground();
+                TextRenderer.DrawText(e.Graphics, text, e.Font ?? combo.Font, e.Bounds, e.ForeColor,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+                if ((e.State & DrawItemState.Focus) != 0)
+                    e.DrawFocusRectangle();
+            }
         }
 
         private void AddButton_Click(object sender, EventArgs e)
