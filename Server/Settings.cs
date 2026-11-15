@@ -401,6 +401,8 @@ namespace Server
             MaxUser = Reader.ReadUInt16("Network", "MaxUser", MaxUser);
             MaxIP = Reader.ReadUInt16("Network", "MaxIP", MaxIP);
             MaxPacket = Reader.ReadUInt16("Network", "MaxPacket", MaxPacket);
+            // 20261115 假配置接线：IPBlockSeconds 有消费（Envir.cs:2285 / MirConnection.cs:228 封 IP 时长）但此前无 Load，改 ini 无效
+            IPBlockSeconds = Reader.ReadInt32("Network", "IPBlockSeconds", IPBlockSeconds);
 
             //HTTP
             StartHTTPService = Reader.ReadBoolean("Network", "StartHTTPService", StartHTTPService);
@@ -437,6 +439,9 @@ namespace Server
             ItemTimeOut = Reader.ReadInt32("Game", "ItemTimeOut", ItemTimeOut);
             PlayerDiedItemTimeOut = Reader.ReadInt32("Game", "PlayerDiedItemTimeOut", PlayerDiedItemTimeOut);
             PetSave = Reader.ReadBoolean("Game", "PetSave", PetSave);
+            // 20261115 假配置接线：DropRange/DropStackSize 有消费（HumanObject/MonsterObject/ItemObject 掉落与堆叠）但此前无 Load，改 ini 无效
+            DropRange = Reader.ReadInt32("Game", "DropRange", DropRange);
+            DropStackSize = Reader.ReadInt32("Game", "DropStackSize", DropStackSize);
             MaxBossTames = Math.Max(0, Reader.ReadInt32("Game", "MaxBossTames", MaxBossTames));
             PKDelay = Reader.ReadInt32("Game", "PKDelay", PKDelay);
             MonsterRecallEnabled = Reader.ReadBoolean("Game", "MonsterRecallEnabled", MonsterRecallEnabled);
@@ -695,6 +700,9 @@ namespace Server
             Reader.Write("Network", "TimeOut", TimeOut);
             Reader.Write("Network", "MaxUser", MaxUser);
             Reader.Write("Network", "MaxIP", MaxIP);
+            Reader.Write("Network", "MaxPacket", MaxPacket);
+            // 20261115 假配置接线：IPBlockSeconds 补 Save 回写
+            Reader.Write("Network", "IPBlockSeconds", IPBlockSeconds);
 
             //HTTP
             Reader.Write("Network", "StartHTTPService", StartHTTPService);
@@ -731,6 +739,9 @@ namespace Server
             Reader.Write("Game", "ItemTimeOut", ItemTimeOut);
             Reader.Write("Game", "PlayerDiedItemTimeOut", PlayerDiedItemTimeOut);
             Reader.Write("Game", "PetSave", PetSave);
+            // 20261115 假配置接线：DropRange/DropStackSize 补 Save 回写
+            Reader.Write("Game", "DropRange", DropRange);
+            Reader.Write("Game", "DropStackSize", DropStackSize);
             Reader.Write("Game", "MaxBossTames", MaxBossTames);
             Reader.Write("Game", "PKDelay", PKDelay);
             Reader.Write("Game", "NewbieGuild", NewbieGuild);
