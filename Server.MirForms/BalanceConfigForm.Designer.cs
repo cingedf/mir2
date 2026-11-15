@@ -1849,7 +1849,8 @@
             // lblClassStatExample
             // 
             lblClassStatExample.AutoSize = true;
-            lblClassStatExample.Location = new Point(836, 41);
+            // 20261116 修复：预览 52 行（标题+空行+50级）在 y=41 起绘制时底部超出客户区（仅显示到 49 级），上移到 y=8 完整显示
+            lblClassStatExample.Location = new Point(836, 8);
             lblClassStatExample.Margin = new Padding(4, 0, 4, 0);
             lblClassStatExample.Name = "lblClassStatExample";
             lblClassStatExample.Size = new Size(94, 17);
@@ -1859,7 +1860,8 @@
             // lblHeroStatExample
             // 
             lblHeroStatExample.AutoSize = true;
-            lblHeroStatExample.Location = new Point(838, 77);
+            // 20261116 修复：同 lblClassStatExample（原 y=77 更靠下，仅显示到 47 级），上移到 y=8；两 Label 分属两页互斥显示
+            lblHeroStatExample.Location = new Point(838, 8);
             lblHeroStatExample.Margin = new Padding(4, 0, 4, 0);
             lblHeroStatExample.Name = "lblHeroStatExample";
             lblHeroStatExample.Size = new Size(118, 17);
