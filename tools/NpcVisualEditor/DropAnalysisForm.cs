@@ -59,7 +59,8 @@ namespace NpcVisualEditor
             AddParam(param, "爆率倍率:", x, out _numDropRate, 1, 1, 10000);
             AddParam(param, "掉落收益%:", x + 130, out _numBonus, 101, 0, 1000);
             AddParam(param, "稀有度%:", x + 280, out _numRarity, 0, 0, 1000);
-            AddParam(param, "模拟次数:", x + 420, out _numSims, 100000, 1000, 5000000, 100);
+            // 上限 20 万：同步模拟在 UI 线程执行，50 万以上会冻结界面数分钟；20 万约 1 秒内完成
+            AddParam(param, "模拟次数:", x + 420, out _numSims, 100000, 1000, 200000, 100);
             var btnAnalyze = new Button { Text = "分析", Location = new Point(x + 610, 4), Width = 70 };
             btnAnalyze.Click += (s, e) => ShowCurrent();
             var btnSim = new Button { Text = "模拟产出", Location = new Point(x + 690, 4), Width = 90 };
@@ -170,8 +171,13 @@ namespace NpcVisualEditor
             int sims = (int)_numSims.Value;
             var rng = new Random();
             var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < sims; i++)
-                foreach (var reward in Roll(r.Entries, rng)) AddCount(reward, counts);
+            Cursor = Cursors.WaitCursor; // 同步计算期间给等待反馈（上限已降到 20 万，约 1 秒内）
+            try
+            {
+                for (int i = 0; i < sims; i++)
+                    foreach (var reward in Roll(r.Entries, rng)) AddCount(reward, counts);
+            }
+            finally { Cursor = Cursors.Default; }
             _gridRows.Columns.Clear();
             foreach (var h in new[] { "物品", "产出总数", "每次平均" }) _gridRows.Columns.Add(h, h);
             _gridRows.Columns[0].FillWeight = 300;

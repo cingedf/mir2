@@ -321,7 +321,7 @@ namespace NpcVisualEditor
 
         private static void OpenText(string path)
         {
-            try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
+            try { using var proc = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
             catch (Exception ex) { MessageBox.Show("打开失败: " + ex.Message, "错误"); }
         }
     }

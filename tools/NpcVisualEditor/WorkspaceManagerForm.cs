@@ -251,7 +251,7 @@ namespace NpcVisualEditor
         {
             string p = SelectedPath;
             if (p == null || !Directory.Exists(p)) return;
-            try { Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); }
+            try { using var proc = Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); }
             catch (Exception ex) { MessageBox.Show(ex.Message); }
         }
 

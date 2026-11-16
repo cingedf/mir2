@@ -107,6 +107,12 @@ namespace NpcVisualEditor
                 // 引擎真实 GROUP 语法：1/N GROUP|GROUP*|GROUP^ + 独占行 { }（MonsterInfo.FromLine L348）
                 if (token.StartsWith("GROUP", StringComparison.OrdinalIgnoreCase))
                 {
+                    // 防御恶意/损坏表：GROUP 嵌套过深会导致递归爆栈，>64 层记 issue 并停止深入
+                    if (groupStack.Count >= 64)
+                    {
+                        issues.Add($"GROUP 嵌套过深（>64），已跳过: {line}");
+                        continue;
+                    }
                     var grp = new Entry
                     {
                         Raw = line, Chance = n, ItemName = token, Depth = groupStack.Count,
@@ -151,8 +157,15 @@ namespace NpcVisualEditor
 
         private static double RateFromChance(int chance, double dropRate, int bonusPercent)
         {
-            int rate = (int)(chance / dropRate);              // 截断1
-            if (bonusPercent > 0) rate = (int)(rate / (1.0 + bonusPercent / 100.0)); // 截断2
+            if (dropRate <= 0 || chance <= 0) return 0.0;    // 防御：非法倍率/分母不产生"必掉"
+            double r = chance / dropRate;                     // 截断1（用 double 承接，避免 int 转换溢出）
+            if (double.IsNaN(r) || double.IsInfinity(r)) r = int.MaxValue;
+            int rate = r >= int.MaxValue ? int.MaxValue : (int)r;
+            if (bonusPercent > 0)
+            {
+                double b = rate / (1.0 + bonusPercent / 100.0); // 截断2
+                rate = b >= int.MaxValue ? int.MaxValue : (int)b;
+            }
             if (rate < 1) rate = 1;
             return 1.0 / rate;
         }

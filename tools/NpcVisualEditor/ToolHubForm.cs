@@ -187,7 +187,7 @@ namespace NpcVisualEditor
                     WorkingDirectory = workDir,
                     UseShellExecute = false
                 };
-                Process.Start(psi);
+                using var proc = Process.Start(psi); // 释放进程句柄，不等待（不阻塞 UI）
             }
             catch (Exception ex)
             {

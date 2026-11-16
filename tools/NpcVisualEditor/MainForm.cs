@@ -494,7 +494,8 @@ namespace NpcVisualEditor
                 Location = location,
                 Name = "新NPC",
             };
-            using var dlg = new NpcEditForm(npc, _envir, _serverDir, isNew: true);
+            using var dlg = new NpcEditForm(npc, _envir, _serverDir, isNew: true,
+                onScriptSaved: () => { _merchantCache.Clear(); RefreshNpcLists(); });
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
                 npc.Index = ++_envir.NPCIndex;
@@ -515,7 +516,8 @@ namespace NpcVisualEditor
 
         private void EditNpc(NPCInfo npc)
         {
-            using var dlg = new NpcEditForm(npc, _envir, _serverDir, isNew: false);
+            using var dlg = new NpcEditForm(npc, _envir, _serverDir, isNew: false,
+                onScriptSaved: () => { _merchantCache.Clear(); RefreshNpcLists(); });
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
                 _dirty = true;

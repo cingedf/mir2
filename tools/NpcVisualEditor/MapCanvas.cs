@@ -77,6 +77,8 @@ namespace NpcVisualEditor
         {
             _map = map;
             _npcs = npcs ?? new List<NPCInfo>();
+            // 切换地图：清掉指向旧地图对象的交互态
+            _hover = null; _dragNpc = null; _dragging = false; _movePending = false;
             // 切换地图时先重置视图，再加载新小地图（避免回退尺寸误用上一张图）
             _zoom = 1f; _pan = Point.Empty;
             LoadMinimap();
@@ -96,6 +98,8 @@ namespace NpcVisualEditor
         public void SetNpcs(List<NPCInfo> npcs)
         {
             _npcs = npcs ?? new List<NPCInfo>();
+            // 列表被整体替换（如删除 NPC 后重设）：清掉指向旧对象的交互态，避免悬空高亮/拖动
+            _hover = null; _dragNpc = null; _dragging = false; _movePending = false;
             Invalidate();
         }
 

@@ -18,6 +18,7 @@ namespace NpcVisualEditor
         private readonly Envir _envir;
         private readonly string _serverDir;
         private readonly bool _isNew;
+        private readonly Action _onScriptSaved; // 脚本保存后回调（供主窗体失效商人判定缓存）
 
         private TextBox _txtFileName, _txtName, _txtX, _txtY, _txtImage;
         private ComboBox _cmbMap;
@@ -25,12 +26,13 @@ namespace NpcVisualEditor
         private CheckBox _chkBigMap, _chkTeleport;
         private PictureBox _picPreview;
 
-        public NpcEditForm(NPCInfo npc, Envir envir, string serverDir, bool isNew)
+        public NpcEditForm(NPCInfo npc, Envir envir, string serverDir, bool isNew, Action onScriptSaved = null)
         {
             _npc = npc;
             _envir = envir;
             _serverDir = serverDir;
             _isNew = isNew;
+            _onScriptSaved = onScriptSaved;
 
             Text = isNew ? "新建 NPC" : $"编辑 NPC [{npc.Index}]";
             Font = new Font("Microsoft YaHei UI", 9F);
@@ -93,9 +95,17 @@ namespace NpcVisualEditor
             var btnScript = new Button { Text = "编辑脚本...", Location = new Point(60, y), Width = 100 };
             btnScript.Click += (s, e) =>
             {
+                // 用输入框当前值构造路径（新建 NPC 时尚未提交到 _npc.FileName，否则写到 NPCs\.txt）
+                string fileName = _txtFileName.Text.Trim();
+                if (fileName.Length == 0)
+                {
+                    MessageBox.Show(this, "请先填写脚本文件名，再编辑脚本。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
                 // 引擎约定：NPCScript.LoadInfo = Path.Combine(Settings.NPCPath, FileName + ".txt")
-                string path = System.IO.Path.Combine(_serverDir, "Envir", "NPCs", _npc.FileName + ".txt");
-                using var conv = new ConversationForm(_npc, path, null);
+                string path = System.IO.Path.Combine(_serverDir, "Envir", "NPCs", fileName + ".txt");
+                // 脚本保存后立即失效主窗体商人判定缓存（脚本里可增删 [TRADE] 段）
+                using var conv = new ConversationForm(_npc, path, _onScriptSaved);
                 conv.ShowDialog(this);
             };
             var btnOk = new Button { Text = "确定", Location = new Point(180, y), Width = 80, DialogResult = DialogResult.OK };
@@ -155,6 +165,14 @@ namespace NpcVisualEditor
             if (!int.TryParse(_txtX.Text, out int x) || !int.TryParse(_txtY.Text, out int y))
             {
                 MessageBox.Show(this, "坐标必须是数字。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                DialogResult = DialogResult.None;
+                return;
+            }
+            // 坐标范围防御：负值/离谱值会让 NPC 落到地图外。与空间对象编辑器上限(10000)一致；
+            // 精确地图边界由 MapCanvas 拖动夹取负责。
+            if (x < 0 || x > 10000 || y < 0 || y > 10000)
+            {
+                MessageBox.Show(this, "坐标应在 0~10000 范围内。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 DialogResult = DialogResult.None;
                 return;
             }
