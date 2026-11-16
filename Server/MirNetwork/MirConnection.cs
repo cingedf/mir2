@@ -99,6 +99,7 @@ namespace Server.MirNetwork
         private const int MaxReceiveQueue = 5000;
         private const int MaxSendQueue = 10000;
         private const int MaxProcessPacketsPerTick = 500;
+        private const int MaxRetryQueue = 64; //20261117 审计修复：动作重试队列上限，防包在收包/重试队列间无限循环拖垮全服 tick
         private const int MaxPacketRatePer5Seconds = 5000;
         private const long MaxSendBatchBytes = 1024 * 1024;
 
@@ -750,15 +751,23 @@ namespace Server.MirNetwork
                 // 3.1 Process received packets
                 // ----------------------------------------------------
 
+                int processed = 0; //20261117 审计修复 P2-2：每 tick 处理包数上限，防单连接独占主线程
+
                 while (_receiveList.TryDequeue(out Packet p))
                 {
                     if (p == null)
                         continue;
 
+                    //20261117 审计修复 P1-1：消费时递减队列计数（原计数只增不减，累计 5001 包即误踢玩家）
+                    _receiveQueueCount--;
                     ProcessPacket(p);
 
                     // ProcessPacket() may change the connection state.
                     if (_connectionState != ConnectionState.Connected)
+                        break;
+
+                    processed++;
+                    if (processed >= MaxProcessPacketsPerTick)
                         break;
                 }
 
@@ -771,12 +780,17 @@ namespace Server.MirNetwork
                 {
                     while (_retryList.Count > 0)
                     {
+                        //20261117 审计修复 P1-2：倒回纳入收包队列上限，防无限膨胀
+                        if (_receiveQueueCount >= MaxReceiveQueue)
+                            break;
+
                         Packet retryPacket = _retryList.Dequeue();
 
                         if (retryPacket == null)
                             continue;
 
                         _receiveList.Enqueue(retryPacket);
+                        _receiveQueueCount++; //20261117 审计修复：补 ++ 与消费处 -- 配对，避免计数变负
                     }
                 }
 
@@ -2257,13 +2271,21 @@ namespace Server.MirNetwork
             }
         }
 
+        //20261117 审计修复 P1-2：动作重试入队统一入口，限制队列长度（动作本就延迟执行，丢弃超限重试无伤大雅，
+        //远好过包在收包/重试队列间无限循环拖垮全服 tick）
+        private void TryRetry(Packet p)
+        {
+            if (_retryList.Count < MaxRetryQueue)
+                _retryList.Enqueue(p);
+        }
+
         private void Turn(C.Turn p)
         {
             if (Stage != GameStage.Game)
                 return;
 
             if (Player.ActionTime > Envir.Time)
-                _retryList.Enqueue(p);
+                TryRetry(p);
             else
                 Player.Turn(p.Direction);
         }
@@ -2274,7 +2296,7 @@ namespace Server.MirNetwork
                 return;
 
             if (Player.ActionTime > Envir.Time)
-                _retryList.Enqueue(p);
+                TryRetry(p);
             else
                 Player.Walk(p.Direction);
         }
@@ -2285,7 +2307,7 @@ namespace Server.MirNetwork
                 return;
 
             if (Player.ActionTime > Envir.Time)
-                _retryList.Enqueue(p);
+                TryRetry(p);
             else
                 Player.Run(p.Direction);
         }
@@ -2653,7 +2675,7 @@ namespace Server.MirNetwork
             if (!Player.Dead &&
                 (Player.ActionTime > Envir.Time ||
                  Player.AttackTime > Envir.Time))
-                _retryList.Enqueue(p);
+                TryRetry(p);
             else
                 Player.Attack(p.Direction, p.Spell);
         }
@@ -2666,7 +2688,7 @@ namespace Server.MirNetwork
             if (!Player.Dead &&
                 (Player.ActionTime > Envir.Time ||
                  Player.AttackTime > Envir.Time))
-                _retryList.Enqueue(p);
+                TryRetry(p);
             else
                 Player.RangeAttack(
                     p.Direction,
@@ -2680,7 +2702,7 @@ namespace Server.MirNetwork
                 return;
 
             if (!Player.Dead && Player.ActionTime > Envir.Time)
-                _retryList.Enqueue(p);
+                TryRetry(p);
             else
                 Player.Harvest(p.Direction);
         }
@@ -2808,7 +2830,7 @@ namespace Server.MirNetwork
             if (!actor.Dead &&
                 (actor.ActionTime > Envir.Time ||
                  actor.SpellTime > Envir.Time))
-                _retryList.Enqueue(p);
+                TryRetry(p);
             else
                 actor.BeginMagic(
                     p.Spell,
