@@ -451,15 +451,22 @@ namespace Server
         {
             if (Character?.Player == null) return;
 
-            Character.Player.Die();
+            // 20261116 审计修复：Die 依赖 LastHitter/PKPoints 等主循环并发写字段，UI 线程直调无锁，
+            // 改投递主循环在安全点执行
+            Character.Player.ActionList.Add(new DelayedAction(DelayedType.Die, SMain.Envir.Time));
         }
 
         private void KillPetsButton_Click(object sender, EventArgs e)
         {
             if (Character?.Player == null) return;
 
+            // 20261116 审计修复：宠物 Die 同样与主循环并发，逐个投递
             for (int i = Character.Player.Pets.Count - 1; i >= 0; i--)
-                Character.Player.Pets[i].Die();
+            {
+                var pet = Character.Player.Pets[i];
+                if (pet != null && pet.Node != null)
+                    pet.ActionList.Add(new DelayedAction(DelayedType.Die, SMain.Envir.Time));
+            }
 
             ClearPetInfo();
         }
@@ -467,7 +474,12 @@ namespace Server
         {
             if (Character?.Player == null) return;
 
-            Character.Player.Teleport(SMain.Envir.GetMap(Character.BindMapIndex), Character.BindLocation);
+            // 20261116 审计修复：Teleport 落点 RemoveObject/AddObject 改地图对象链无锁，
+            // UI 线程直调与主循环遍历并发，改投递主循环执行
+            var bindMap = SMain.Envir.GetMap(Character.BindMapIndex);
+            if (bindMap == null) return;
+
+            Character.Player.ActionList.Add(new DelayedAction(DelayedType.GMTeleport, SMain.Envir.Time, bindMap, Character.BindLocation));
         }
 
         private void ChatBanButton_Click(object sender, EventArgs e)

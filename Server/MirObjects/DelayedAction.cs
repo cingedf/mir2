@@ -22,6 +22,9 @@ namespace Server.MirObjects
 
         // Sanjian
         SpellEffect,
+
+        // 20261116 审计修复：UI 管理操作（GM 回城传送）投递主循环用；纯内存枚举不进网络包，尾部追加安全
+        GMTeleport,
     }
 
     public class DelayedAction

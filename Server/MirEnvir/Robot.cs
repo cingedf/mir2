@@ -75,7 +75,8 @@ namespace Server.MirEnvir
                 return;
             }
 
-            var matches = Robots.Where(x => x.IsMatch(Envir.Now));
+            // 20261116 审计修复：Where 延迟枚举在 foreach 消费期间 UI 线程 ReloadNPCs 调 Clear() 会改集合导致异常，快照化
+            var matches = Robots.Where(x => x.IsMatch(Envir.Now)).ToArray();
 
             foreach (var match in matches)
             {

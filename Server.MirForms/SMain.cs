@@ -184,9 +184,11 @@ namespace Server
             {
                 PlayersOnlineListView.Items.Clear();
 
-                for (int i = PlayersOnlineListView.Items.Count; i < Envir.Players.Count; i++)
+                // 20261116 审计修复：UI 线程索引访问 Envir.Players[i] 与主循环 Remove 并发，快照后遍历
+                var players = Envir.Players.ToArray();
+                for (int i = PlayersOnlineListView.Items.Count; i < players.Length; i++)
                 {
-                    CharacterInfo character = Envir.Players[i].Info;
+                    CharacterInfo character = players[i].Info;
 
                     ListViewItem tempItem = CreateListView(character);
 
@@ -311,7 +313,8 @@ namespace Server
         {
             if (GlobalMessageTextBox.Text.Length < 1) return;
 
-            foreach (var player in Envir.Players)
+            // 20261116 审计修复：UI 线程遍历 Envir.Players 与主循环 Remove 并发，快照后遍历
+            foreach (var player in Envir.Players.ToArray())
             {
                 player.ReceiveChat(GlobalMessageTextBox.Text, ChatType.Announcement);
             }
@@ -488,7 +491,8 @@ namespace Server
             {
                 GuildListView.Items.Clear();
 
-                foreach (GuildInfo guild in Envir.GuildList)
+                // 20261116 审计修复：UI 线程遍历 Envir.GuildList 与 DeleteGuild 并发，快照后遍历
+                foreach (GuildInfo guild in Envir.GuildList.ToArray())
                 {
                     ListViewItem tempItem = new ListViewItem(guild.GuildIndex.ToString()) { Tag = this };
 

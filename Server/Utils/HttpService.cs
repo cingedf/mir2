@@ -8,6 +8,7 @@ namespace Server.Library.Utils
         protected string Host;
         private HttpListener _listener;
         private bool _isActive = true;
+        private DateTime _lastErrorLogTime = DateTime.MinValue; // 20261116 异常日志节流
 
         protected HttpService()
         {
@@ -79,7 +80,15 @@ namespace Server.Library.Utils
                         OnPostRequest(request, response);
                     }
                 }
-                catch { }
+                // 20261116 审计修复：空 catch 吞掉所有请求处理异常无法感知故障；节流日志（每分钟最多 1 条）防日志刷屏
+                catch (Exception ex)
+                {
+                    if ((DateTime.Now - _lastErrorLogTime).TotalMinutes >= 1)
+                    {
+                        _lastErrorLogTime = DateTime.Now;
+                        MessageQueue.Instance.Enqueue("HttpService 请求处理异常(节流1分钟): " + ex.Message);
+                    }
+                }
             }
         }
 

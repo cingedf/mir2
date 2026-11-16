@@ -792,9 +792,10 @@ namespace Server.MirEnvir
 
         private void ProcessRespawns()
         {
-            bool Success = true;
             for (int i = 0; i < Respawns.Count; i++)
             {
+                // 20261116 审计修复：Success 移入循环体，避免上一 respawn 的失败被本 respawn 的成功覆盖（原跨迭代残留+覆盖）
+                bool Success = true;
                 MapRespawn respawn = Respawns[i];
                 if ((respawn.Info.RespawnTicks != 0) && (Envir.RespawnTick.CurrentTickcounter < respawn.NextSpawnTick)) continue;
                 if ((respawn.Info.RespawnTicks == 0) && (Envir.Time < respawn.RespawnTime)) continue;
@@ -804,7 +805,8 @@ namespace Server.MirEnvir
                     int count = (respawn.Info.Count * Envir.SpawnMultiplier) - respawn.Count;
 
                     for (int c = 0; c < count; c++)
-                        Success = respawn.Spawn();
+                        if (!respawn.Spawn())
+                            Success = false;
                 }
                 if (Success)
                 {

@@ -594,6 +594,12 @@ namespace Server.MirObjects
                 case DelayedType.SpellEffect:
                     CompleteSpellEffect(action.Params);
                     break;
+                case DelayedType.Die: // 20261116 审计修复：UI 线程直调 Die 与主循环并发无锁，改投递主循环执行
+                    Die();
+                    break;
+                case DelayedType.GMTeleport: // 20261116 审计修复：GM 回城传送投递（MapObject.Teleport 改地图对象链无锁）
+                    Teleport((Map)action.Params[0], (Point)action.Params[1], true, 0);
+                    break;
             }
         }
         protected override void Moved()

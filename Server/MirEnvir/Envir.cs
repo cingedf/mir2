@@ -1351,8 +1351,10 @@ namespace Server.MirEnvir
                 if (File.Exists(oldfilename + "o"))
                     File.Delete(oldfilename + "o");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                // 20261116 审计修复：存档异步收尾失败静默吞掉会导致坏档无人知晓，补日志
+                MessageQueue.Enqueue(ex);
             }
         }
 
@@ -1414,8 +1416,10 @@ namespace Server.MirEnvir
                 if (File.Exists(oldfilename + "o"))
                     File.Delete(oldfilename + "o");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                // 20261116 审计修复：存档异步收尾失败静默吞掉会导致坏档无人知晓，补日志
+                MessageQueue.Enqueue(ex);
             }
         }
 
@@ -1450,8 +1454,10 @@ namespace Server.MirEnvir
                 if (File.Exists(oldfilename + "o"))
                     File.Delete(oldfilename + "o");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                // 20261116 审计修复：存档异步收尾失败静默吞掉会导致坏档无人知晓，补日志
+                MessageQueue.Enqueue(ex);
             }
         }
 
@@ -1499,8 +1505,10 @@ namespace Server.MirEnvir
                         File.Delete(oldfilename + "o");
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                // 20261116 审计修复：存档异步收尾失败静默吞掉会导致坏档无人知晓，补日志
+                MessageQueue.Enqueue(ex);
             }
 
             Saving = false;
@@ -2307,7 +2315,8 @@ namespace Server.MirEnvir
             }
             finally
             {
-                while (Connections.Count >= Settings.MaxUser)
+                // 20261116 审计修复：满员等待循环需检查 Running，否则关服时此线程可能永久滞留
+                while (Running && Connections.Count >= Settings.MaxUser)
                     Thread.Sleep(1);
 
                 if (Running && _listener.Server.IsBound)
@@ -3669,6 +3678,13 @@ namespace Server.MirEnvir
 
                     var rentingPlayer = GetCharacterInfo(rentedItemInfo.RentingPlayerName);
 
+                    // 20261116 审计修复：租借人角色可能已删除（GetCharacterInfo 返回 null），
+                    // 下方解引用 rentingPlayer.Inventory 会 NRE 被熔断吞掉导致整个租赁过期处理静默失效
+                    if (rentingPlayer == null)
+                    {
+                        continue;
+                    }
+
                     for (var i = 0; i < rentingPlayer.Inventory.Length; i++)
                     {
                         if (rentedItemInfo.ItemId != rentingPlayer?.Inventory[i]?.UniqueID)
@@ -3756,6 +3772,13 @@ namespace Server.MirEnvir
             }
 
             var owner = GetCharacterInfo(ownerName);
+            // 20261116 审计修复：物主角色可能已删除（owner null 解引用 NRE）；此时跳过记录清理，
+            // 物品仍按后续流程绑定退回逻辑走（returnItems 收集后邮件退还），不因 NRE 中断
+            if (owner == null)
+            {
+                return false;
+            }
+
             var returnItems = new List<UserItem>();
 
             foreach (var rentalInformation in owner.RentedItems)
@@ -4192,6 +4215,8 @@ namespace Server.MirEnvir
 
         public void ReloadDrops()
         {
+            // 20261116 审计修复：ReloadDrops 在 UI 线程逐个 Clear() 与怪物线程 Drop() 遍历/玩家线程拾取遍历竞态，
+            // 改为局部新 List 加载完成后整体替换引用（读侧持旧引用遍历不受影响，原子切换无 Clear 空窗）
             for (var i = 0; i < MonsterInfoList.Count; i++)
             {
                 string path = Path.Combine(Settings.DropPath, MonsterInfoList[i].Name + ".txt");
@@ -4201,31 +4226,36 @@ namespace Server.MirEnvir
                     path = Path.Combine(Settings.DropPath, MonsterInfoList[i].DropPath + ".txt");
                 }
 
-                MonsterInfoList[i].Drops.Clear();
-
-                DropInfo.Load(MonsterInfoList[i].Drops, MonsterInfoList[i].Name, path, 0, true);
+                var newDrops = new List<DropInfo>();
+                DropInfo.Load(newDrops, MonsterInfoList[i].Name, path, 0, true);
+                MonsterInfoList[i].Drops = newDrops;
             }
 
-            FishingDrops.Clear();
+            var newFishingDrops = new List<DropInfo>();
             for (int i = 0; i < 19; i++)
             {
                 var path = Path.Combine(Settings.DropPath, Settings.FishingDropFilename + ".txt");
                 path = path.Replace("00", i.ToString("D2"));
 
-                DropInfo.Load(FishingDrops, $"钓鱼功能 {i}", path, (byte)i, i < 2);
+                DropInfo.Load(newFishingDrops, $"钓鱼功能 {i}", path, (byte)i, i < 2);
             }
+            FishingDrops = newFishingDrops;
 
-            AwakeningDrops.Clear();
-            DropInfo.Load(AwakeningDrops, "觉醒功能", Path.Combine(Settings.DropPath, Settings.AwakeningDropFilename + ".txt"));
+            var newAwakeningDrops = new List<DropInfo>();
+            DropInfo.Load(newAwakeningDrops, "觉醒功能", Path.Combine(Settings.DropPath, Settings.AwakeningDropFilename + ".txt"));
+            AwakeningDrops = newAwakeningDrops;
 
-            StrongboxDrops.Clear();
-            DropInfo.Load(StrongboxDrops, "宝箱功能", Path.Combine(Settings.DropPath, Settings.StrongboxDropFilename + ".txt"));
+            var newStrongboxDrops = new List<DropInfo>();
+            DropInfo.Load(newStrongboxDrops, "宝箱功能", Path.Combine(Settings.DropPath, Settings.StrongboxDropFilename + ".txt"));
+            StrongboxDrops = newStrongboxDrops;
 
-            BlackstoneDrops.Clear();
-            DropInfo.Load(BlackstoneDrops, "灵物石功能", Path.Combine(Settings.DropPath, Settings.BlackstoneDropFilename + ".txt"));
+            var newBlackstoneDrops = new List<DropInfo>();
+            DropInfo.Load(newBlackstoneDrops, "灵物石功能", Path.Combine(Settings.DropPath, Settings.BlackstoneDropFilename + ".txt"));
+            BlackstoneDrops = newBlackstoneDrops;
 
-            LotteryStuntDrops.Clear();
-            DropInfo.Load(LotteryStuntDrops, "抽取绝技功能", Path.Combine(Settings.DropPath, Settings.LotteryStuntDropsFilename + ".txt"));
+            var newLotteryStuntDrops = new List<DropInfo>();
+            DropInfo.Load(newLotteryStuntDrops, "抽取绝技功能", Path.Combine(Settings.DropPath, Settings.LotteryStuntDropsFilename + ".txt"));
+            LotteryStuntDrops = newLotteryStuntDrops;
 
             MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.DropsLoaded));
         }
