@@ -505,6 +505,19 @@ namespace Map_Editor
             toolStrip1.Items.Insert(toolStrip1.Items.IndexOf(toolStripSeparator5), new ToolStripSeparator());
             toolStrip1.Items.Insert(toolStrip1.Items.IndexOf(toolStripSeparator5), btnRecentMaterials);
 
+            //新增：工具条创建"批量导出小地图"按钮（原来藏在隐藏菜单栏里用户找不到），点击选目录批量导出 PNG+对照表
+            var btnBatchExport = new ToolStripButton
+            {
+                Text = "批量导出小地图",
+                ToolTipText = "选择地图目录，把每张 .map 的小地图批量导出为 PNG 并生成对照表 CSV",
+                ImageScaling = ToolStripItemImageScaling.None,
+                AutoSize = true
+            };
+            btnBatchExport.Font = new Font("Microsoft YaHei", 9F);
+            btnBatchExport.Click += menuBatchExportMiniMaps_Click;
+            toolStrip1.Items.Insert(toolStrip1.Items.IndexOf(toolStripSeparator5), new ToolStripSeparator());
+            toolStrip1.Items.Insert(toolStrip1.Items.IndexOf(toolStripSeparator5), btnBatchExport);
+
             //修复：初始为地图页时保持文件树可见（与 tabControl1_SelectedIndexChanged 互斥逻辑一致）
             //注意：SplitContainer 本身没有 Panel2Visible 属性，正确用法是 splitMain.Panel2Collapsed（收缩隐藏面板）
             splitMain.Panel2Collapsed = (tabControl1.SelectedTab != tabMap);
