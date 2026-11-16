@@ -259,7 +259,9 @@ namespace Client.MirControls
                 Size = Size,
                 Visible = Visible,
                 Tag = this,
-                Cursor = CMain.Cursors[(byte)MouseCursor.TextPrompt]
+                // 20261116 输入框光标修复：自定义 Cursor_TextPrompt.CUR 是 32×32 大光标，在 20px 高输入框上比例失调
+                //（拉伸全屏下更显巨大）；改用系统标准 I 形文本光标，与输入框尺寸协调
+                Cursor = System.Windows.Forms.Cursors.IBeam
             };
 
             CaretPen = new Pen(ForeColour, 1);
@@ -271,6 +273,9 @@ namespace Client.MirControls
 
             TextBox.KeyPress += TextBox_NeedRedraw;
             TextBox.KeyUp += TextBox_NeedRedraw;
+            // 20261116 编辑手感修复：Back/Delete 等控制键不触发 KeyPress，KeyUp 时 TextBox 布局可能未同步，
+            // 删字后自绘光标错位；TextChanged 在文本实际变化后触发（含 Back/Delete/粘贴/IME 提交），补齐盲区
+            TextBox.TextChanged += TextBox_NeedRedraw;
             TextBox.MouseDown += TextBox_NeedRedraw;
             TextBox.MouseUp += TextBox_NeedRedraw;
             TextBox.LostFocus += TextBox_NeedRedraw;
