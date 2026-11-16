@@ -138,7 +138,11 @@ namespace NpcVisualEditor
             if (string.IsNullOrEmpty(file) || !File.Exists(file)) return;
             // 用系统默认文本编辑器打开（只读查看，本工具不修改）
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(file) { UseShellExecute = true }); }
-            catch { }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "无法打开源文件：\n" + file + "\n\n" + ex.Message,
+                    "打开失败", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void Export()

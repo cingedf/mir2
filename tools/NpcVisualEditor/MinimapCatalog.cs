@@ -40,7 +40,10 @@ namespace NpcVisualEditor
                     };
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("读取小地图对照表失败: " + ex.Message);
+            }
         }
 
         public bool TryGet(string mapFileName, out int logicalWidth, out int logicalHeight, out string pngName)

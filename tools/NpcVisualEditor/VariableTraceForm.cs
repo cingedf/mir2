@@ -131,7 +131,11 @@ namespace NpcVisualEditor
             string file = _grid.Rows[rowIndex].Tag as string;
             if (string.IsNullOrEmpty(file) || !File.Exists(file)) return;
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(file) { UseShellExecute = true }); }
-            catch { }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "无法打开源文件：\n" + file + "\n\n" + ex.Message,
+                    "打开失败", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void Export()

@@ -103,7 +103,10 @@ namespace NpcVisualEditor
                     foreach (var f in d.GetFiles("*", SearchOption.AllDirectories))
                     { count++; bytes += f.Length; }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("统计快照目录失败 " + d.Name + ": " + ex.Message);
+                }
                 var item = new ListViewItem(d.Name);
                 item.SubItems.Add(d.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
                 item.SubItems.Add(count.ToString());
