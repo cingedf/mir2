@@ -1580,8 +1580,10 @@ namespace Client.MirScenes.Dialogs
             MouseEventArgs me = e as MouseEventArgs;
 
             if (me == null) return;
-            int x = me.X - DisplayLocation.X;
-            int y = me.Y - DisplayLocation.Y;
+            // 20261116 低分辨率全屏拉伸：me.X/me.Y 是窗体物理坐标，拉伸全屏下会偏移；
+            // 改用 CMain.MPoint（MouseMove 已按拉伸比例换算回逻辑坐标，窗口模式两者等价）
+            int x = CMain.MPoint.X - DisplayLocation.X;
+            int y = CMain.MPoint.Y - DisplayLocation.Y;
 
             if (new Rectangle(20, 55, 75, 75).Contains(x, y))
                 ItemCell_Click();

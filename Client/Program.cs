@@ -38,6 +38,19 @@ namespace Client
                 Packet.IsServer = false;
                 Settings.Load();
 
+                // 20261116 低分辨率全屏拉伸：捕获物理屏幕尺寸（捕获失败回退逻辑分辨率，避免零尺寸）
+                try
+                {
+                    var bounds = Screen.PrimaryScreen.Bounds;
+                    Settings.NativeWidth = bounds.Width > 0 ? bounds.Width : Settings.ScreenWidth;
+                    Settings.NativeHeight = bounds.Height > 0 ? bounds.Height : Settings.ScreenHeight;
+                }
+                catch
+                {
+                    Settings.NativeWidth = Settings.ScreenWidth;
+                    Settings.NativeHeight = Settings.ScreenHeight;
+                }
+
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 

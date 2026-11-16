@@ -65,7 +65,8 @@ namespace Client.MirGraphics
                 BackBufferHeight = Settings.ScreenHeight,
                 SwapEffect = SwapEffect.Discard,
                 PresentationInterval = Settings.FPSCap ? PresentInterval.One : PresentInterval.Immediate,
-                Windowed = !Settings.FullScreen,
+                // 20261116 低分辨率全屏拉伸：恒窗口化，全屏=无边框窗体铺满物理屏，D3D 把逻辑后缓冲拉伸铺满窗口（等效放大滤镜）
+                Windowed = true,
             };
 
 
@@ -88,7 +89,15 @@ namespace Client.MirGraphics
 
             Device = new Device(d3d, d3d.Adapters.DefaultAdapter.Adapter, devType, Program.Form.Handle, devFlags, Parameters);
 
-            Device.SetDialogBoxMode(true);
+            // 20261116 低分辨率全屏拉伸：对话框模式仅在全屏独占模式下有效，恒窗口化后调用会抛
+            // D3DERR_INVALIDCALL 导致设备创建失败；保留调用意图，失败时安全忽略（仅影响 Alt+Tab 对话框热键体验）
+            try
+            {
+                Device.SetDialogBoxMode(true);
+            }
+            catch
+            {
+            }
 
             LoadTextures();
             LoadPixelsShaders();
@@ -286,13 +295,14 @@ namespace Client.MirGraphics
 
             if (DXManager.Parameters == null) return;
 
-            Size clientSize = Program.Form.ClientSize;
+            // 20261116 低分辨率全屏拉伸：后缓冲固定=逻辑分辨率（Settings.ScreenWidth/Height），
+            // 与窗口客户区解耦——全屏时窗体是物理屏尺寸，D3D 窗口化自动把后缓冲拉伸铺满=放大滤镜。
+            // 窗口模式时 ClientSize==逻辑尺寸，行为与旧版一致。
+            if (Settings.ScreenWidth == 0 || Settings.ScreenHeight == 0) return;
 
-            if (clientSize.Width == 0 || clientSize.Height == 0) return;
-
-            DXManager.Parameters.Windowed = !Settings.FullScreen;
-            DXManager.Parameters.BackBufferWidth = clientSize.Width;
-            DXManager.Parameters.BackBufferHeight = clientSize.Height;
+            DXManager.Parameters.Windowed = true; //恒窗口化（见 Create）
+            DXManager.Parameters.BackBufferWidth = Settings.ScreenWidth;
+            DXManager.Parameters.BackBufferHeight = Settings.ScreenHeight;
             DXManager.Parameters.PresentationInterval = Settings.FPSCap ? PresentInterval.Default : PresentInterval.Immediate;
             DXManager.Device.Reset(DXManager.Parameters);
 

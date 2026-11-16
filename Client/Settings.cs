@@ -7,6 +7,8 @@ namespace Client
         public const long CleanDelay = 600000;
 
         public static int ScreenWidth = 800, ScreenHeight = 600; //设置 ScreenWidth = 1024, ScreenHeight = 768
+        // 20261116 低分辨率全屏拉伸：物理屏幕尺寸（Program.Main 启动时捕获；全屏时窗体铺满物理屏，D3D 窗口化把逻辑分辨率后缓冲拉伸铺满）
+        public static int NativeWidth = 0, NativeHeight = 0;
         private static InIReader Reader = new InIReader(@".\Mir2Config.ini");
         private static InIReader QuestTrackingReader = new InIReader(Path.Combine(UserDataPath, @".\QuestTracking.ini"));
 

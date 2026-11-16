@@ -83,7 +83,10 @@ namespace Client
             this.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.GameName);
             try
             {
-                ClientSize = new Size(Settings.ScreenWidth, Settings.ScreenHeight);
+                // 20261116 低分辨率全屏拉伸：全屏启动=无边框窗体铺满物理屏（窗口化=逻辑分辨率不变）
+                ClientSize = Settings.FullScreen
+                    ? new Size(Settings.NativeWidth, Settings.NativeHeight)
+                    : new Size(Settings.ScreenWidth, Settings.ScreenHeight);
 
                 LoadMouseCursors();
                 SetMouseCursor(MouseCursor.Default);
@@ -92,7 +95,8 @@ namespace Client
 
                 DXManager.Create();
                 SoundManager.Create();
-                CenterToScreen();
+                if (!Settings.FullScreen) // 20261116：全屏=无边框铺满物理屏，无需居中
+                    CenterToScreen();
             }
             catch (Exception ex)
             {
@@ -174,7 +178,15 @@ namespace Client
             if (Settings.FullScreen || Settings.MouseClip)
                 Cursor.Clip = Program.Form.RectangleToScreen(Program.Form.ClientRectangle);
 
-            MPoint = Program.Form.PointToClient(Cursor.Position);
+            // 20261116 低分辨率全屏拉伸：全屏时窗体=物理屏尺寸而游戏坐标系=逻辑分辨率，
+            // 鼠标坐标需按拉伸比例换算回逻辑坐标（窗口模式比例=1，行为不变；防零除回退 1:1）。
+            Point clientPoint = Program.Form.PointToClient(Cursor.Position);
+            if (Settings.FullScreen && Program.Form.ClientSize.Width > 0 && Program.Form.ClientSize.Height > 0)
+            {
+                clientPoint.X = clientPoint.X * Settings.ScreenWidth / Program.Form.ClientSize.Width;
+                clientPoint.Y = clientPoint.Y * Settings.ScreenHeight / Program.Form.ClientSize.Height;
+            }
+            MPoint = clientPoint;
 
             try
             {
@@ -576,9 +588,10 @@ namespace Client
 
             Program.Form.TopMost = Settings.FullScreen;
 
-            DXManager.Parameters.Windowed = !Settings.FullScreen;
-
-            Program.Form.ClientSize = new Size(Settings.ScreenWidth, Settings.ScreenHeight);
+            // 20261116 低分辨率全屏拉伸：D3D 恒窗口化（Parameters.Windowed 不再切换），由窗体尺寸决定显示范围
+            Program.Form.ClientSize = Settings.FullScreen
+                ? new Size(Settings.NativeWidth, Settings.NativeHeight)   //全屏=铺满物理屏，D3D 拉伸后缓冲
+                : new Size(Settings.ScreenWidth, Settings.ScreenHeight);  //窗口=逻辑分辨率
 
             DXManager.ResetDevice();
 
@@ -588,7 +601,8 @@ namespace Client
                 GameScene.Scene.TextureValid = false;
             }
 
-            Program.Form.CenterToScreen();
+            if (!Settings.FullScreen)
+                Program.Form.CenterToScreen();
         }
 
         public void CreateScreenShot()
@@ -651,7 +665,10 @@ namespace Client
 
             Settings.ScreenWidth = width;
             Settings.ScreenHeight = height;
-            Program.Form.ClientSize = new Size(width, height);
+            // 20261116 低分辨率全屏拉伸：全屏=物理屏窗体+逻辑后缓冲（拉伸生效），窗口=逻辑尺寸窗体
+            Program.Form.ClientSize = Settings.FullScreen
+                ? new Size(Settings.NativeWidth, Settings.NativeHeight)
+                : new Size(width, height);
 
             DXManager.Device.Clear(ClearFlags.Target, Color.Black, 0, 0);
             DXManager.Device.Present();
