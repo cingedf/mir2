@@ -648,8 +648,15 @@ namespace Map_Editor
             if (DXManager.Device == null)
                 return;
 
-            DXManager.Device.Clear(ClearFlags.Target, Color.Black, 0, 0);
-            DXManager.Device.Present();
+            try
+            {
+                DXManager.Device.Clear(ClearFlags.Target, Color.Black, 0, 0);
+                DXManager.Device.Present();
+            }
+            catch (Direct3D9Exception)
+            {
+                //设备丢失（如拖动分割条/窗口布局变化瞬间），交由 ResetDevice 重建设备，与 Render 主循环的容错方式一致
+            }
             DXManager.ResetDevice();
         }
 
@@ -5192,11 +5199,12 @@ namespace Map_Editor
         }
 
         //新增：批量导出小地图——选择地图目录，循环渲染每张 .map 的小地图 PNG 到输出目录，并生成「地图文件名 → 小地图文件」对照表 CSV（阶段1：只导 PNG+对照表，不写 MMap.Lib）
+        //修复：RenderMiniMapBitmap 参数化后完全独立于当前打开的地图（不碰全局字段，未打开地图也能导出）
         private void menuBatchExportMiniMaps_Click(object sender, EventArgs e)
         {
-            if (M2CellInfo == null)
+            if (!Libraries.Loaded)
             {
-                MessageBox.Show("请先打开一张地图（用于确认图库已加载），再批量导出。", "批量导出小地图");
+                MessageBox.Show("图库尚未加载完成，请稍后再试。", "批量导出小地图");
                 return;
             }
 
@@ -5217,11 +5225,6 @@ namespace Map_Editor
                     return;
                 }
 
-                //保留当前打开的地图，导完后恢复现场
-                MapReader currentMap = map;
-                CellInfo[,] currentCells = M2CellInfo;
-                Size currentSetSize = new Size(mapWidth, mapHeight);
-
                 int success = 0, failed = 0;
                 var csvLines = new List<string> { "地图文件名,宽度,高度,小地图文件" };
 
@@ -5233,13 +5236,9 @@ namespace Map_Editor
                         try
                         {
                             MapReader reader = new MapReader(file);
-                            this.map = reader;
-                            this.M2CellInfo = reader.MapCells;
-                            int oldW = mapWidth, oldH = mapHeight;
-                            this.mapWidth = reader.Width;
-                            this.mapHeight = reader.Height;
 
-                            using (Bitmap bmp = RenderMiniMapBitmap())
+                            //参数化渲染：直接传该图的单元格数据与尺寸，不碰任何全局字段
+                            using (Bitmap bmp = RenderMiniMapBitmap(reader.MapCells, reader.Width, reader.Height))
                             {
                                 string name = Path.GetFileNameWithoutExtension(file);
                                 string outFile = Path.Combine(outDir, name + "_MiniMap.png");
@@ -5247,8 +5246,6 @@ namespace Map_Editor
                                 csvLines.Add($"{Path.GetFileName(file)},{reader.Width},{reader.Height},{name}_MiniMap.png");
                             }
 
-                            this.mapWidth = oldW;
-                            this.mapHeight = oldH;
                             success++;
                         }
                         catch
@@ -5261,13 +5258,8 @@ namespace Map_Editor
                 }
                 finally
                 {
-                    //恢复现场：继续编辑原来打开的地图
-                    this.map = currentMap;
-                    this.M2CellInfo = currentCells;
-                    this.mapWidth = currentSetSize.Width;
-                    this.mapHeight = currentSetSize.Height;
-                    RefreshMiniMapPanel();
                     this.Cursor = Cursors.Default;
+                    RefreshMiniMapPanel();
                 }
 
                 MessageBox.Show($"批量导出完成。\n成功: {success} 张    失败: {failed} 张\n输出目录: {outDir}", "批量导出小地图");
@@ -5926,7 +5918,7 @@ namespace Map_Editor
         //Akaras: This should create the correct size MiniMap to use in game... just photoshop it to add caves and doorway icons if needed
         public void createMiniMap()
         {
-            Bitmap miniBitmap = RenderMiniMapBitmap();
+            Bitmap miniBitmap = RenderMiniMapBitmap(M2CellInfo, mapWidth, mapHeight);
 
             string SimpleFileName = Path.GetDirectoryName(mapFileName) + @"\" + Path.GetFileNameWithoutExtension(mapFileName);
             //MessageBox.Show(SimpleFileName);
@@ -5977,21 +5969,22 @@ namespace Map_Editor
         }
 
         //新增：渲染整张地图的小地图位图（提取自 createMiniMap，供导出 PNG 与浮动小地图面板共用；返回已缩到 1/8 的位图）
-        private Bitmap RenderMiniMapBitmap()
+        //修复：参数化传入单元格数据与尺寸，不再读全局字段——批量导出与浮动面板互不干扰
+        private Bitmap RenderMiniMapBitmap(CellInfo[,] cells, int width, int height)
         {
-            Bitmap miniBitmap = new Bitmap(mapWidth * 12, mapHeight * 8, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            Bitmap miniBitmap = new Bitmap(width * 12, height * 8, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
             //backimage
-            for (int y = 0; y <= mapHeight - 1; y++)
+            for (int y = 0; y <= height - 1; y++)
             {
-                for (int x = 0; x <= mapWidth - 1; x++)
+                for (int x = 0; x <= width - 1; x++)
                 {
-                    if ((M2CellInfo[x, y].BackImage & 0x1FFFFFFF) != 0)
+                    if ((cells[x, y].BackImage & 0x1FFFFFFF) != 0)
                     {
                         try
                         {
-                            Libraries.MapLibs[M2CellInfo[x, y].BackIndex].CheckImage((M2CellInfo[x, y].BackImage & 0x1FFFFFFF) - 1);
-                            var mi = Libraries.MapLibs[M2CellInfo[x, y].BackIndex].Images[(M2CellInfo[x, y].BackImage & 0x1FFFFFFF) - 1];
+                            Libraries.MapLibs[cells[x, y].BackIndex].CheckImage((cells[x, y].BackImage & 0x1FFFFFFF) - 1);
+                            var mi = Libraries.MapLibs[cells[x, y].BackIndex].Images[(cells[x, y].BackImage & 0x1FFFFFFF) - 1];
                             if (mi.Image != null || mi.ImageTexture != null)
                             {
                                 using (Graphics g = Graphics.FromImage(miniBitmap))
@@ -6013,16 +6006,16 @@ namespace Map_Editor
             }
 
             //MiddleImage
-            for (int y = 0; y <= mapHeight - 1; y++)
+            for (int y = 0; y <= height - 1; y++)
             {
-                for (int x = 0; x <= mapWidth - 1; x++)
+                for (int x = 0; x <= width - 1; x++)
                 {
-                    if ((M2CellInfo[x, y].MiddleImage) != 0)
+                    if ((cells[x, y].MiddleImage) != 0)
                     {
                         try
                         {
-                            Libraries.MapLibs[M2CellInfo[x, y].MiddleIndex].CheckImage((M2CellInfo[x, y].MiddleImage) - 1);
-                            var mi = Libraries.MapLibs[M2CellInfo[x, y].MiddleIndex].Images[(M2CellInfo[x, y].MiddleImage) - 1];
+                            Libraries.MapLibs[cells[x, y].MiddleIndex].CheckImage((cells[x, y].MiddleImage) - 1);
+                            var mi = Libraries.MapLibs[cells[x, y].MiddleIndex].Images[(cells[x, y].MiddleImage) - 1];
                             if (mi.Image != null || mi.ImageTexture != null)
                             {
                                 using (Graphics g = Graphics.FromImage(miniBitmap))
@@ -6044,16 +6037,16 @@ namespace Map_Editor
 
 
             //FrontImage
-            for (int y = 0; y <= mapHeight - 1; y++)
+            for (int y = 0; y <= height - 1; y++)
             {
-                for (int x = 0; x <= mapWidth - 1; x++)
+                for (int x = 0; x <= width - 1; x++)
                 {
-                    if ((M2CellInfo[x, y].FrontImage & 0x7FFF) != 0 && (M2CellInfo[x, y].FrontAnimationFrame & 0x80) < 1) //skips drawing if image is animated <<will this cause missing spots for waterfalls and such?
+                    if ((cells[x, y].FrontImage & 0x7FFF) != 0 && (cells[x, y].FrontAnimationFrame & 0x80) < 1) //skips drawing if image is animated <<will this cause missing spots for waterfalls and such?
                     {
                         try
                         {
-                            Libraries.MapLibs[M2CellInfo[x, y].FrontIndex].CheckImage((M2CellInfo[x, y].FrontImage & 0x7FFF) - 1);
-                            var mi = Libraries.MapLibs[M2CellInfo[x, y].FrontIndex].Images[(M2CellInfo[x, y].FrontImage & 0x7FFF) - 1];
+                            Libraries.MapLibs[cells[x, y].FrontIndex].CheckImage((cells[x, y].FrontImage & 0x7FFF) - 1);
+                            var mi = Libraries.MapLibs[cells[x, y].FrontIndex].Images[(cells[x, y].FrontImage & 0x7FFF) - 1];
                             if (mi.Image != null || mi.ImageTexture != null)
                             {
                                 using (Graphics g = Graphics.FromImage(miniBitmap))
@@ -6134,6 +6127,23 @@ namespace Map_Editor
             miniMapPanel.Controls.Add(miniMapPictureBox);
             miniMapPanel.Controls.Add(miniMapTitleBar);
 
+            //右下角拖拽把手：明显的可抓取区域（触发同样的边缘拖拽逻辑）
+            var grip = new Label
+            {
+                Text = "◢",
+                Size = new Size(18, 18),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+                TextAlign = ContentAlignment.BottomRight,
+                ForeColor = Color.Gainsboro,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.SizeNWSE
+            };
+            grip.MouseDown += MiniMapPanel_MouseDown;
+            grip.MouseMove += MiniMapPanel_MouseMove;
+            grip.MouseUp += MiniMapPanel_MouseUp;
+            miniMapPanel.Controls.Add(grip);
+            grip.BringToFront();
+
             //标题栏拖动移动
             miniMapTitleBar.MouseDown += MiniMapTitle_MouseDown;
             miniMapTitleBar.MouseMove += MiniMapTitle_MouseMove;
@@ -6142,7 +6152,7 @@ namespace Map_Editor
             titleLabel.MouseMove += MiniMapTitle_MouseMove;
             titleLabel.MouseUp += MiniMapTitle_MouseUp;
 
-            //边缘 8px 左键拖拽调整面板大小
+            //边缘 12px 左键拖拽调整面板大小（右下角把手同效）
             miniMapPanel.MouseDown += MiniMapPanel_MouseDown;
             miniMapPanel.MouseMove += MiniMapPanel_MouseMove;
             miniMapPanel.MouseUp += MiniMapPanel_MouseUp;
@@ -6164,7 +6174,7 @@ namespace Map_Editor
 
             try
             {
-                var bmp = RenderMiniMapBitmap();
+                var bmp = RenderMiniMapBitmap(M2CellInfo, mapWidth, mapHeight);
                 miniMapBitmap?.Dispose();
                 miniMapBitmap = bmp;
                 miniMapPictureBox.Image = miniMapBitmap;
@@ -6237,24 +6247,29 @@ namespace Map_Editor
         //边缘 8px 命中检测：返回是否处于可调整大小区域（面板边缘 8px 内）
         private bool MiniMapPanel_OnResizeEdge(Point p)
         {
-            const int edge = 8;
+            const int edge = 12;    //修复：命中区从 8px 扩到 12px，更容易抓到
             return p.X >= miniMapPanel.Width - edge || p.Y >= miniMapPanel.Height - edge;
         }
 
-        //边缘 8px 左键拖拽调整面板大小（用户强调：可按左键拖动自由改变面板大小）
+        //边缘 12px/右下角把手 左键拖拽调整面板大小（用户强调：可按左键拖动自由改变面板大小）
+        //修复：原拖拽公式用 e.X（面板内坐标，随 Size 变化漂移）导致拖不动；改为记录起点鼠标屏幕坐标，按位移增量计算
         private void MiniMapPanel_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left || !MiniMapPanel_OnResizeEdge(e.Location)) return;
             miniMapResizing = true;
             miniMapDragStartSize = miniMapPanel.Size;
+            miniMapDragStartMouse = Cursor.Position;    //记录起点鼠标屏幕坐标
         }
 
         private void MiniMapPanel_MouseMove(object sender, MouseEventArgs e)
         {
             if (miniMapResizing)
             {
-                int w = Math.Max(120, miniMapDragStartSize.Width + (e.X - miniMapDragStartSize.Width));
-                int h = Math.Max(100, miniMapDragStartSize.Height + (e.Y - miniMapDragStartSize.Height));
+                //按鼠标位移增量计算新尺寸（与拖动方向一致，不再漂移）
+                int dx = Cursor.Position.X - miniMapDragStartMouse.X;
+                int dy = Cursor.Position.Y - miniMapDragStartMouse.Y;
+                int w = Math.Max(120, miniMapDragStartSize.Width + dx);
+                int h = Math.Max(100, miniMapDragStartSize.Height + dy);
                 miniMapPanel.Size = new Size(w, h);
             }
             else
