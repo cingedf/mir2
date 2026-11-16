@@ -62,8 +62,12 @@ namespace NpcVisualEditor
                 // 流程图保存后重载文本
                 if (File.Exists(_scriptPath))
                 {
-                    _txt.Text = File.ReadAllText(_scriptPath);
-                    _originalText = _txt.Text;
+                    try
+                    {
+                        _txt.Text = File.ReadAllText(_scriptPath);
+                        _originalText = _txt.Text;
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("重载脚本失败: " + ex.Message); }
                 }
                 _onSaved?.Invoke();
             };
@@ -79,7 +83,14 @@ namespace NpcVisualEditor
             Load += (s, e) =>
             {
                 if (File.Exists(_scriptPath))
-                    _txt.Text = File.ReadAllText(_scriptPath);
+                {
+                    try { _txt.Text = File.ReadAllText(_scriptPath); }
+                    catch (Exception ex)
+                    {
+                        _txt.Text = "";
+                        System.Diagnostics.Debug.WriteLine("载入脚本失败: " + ex.Message);
+                    }
+                }
                 else
                     _txt.Text = "; 新建脚本\r\n[@main]\r\n#IF\r\n#SAY\r\n你好。\r\n<关闭/@exit>\r\n";
                 _originalText = _txt.Text;

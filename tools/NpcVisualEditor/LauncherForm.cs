@@ -66,16 +66,24 @@ namespace NpcVisualEditor
         private void LoadHistory()
         {
             if (!File.Exists(ConfigFile)) return;
-            foreach (var line in File.ReadAllLines(ConfigFile))
+            try
             {
-                int eq = line.IndexOf('=');
-                if (eq <= 0) continue;
-                string key = line[..eq].Trim(), val = line[(eq + 1)..].Trim();
-                if (key == "server" && val.Length > 0) _cmbServer.Items.Add(val);
-                if (key == "client" && val.Length > 0) _cmbClient.Items.Add(val);
+                foreach (var line in File.ReadAllLines(ConfigFile))
+                {
+                    int eq = line.IndexOf('=');
+                    if (eq <= 0) continue;
+                    string key = line[..eq].Trim(), val = line[(eq + 1)..].Trim();
+                    if (key == "server" && val.Length > 0) _cmbServer.Items.Add(val);
+                    if (key == "client" && val.Length > 0) _cmbClient.Items.Add(val);
+                }
+                if (_cmbServer.Items.Count > 0) _cmbServer.SelectedIndex = 0;
+                if (_cmbClient.Items.Count > 0) _cmbClient.SelectedIndex = 0;
             }
-            if (_cmbServer.Items.Count > 0) _cmbServer.SelectedIndex = 0;
-            if (_cmbClient.Items.Count > 0) _cmbClient.SelectedIndex = 0;
+            catch (Exception ex)
+            {
+                // 历史文件被占用/损坏时静默跳过，不影响启动器主功能
+                System.Diagnostics.Debug.WriteLine("读取历史记录失败: " + ex.Message);
+            }
         }
 
         private void SaveHistory()

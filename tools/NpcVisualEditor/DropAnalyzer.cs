@@ -45,7 +45,18 @@ namespace NpcVisualEditor
         public static Result ParseFile(string path, HashSet<string> itemNames)
         {
             var result = new Result { Name = Path.GetFileNameWithoutExtension(path) };
-            var lines = File.ReadAllLines(path, DropFormatter.DetectEncoding(path).enc);
+            string[] lines;
+            try
+            {
+                lines = File.ReadAllLines(path, DropFormatter.DetectEncoding(path).enc);
+            }
+            catch (Exception ex)
+            {
+                // 文件被占用/扫描期间消失/编码探测失败：转为 issue 返回空结果，
+                // 让所有调用方（分析/模拟/图谱/自检）一次性免除未捕获 IOException
+                result.Issues.Add($"读取失败: {ex.Message}");
+                return result;
+            }
             if (lines.Length == 0 || lines.All(l => string.IsNullOrWhiteSpace(l) || l.TrimStart().StartsWith(";")))
                 result.Issues.Add("空文件（无有效掉落）");
 

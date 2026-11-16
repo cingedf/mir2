@@ -72,7 +72,10 @@ namespace NpcVisualEditor
             // 名字典（避开 QuestInfo 静态 Envir.Main 陷阱：自己按名字典解析引用）
             var monsterByName = BuildNameMap(mons.Select(m => (m.Name, m.Index)));
             var itemByName = BuildNameMap(items.Select(i => (i.Name, i.Index)));
-            var mapByIndex = maps.ToDictionary(m => m.Index, m => m);
+            // 覆盖式赋值：损坏 MirDB 可能存在重复地图 Index，ToDictionary 会抛 ArgumentException，
+            // 与 MapRelationForm 的 byIndex[m.Index]=node 保持一致（后者覆盖安全）
+            var mapByIndex = new Dictionary<int, MapInfo>();
+            foreach (var m in maps) mapByIndex[m.Index] = m;
 
             // ---- 节点 ----
             foreach (var m in maps) AddNode(g, NodeKind.Map, m.Index, m.Title ?? m.FileName);

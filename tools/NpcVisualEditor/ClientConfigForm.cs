@@ -613,7 +613,7 @@ namespace NpcVisualEditor
 
         private void DeleteGridRow(DataGridView grid, int keyCol)
         {
-            if (grid?.SelectedRows.Count == 0) return;
+            if (grid == null || grid.SelectedRows.Count == 0) return;
             if (MessageBox.Show(this, "确定删除选中项？", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 return;
             var row = grid.SelectedRows[0];

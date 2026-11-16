@@ -582,13 +582,20 @@ namespace NpcVisualEditor
                 Size = new Size(800, 600),
                 StartPosition = FormStartPosition.CenterParent
             };
+            string helpText;
+            try { helpText = File.ReadAllText(helpPath); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "读取命令说明失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
             var txt = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
                 ReadOnly = true,
-                Text = File.ReadAllText(helpPath),
+                Text = helpText,
                 Font = new Font("Consolas", 10F)
             };
             form.Controls.Add(txt);

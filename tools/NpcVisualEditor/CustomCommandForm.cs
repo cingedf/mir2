@@ -100,40 +100,49 @@ namespace NpcVisualEditor
                 Bind();
                 return;
             }
-            var lines = ReadCmdFile(_cmdFile).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-            Entry cur = null;
-            foreach (var raw in lines)
+            try
             {
-                string line = raw.Trim();
-                if (line.StartsWith(";;")) { cur = new Entry { Comment = line.TrimStart(';').Trim() }; _entries.Add(cur); continue; }
-                if (line.StartsWith("[@_CUSTOMCOMMAND(", StringComparison.OrdinalIgnoreCase))
+                var lines = ReadCmdFile(_cmdFile).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+                Entry cur = null;
+                foreach (var raw in lines)
                 {
-                    int a = line.IndexOf('('), b = line.IndexOf(')');
-                    if (a >= 0 && b > a)
+                    string line = raw.Trim();
+                    if (line.StartsWith(";;")) { cur = new Entry { Comment = line.TrimStart(';').Trim() }; _entries.Add(cur); continue; }
+                    if (line.StartsWith("[@_CUSTOMCOMMAND(", StringComparison.OrdinalIgnoreCase))
                     {
-                        cur ??= new Entry();
-                        cur.Name = line[(a + 1)..b].Trim();
-                        if (!_entries.Contains(cur)) _entries.Add(cur);
+                        int a = line.IndexOf('('), b = line.IndexOf(')');
+                        if (a >= 0 && b > a)
+                        {
+                            cur ??= new Entry();
+                            cur.Name = line[(a + 1)..b].Trim();
+                            if (!_entries.Contains(cur)) _entries.Add(cur);
+                        }
+                        continue;
                     }
-                    continue;
-                }
-                if (line.StartsWith("#INCLUDE", StringComparison.OrdinalIgnoreCase))
-                {
-                    // #INCLUDE [相对Envir路径] @Main
-                    var m = System.Text.RegularExpressions.Regex.Match(line,
-                        @"#INCLUDE\s+\[([^\]]+)\]\s+@?(\S+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                    if (m.Success)
+                    if (line.StartsWith("#INCLUDE", StringComparison.OrdinalIgnoreCase))
                     {
-                        cur ??= new Entry();
-                        cur.IncludePath = m.Groups[1].Value.Trim();
-                        cur.Page = m.Groups[2].Value.Trim();
-                        if (!_entries.Contains(cur)) _entries.Add(cur);
+                        // #INCLUDE [相对Envir路径] @Main
+                        var m = System.Text.RegularExpressions.Regex.Match(line,
+                            @"#INCLUDE\s+\[([^\]]+)\]\s+@?(\S+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (m.Success)
+                        {
+                            cur ??= new Entry();
+                            cur.IncludePath = m.Groups[1].Value.Trim();
+                            cur.Page = m.Groups[2].Value.Trim();
+                            if (!_entries.Contains(cur)) _entries.Add(cur);
+                        }
                     }
                 }
+                _entries.RemoveAll(e => !e.Valid);
+                Bind();
+                _lblStatus.Text = $"已载入 {_entries.Count} 条自定义命令（{_cmdFile}）";
             }
-            _entries.RemoveAll(e => !e.Valid);
-            Bind();
-            _lblStatus.Text = $"已载入 {_entries.Count} 条自定义命令（{_cmdFile}）";
+            catch (Exception ex)
+            {
+                _entries.Clear();
+                Bind();
+                _lblStatus.Text = "载入失败: " + ex.Message;
+            }
         }
 
         private void Bind()

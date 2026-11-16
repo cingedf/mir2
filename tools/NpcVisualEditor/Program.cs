@@ -19,12 +19,20 @@ namespace NpcVisualEditor
                     Console.WriteLine("SMOKE FAIL: 未找到 Server.MirDB");
                     return 1;
                 }
-                var envir = Server.MirEnvir.Envir.Edit;
-                bool ok = envir.LoadDB();
-                Console.WriteLine(ok
-                    ? $"SMOKE OK: maps={envir.MapInfoList.Count} npcs={envir.NPCInfoList.Count} items={envir.ItemInfoList.Count} monsters={envir.MonsterInfoList.Count}"
-                    : "SMOKE FAIL: LoadDB returned false");
-                return ok ? 0 : 1;
+                try
+                {
+                    var envir = Server.MirEnvir.Envir.Edit;
+                    bool ok = envir.LoadDB();
+                    Console.WriteLine(ok
+                        ? $"SMOKE OK: maps={envir.MapInfoList.Count} npcs={envir.NPCInfoList.Count} items={envir.ItemInfoList.Count} monsters={envir.MonsterInfoList.Count}"
+                        : "SMOKE FAIL: LoadDB returned false");
+                    return ok ? 0 : 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SMOKE FAIL: {ex.Message}");
+                    return 1;
+                }
             }
 
             // 客户端配置解析自检：--verify-client-config <客户端目录>
