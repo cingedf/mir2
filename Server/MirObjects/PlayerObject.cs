@@ -6500,6 +6500,13 @@ namespace Server.MirObjects
                         return;
                     }
 
+                    // 20261116 审计修复：无已学查重导致重复吞书堆叠重复条目污染存档（对照 HumanObject.cs:1302 先例）
+                    if (Info.Magics.Any(t => t.Spell == (Spell)item.Info.Shape))
+                    {
+                        ReceiveChat("已学会该技能，无法重复学习", ChatType.System);
+                        return;
+                    }
+
                     Info.Magics.Add(magic);
                     SendMagicInfo(magic);
                     RefreshStats();
@@ -12215,7 +12222,10 @@ namespace Server.MirObjects
                 return;
             }
 
-            //Validate user has stamp
+            //20261116 审计修复：原实现先扣邮票、附件边校验边删除，伪造 items[0]=合法+items[1]=非法
+            //会导致 j=0 附件已删、j=1 return——附件+邮票双蒸发；改为两阶段：先全量校验收集，
+            //全部通过后统一扣删（邮票+附件+金币），任何校验失败直接 return 不动玩家数据
+            //Validate user has stamp（仅存在性检查，不扣）
             if (stamped)
             {
                 for (int i = 0; i < Info.Inventory.Length; i++)
@@ -12225,16 +12235,12 @@ namespace Server.MirObjects
                     if (item == null || item.Info.Type != ItemType.杂物 || item.Info.Shape != 1 || item.Count < 1) continue;
 
                     hasStamp = true;
-
-                    if (item.Count > 1) item.Count--;
-                    else Info.Inventory[i] = null;
-
-                    Enqueue(new S.DeleteItem { UniqueID = item.UniqueID, Count = 1 });
                     break;
                 }
             }
 
             List<UserItem> giftItems = new List<UserItem>();
+            HashSet<UserItem> usedItems = new HashSet<UserItem>();
 
             for (int j = 0; j < (hasStamp ? 5 : 1); j++)
             {
@@ -12244,7 +12250,8 @@ namespace Server.MirObjects
                 {
                     UserItem item = Info.Inventory[i];
 
-                    if (item == null || items[j] != item.UniqueID) continue;
+                    //usedItems 防同一物品被两个槽位重复收集（校验阶段不置空背包）
+                    if (item == null || items[j] != item.UniqueID || !usedItems.Add(item)) continue;
 
                     if (item.Info.Bind.HasFlag(BindMode.DontTrade))
                     {
@@ -12266,10 +12273,35 @@ namespace Server.MirObjects
                     }
 
                     giftItems.Add(item);
-
-                    Info.Inventory[i] = null;
-                    Enqueue(new S.DeleteItem { UniqueID = item.UniqueID, Count = item.Count });
+                    break;
                 }
+            }
+
+            //全量校验通过，统一扣删：邮票、附件、金币
+            if (stamped)
+            {
+                for (int i = 0; i < Info.Inventory.Length; i++)
+                {
+                    UserItem item = Info.Inventory[i];
+
+                    if (item == null || item.Info.Type != ItemType.杂物 || item.Info.Shape != 1 || item.Count < 1) continue;
+
+                    if (item.Count > 1) item.Count--;
+                    else Info.Inventory[i] = null;
+
+                    Enqueue(new S.DeleteItem { UniqueID = item.UniqueID, Count = 1 });
+                    break;
+                }
+            }
+
+            foreach (UserItem item in giftItems)
+            {
+                int slot = Array.IndexOf(Info.Inventory, item);
+
+                if (slot < 0) continue; //防御：校验与扣删间背包不应变化（单主循环），找不到则跳过
+
+                Info.Inventory[slot] = null;
+                Enqueue(new S.DeleteItem { UniqueID = item.UniqueID, Count = item.Count });
             }
 
             if (totalGold > 0)
