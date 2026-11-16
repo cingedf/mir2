@@ -114,22 +114,93 @@ namespace NpcVisualEditor
                     }
                     var cmds = ScriptChecker.LoadCommands(System.IO.Path.Combine(npcDir, "NPC命令说明.txt"));
                     var files = System.IO.Directory.GetFiles(npcDir, "*.txt", System.IO.SearchOption.AllDirectories);
-                    int segs = 0, refs = 0, vars = 0, issues = 0;
+                    int segs = 0, refs = 0, vars = 0, issues = 0, loops = 0;
                     foreach (var f in files)
                     {
                         var r = ScriptChecker.CheckFile(f, cmds);
                         segs += r.Segments; refs += r.References; vars += r.Variables;
                         issues += r.Issues.Count;
+                        loops += r.Issues.Count(i => i.Message.Contains("跳转环") || i.Message.Contains("死循环"));
                     }
                     bool ok = files.Length >= 100 && segs > 0 && cmds.Count >= 50;
                     Console.WriteLine(ok
-                        ? $"SCRIPTS OK: files={files.Length} commands={cmds.Count} segments={segs} refs={refs} vars={vars} issues={issues}"
+                        ? $"SCRIPTS OK: files={files.Length} commands={cmds.Count} segments={segs} refs={refs} vars={vars} issues={issues} loops={loops}"
                         : $"SCRIPTS FAIL: files={files.Length} commands={cmds.Count} segments={segs}");
                     return ok ? 0 : 1;
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine("SCRIPTS FAIL: " + ex.Message);
+                    return 1;
+                }
+            }
+
+            // 变量引用链自检：--verify-vars <服务端目录>（只读扫描全部脚本建反向索引）
+            if (args.Length >= 2 && args[0] == "--verify-vars")
+            {
+                string dir = args[1];
+                try
+                {
+                    var files = VariableTrace.ScanFiles(dir).ToList();
+                    var idx = VariableTrace.Build(files);
+                    int occurrences = idx.Vars.Values.Sum(v => v.Occurrences.Count);
+                    bool ok = files.Count >= 100 && idx.Vars.Count > 0;
+                    Console.WriteLine(ok
+                        ? $"VARS OK: files={files.Count} variables={idx.Vars.Count} occurrences={occurrences}"
+                        : $"VARS FAIL: files={files.Count} variables={idx.Vars.Count}");
+                    return ok ? 0 : 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("VARS FAIL: " + ex.Message);
+                    return 1;
+                }
+            }
+
+            // 地图爆率链路自检：--verify-map-drops <服务端目录>（只读，验证地图↔怪物↔掉落文件链路）
+            if (args.Length >= 2 && args[0] == "--verify-map-drops")
+            {
+                string dir = args[1];
+                Environment.CurrentDirectory = dir;
+                try
+                {
+                    if (!File.Exists(Server.MirEnvir.Envir.DatabasePath))
+                    {
+                        Console.WriteLine("MAPDROPS FAIL: 未找到 Server.MirDB");
+                        return 1;
+                    }
+                    var envir = Server.MirEnvir.Envir.Edit;
+                    if (!envir.LoadDB())
+                    {
+                        Console.WriteLine("MAPDROPS FAIL: LoadDB returned false");
+                        return 1;
+                    }
+                    string dropDir = System.IO.Path.Combine(dir, "Envir", "Drops");
+                    int mapsWithRespawn = 0, mapMonsterLinks = 0, monstersWithDrop = 0;
+                    var seenMonsters = new System.Collections.Generic.HashSet<int>();
+                    foreach (var m in envir.MapInfoList)
+                    {
+                        if (m.Respawns == null || m.Respawns.Count == 0) continue;
+                        mapsWithRespawn++;
+                        foreach (var rp in m.Respawns)
+                        {
+                            mapMonsterLinks++;
+                            if (!seenMonsters.Add(rp.MonsterIndex)) continue;
+                            var mi = envir.MonsterInfoList.FirstOrDefault(d => d.Index == rp.MonsterIndex);
+                            if (mi == null) continue;
+                            string name = string.IsNullOrEmpty(mi.DropPath) ? mi.Name : mi.DropPath;
+                            if (File.Exists(System.IO.Path.Combine(dropDir, name + ".txt"))) monstersWithDrop++;
+                        }
+                    }
+                    bool ok = mapsWithRespawn > 0 && mapMonsterLinks > 0 && monstersWithDrop > 0;
+                    Console.WriteLine(ok
+                        ? $"MAPDROPS OK: mapsWithRespawn={mapsWithRespawn} links={mapMonsterLinks} monstersWithDrop={monstersWithDrop}"
+                        : $"MAPDROPS FAIL: mapsWithRespawn={mapsWithRespawn} links={mapMonsterLinks} monstersWithDrop={monstersWithDrop}");
+                    return ok ? 0 : 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("MAPDROPS FAIL: " + ex.Message);
                     return 1;
                 }
             }

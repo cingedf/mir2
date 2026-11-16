@@ -93,6 +93,12 @@ namespace NpcVisualEditor
                 (s, e) => new ScriptCheckerForm(_serverDir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("变量管理面板(&U)", null,
                 (s, e) => new VariableManagerForm(_serverDir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("变量引用链追踪(&R)", null,
+                (s, e) => new VariableTraceForm(_serverDir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("地图爆率可视化(&M)", null,
+                (s, e) => new MapDropViewForm(_serverDir, _envir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("地图关系图(&E)", null,
+                (s, e) => new MapRelationForm(_envir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&H)", null, (s, e) => ShowNpcCommandHelp()));
             var mHelp = new ToolStripMenuItem("帮助(&H)");
             mHelp.DropDownItems.Add(new ToolStripMenuItem("关于(&A)", null,

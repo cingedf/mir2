@@ -119,7 +119,81 @@ namespace NpcVisualEditor
 
             // 变量统计
             rep.Variables = RxVarStrict.Matches(string.Join("\n", lines)).Count;
+
+            // GOTO 死循环检测：段为节点，跳转为边，DFS 找环/自环
+            DetectLoops(defined, refs, path, rep);
+
             return rep;
+        }
+
+        /// <summary>
+        /// 检测段级跳转环：自循环直接报 Error，互环报 Warning。
+        /// 只分析已定义的段，缺失目标已在上面单独报错，避免重复。
+        /// </summary>
+        private static void DetectLoops(HashSet<string> defined,
+            List<(string target, int line, string section)> refs, string path, FileReport rep)
+        {
+            var graph = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in defined) graph[d] = new List<string>();
+            foreach (var r in refs)
+                if (defined.Contains(r.target) && graph.TryGetValue(r.section, out var edges))
+                    edges.Add(r.target);
+
+            // 自环
+            foreach (var kv in graph)
+                if (kv.Value.Any(t => string.Equals(t, kv.Key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var r = refs.FirstOrDefault(x => x.section == kv.Key &&
+                        string.Equals(x.target, kv.Key, StringComparison.OrdinalIgnoreCase));
+                    rep.Issues.Add(new Issue { Level = Severity.Error, File = path,
+                        Section = kv.Key, Line = r.line,
+                        Message = $"段「@{kv.Key}」跳转到自身，构成死循环（无任何 #IF 条件出口）" });
+                }
+
+            // 互环（长度≥2）：Tarjan 风格 DFS 找回边，去重报告
+            var color = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase); // 0未访问1在栈2完成
+            var reported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var start in graph.Keys)
+            {
+                if (color.TryGetValue(start, out var c) && c != 0) continue;
+                Dfs(start, graph, color, new List<string>(), reported, path, rep, refs);
+            }
+        }
+
+        private static void Dfs(string node, Dictionary<string, List<string>> graph,
+            Dictionary<string, int> color, List<string> stack, HashSet<string> reported,
+            string path, FileReport rep, List<(string target, int line, string section)> refs)
+        {
+            color[node] = 1;
+            stack.Add(node);
+            foreach (var next in graph[node])
+            {
+                if (!color.TryGetValue(next, out var c)) c = 0;
+                if (c == 0)
+                {
+                    Dfs(next, graph, color, stack, reported, path, rep, refs);
+                }
+                else if (c == 1)
+                {
+                    int idx = stack.FindIndex(s => string.Equals(s, next, StringComparison.OrdinalIgnoreCase));
+                    if (idx >= 0)
+                    {
+                        var cycle = stack.Skip(idx).Concat(new[] { next }).ToList();
+                        string key = string.Join("→", cycle.Distinct(StringComparer.OrdinalIgnoreCase)
+                            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
+                        if (reported.Add(key))
+                        {
+                            int line = refs.Where(r => cycle.Any(c => string.Equals(c, r.section, StringComparison.OrdinalIgnoreCase)))
+                                .Select(r => r.line).DefaultIfEmpty(0).First();
+                            rep.Issues.Add(new Issue { Level = Severity.Warning, File = path,
+                                Section = cycle[0], Line = line,
+                                Message = $"检测到跳转环：{string.Join(" → ", cycle)}（若循环内无出口条件将死循环）" });
+                        }
+                    }
+                }
+            }
+            stack.RemoveAt(stack.Count - 1);
+            color[node] = 2;
         }
     }
 }
