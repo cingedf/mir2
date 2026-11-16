@@ -1126,71 +1126,105 @@ namespace Server.MirEnvir
 
         public void SaveDB()
         {
-            if (File.Exists(DatabasePath))
+            // 20261117 审计修复P0：SaveDB 被 WorkLoop 周期存 + 18 处 UI 按钮直接调用，UI 线程与主循环可并发
+            // 执行——原无锁且直接 File.Create 活档，两线程互相截断导致 MirDB 损坏；加 LoadLock 同锁（与 LoadDB 一致，
+            // C# lock 可重入故 LoadDB 内调用 SaveDB 不会死锁），并改原子写：先完整写临时文件再替换活档
+            lock (LoadLock)
             {
-                if (!Directory.Exists(DatabaseBackUpPath)) Directory.CreateDirectory(DatabaseBackUpPath);
+                string tempFile = DatabasePath + "n";
+                string oldBackup = DatabasePath + "o";
 
-                var fileName =
-                    $"Database {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}.bak";
+                try
+                {
+                    if (File.Exists(DatabasePath))
+                    {
+                        if (!Directory.Exists(DatabaseBackUpPath)) Directory.CreateDirectory(DatabaseBackUpPath);
 
-                var backupFile = Path.Combine(DatabaseBackUpPath, fileName);
+                        var fileName =
+                            $"Database {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}.bak";
 
-                if (File.Exists(backupFile)) File.Delete(backupFile);
-                File.Copy(DatabasePath, backupFile);
-            }
+                        var backupFile = Path.Combine(DatabaseBackUpPath, fileName);
 
-            using (var stream = File.Create(DatabasePath))
-            using (var writer = new BinaryWriter(stream))
-            {
-                writer.Write(Version);
-                writer.Write(CustomVersion);
-                writer.Write(MapIndex);
-                writer.Write(ItemIndex);
-                writer.Write(MonsterIndex);
-                writer.Write(NPCIndex);
-                writer.Write(QuestIndex);
-                writer.Write(GameshopIndex);
-                writer.Write(ConquestIndex);
-                writer.Write(RespawnIndex);
+                        if (File.Exists(backupFile)) File.Delete(backupFile);
+                        File.Copy(DatabasePath, backupFile);
+                    }
 
-                writer.Write(MapInfoList.Count);
-                for (var i = 0; i < MapInfoList.Count; i++)
-                    MapInfoList[i].Save(writer);
+                    // 先完整写入临时文件（原直接 File.Create 活档，中途异常即损坏活档）
+                    using (var stream = File.Create(tempFile))
+                    using (var writer = new BinaryWriter(stream))
+                    {
+                        writer.Write(Version);
+                        writer.Write(CustomVersion);
+                        writer.Write(MapIndex);
+                        writer.Write(ItemIndex);
+                        writer.Write(MonsterIndex);
+                        writer.Write(NPCIndex);
+                        writer.Write(QuestIndex);
+                        writer.Write(GameshopIndex);
+                        writer.Write(ConquestIndex);
+                        writer.Write(RespawnIndex);
 
-                writer.Write(ItemInfoList.Count);
-                for (var i = 0; i < ItemInfoList.Count; i++)
-                    ItemInfoList[i].Save(writer);
+                        writer.Write(MapInfoList.Count);
+                        for (var i = 0; i < MapInfoList.Count; i++)
+                            MapInfoList[i].Save(writer);
 
-                writer.Write(MonsterInfoList.Count);
-                for (var i = 0; i < MonsterInfoList.Count; i++)
-                    MonsterInfoList[i].Save(writer);
+                        writer.Write(ItemInfoList.Count);
+                        for (var i = 0; i < ItemInfoList.Count; i++)
+                            ItemInfoList[i].Save(writer);
 
-                writer.Write(NPCInfoList.Count);
-                for (var i = 0; i < NPCInfoList.Count; i++)
-                    NPCInfoList[i].Save(writer);
+                        writer.Write(MonsterInfoList.Count);
+                        for (var i = 0; i < MonsterInfoList.Count; i++)
+                            MonsterInfoList[i].Save(writer);
 
-                writer.Write(QuestInfoList.Count);
-                for (var i = 0; i < QuestInfoList.Count; i++)
-                    QuestInfoList[i].Save(writer);
+                        writer.Write(NPCInfoList.Count);
+                        for (var i = 0; i < NPCInfoList.Count; i++)
+                            NPCInfoList[i].Save(writer);
 
-                DragonInfo.Save(writer);
-                writer.Write(MagicInfoList.Count);
-                for (var i = 0; i < MagicInfoList.Count; i++)
-                    MagicInfoList[i].Save(writer);
+                        writer.Write(QuestInfoList.Count);
+                        for (var i = 0; i < QuestInfoList.Count; i++)
+                            QuestInfoList[i].Save(writer);
 
-                writer.Write(GameShopList.Count);
-                for (var i = 0; i < GameShopList.Count; i++)
-                    GameShopList[i].Save(writer);
+                        DragonInfo.Save(writer);
+                        writer.Write(MagicInfoList.Count);
+                        for (var i = 0; i < MagicInfoList.Count; i++)
+                            MagicInfoList[i].Save(writer);
 
-                writer.Write(ConquestInfoList.Count);
-                for (var i = 0; i < ConquestInfoList.Count; i++)
-                    ConquestInfoList[i].Save(writer);
+                        writer.Write(GameShopList.Count);
+                        for (var i = 0; i < GameShopList.Count; i++)
+                            GameShopList[i].Save(writer);
 
-                RespawnTick.Save(writer);
+                        writer.Write(ConquestInfoList.Count);
+                        for (var i = 0; i < ConquestInfoList.Count; i++)
+                            ConquestInfoList[i].Save(writer);
 
-                writer.Write(GTMapList.Count);
-                for (var i = 0; i < GTMapList.Count; i++)
-                    GTMapList[i].Save(writer);
+                        RespawnTick.Save(writer);
+
+                        writer.Write(GTMapList.Count);
+                        for (var i = 0; i < GTMapList.Count; i++)
+                            GTMapList[i].Save(writer);
+                    }
+
+                    // 原子替换：旧档改名 "+o" → 临时文件就位 → 删旧档（对齐 EndSaveAccounts 舞步）
+                    if (File.Exists(oldBackup)) File.Delete(oldBackup);
+                    if (File.Exists(DatabasePath)) File.Move(DatabasePath, oldBackup);
+                    File.Move(tempFile, DatabasePath);
+                    if (File.Exists(oldBackup)) File.Delete(oldBackup);
+                }
+                catch (Exception ex)
+                {
+                    MessageQueue.Enqueue(ex);
+
+                    // 20261117 审计修复P1：替换失败时尝试从 "+o" 恢复活档
+                    try
+                    {
+                        if (!File.Exists(DatabasePath) && File.Exists(oldBackup))
+                            File.Move(oldBackup, DatabasePath);
+                    }
+                    catch (Exception recoverEx)
+                    {
+                        MessageQueue.Enqueue(recoverEx);
+                    }
+                }
             }
         }
 
@@ -1467,23 +1501,34 @@ namespace Server.MirEnvir
 
             Saving = true;
 
-
-            using (var mStream = new MemoryStream())
+            // 20261117 审计修复P0：原同步阶段无任何异常处理，SaveAccounts/FileStream/BeginWrite 任一抛异常
+            // 都会让 Saving 永久停在 true → SaveAccounts() 的 while(Saving) 关服死锁；补 try/catch 复位
+            try
             {
-                if (File.Exists(AccountPath))
+                using (var mStream = new MemoryStream())
                 {
-                    if (!Directory.Exists(AccountsBackUpPath)) Directory.CreateDirectory(AccountsBackUpPath);
-                    var fileName =
-                        $"Accounts {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}.bak";
-                    if (File.Exists(Path.Combine(AccountsBackUpPath, fileName))) File.Delete(Path.Combine(AccountsBackUpPath, fileName));
-                    File.Move(AccountPath, Path.Combine(AccountsBackUpPath, fileName));
+                    if (File.Exists(AccountPath))
+                    {
+                        if (!Directory.Exists(AccountsBackUpPath)) Directory.CreateDirectory(AccountsBackUpPath);
+                        var fileName =
+                            $"Accounts {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}.bak";
+                        if (File.Exists(Path.Combine(AccountsBackUpPath, fileName))) File.Delete(Path.Combine(AccountsBackUpPath, fileName));
+                        // 20261117 审计修复P0：原 File.Move 把活档整个搬走，从此处到 EndSaveAccounts 替换前
+                        // AccountPath 始终不存在，中途异常=活档丢失；改 File.Copy 保留原档（同名备份刚才已删，Copy 安全）
+                        File.Copy(AccountPath, Path.Combine(AccountsBackUpPath, fileName));
+                    }
+
+                    SaveAccounts(mStream);
+                    var fStream = new FileStream(AccountPath + "n", FileMode.Create);
+
+                    var data = mStream.ToArray();
+                    fStream.BeginWrite(data, 0, data.Length, EndSaveAccounts, fStream);
                 }
-
-                SaveAccounts(mStream);
-                var fStream = new FileStream(AccountPath + "n", FileMode.Create);
-
-                var data = mStream.ToArray();
-                fStream.BeginWrite(data, 0, data.Length, EndSaveAccounts, fStream);
+            }
+            catch (Exception ex)
+            {
+                MessageQueue.Enqueue(ex);
+                Saving = false; //防关服死锁
             }
         }
 
@@ -1509,6 +1554,23 @@ namespace Server.MirEnvir
             {
                 // 20261116 审计修复：存档异步收尾失败静默吞掉会导致坏档无人知晓，补日志
                 MessageQueue.Enqueue(ex);
+
+                // 20261117 审计修复P1：异步替换失败时尝试恢复活档——原档已被 Move 成 "+o"，
+                // 若此时新档未就位则活档缺失，必须从 "+o" 回滚（EndWrite 失败时 fStream 可能未 Dispose，先释放句柄）
+                try
+                {
+                    if (fStream != null)
+                    {
+                        fStream.Dispose();
+                        var oldfilename = fStream.Name.Substring(0, fStream.Name.Length - 1);
+                        if (!File.Exists(oldfilename) && File.Exists(oldfilename + "o"))
+                            File.Move(oldfilename + "o", oldfilename);
+                    }
+                }
+                catch (Exception recoverEx)
+                {
+                    MessageQueue.Enqueue(recoverEx);
+                }
             }
 
             Saving = false;

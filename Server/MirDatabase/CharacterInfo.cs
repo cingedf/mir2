@@ -583,7 +583,9 @@ namespace Server.MirDatabase
             writer.Write(Friends.Count);
             for (int i = 0; i < Friends.Count; i++)
             {
-                if (Friends[i].Info == null) continue;
+                // 20261117 审计修复P0：好友删档后 Info getter 延迟查找返回 null，但 Index/Blocked/Memo 仍有效且
+                // Save 只写这三字段（不解析 Info）；原跳过导致「写 N 计数却只写<N 条」→ Load 按 N 读流错位启动崩溃。
+                // 始终写全部记录，count 自然对齐（同时消除存档期延迟 DB 查找副作用）
                 Friends[i].Save(writer);
             }
 
