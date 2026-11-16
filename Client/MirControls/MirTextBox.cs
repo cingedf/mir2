@@ -45,8 +45,7 @@ namespace Client.MirControls
         protected override void OnLocationChanged()
         {
             base.OnLocationChanged();
-            if (TextBox != null && !TextBox.IsDisposed)
-                TextBox.Location = DisplayLocation;
+            UpdateNativeBounds();
 
             TextureValid = false;
             Redraw();
@@ -126,7 +125,7 @@ namespace Client.MirControls
 
         protected override void OnSizeChanged()
         {
-            TextBox.Size = Size;
+            UpdateNativeBounds();
 
             DisposeTexture();
 
@@ -134,6 +133,43 @@ namespace Client.MirControls
 
             if (TextBox != null && !TextBox.IsDisposed)
                 base.OnSizeChanged();
+        }
+
+        // 20261116 全屏拉伸适配：原生 WinForms TextBox 挂在窗体上，坐标是客户区物理像素；
+        // 全屏拉伸后窗体=物理屏尺寸而游戏画面按逻辑分辨率渲染再拉伸，原生控件若仍用逻辑坐标会与画面错位
+        //（登录框跑偏现象）。此处按拉伸比例换算 TextBox 的物理 bounds；窗口模式比例=1 行为不变。
+        public void UpdateNativeBounds()
+        {
+            if (TextBox == null || TextBox.IsDisposed) return;
+
+            var client = Program.Form != null ? Program.Form.ClientSize : System.Drawing.Size.Empty;
+            if (Settings.FullScreen && client.Width > 0 && client.Height > 0 &&
+                Settings.ScreenWidth > 0 && Settings.ScreenHeight > 0)
+            {
+                TextBox.Location = new Point(
+                    DisplayLocation.X * client.Width / Settings.ScreenWidth,
+                    DisplayLocation.Y * client.Height / Settings.ScreenHeight);
+                TextBox.Size = new System.Drawing.Size(
+                    Size.Width * client.Width / Settings.ScreenWidth,
+                    Size.Height * client.Height / Settings.ScreenHeight);
+            }
+            else
+            {
+                TextBox.Location = DisplayLocation;
+                TextBox.Size = Size;
+            }
+        }
+
+        // 20261116 全屏/分辨率切换后刷新所有已挂窗体的原生 TextBox bounds（ToggleFullScreen/SetResolution 调用）
+        public static void RefreshAllNativeBounds()
+        {
+            if (Program.Form == null) return;
+
+            foreach (System.Windows.Forms.Control c in Program.Form.Controls)
+            {
+                if (c is System.Windows.Forms.TextBox tb && tb.Tag is MirTextBox mir)
+                    mir.UpdateNativeBounds();
+            }
         }
 
         #endregion
@@ -234,7 +270,7 @@ namespace Client.MirControls
         public override void MultiLine()
         {
             TextBox.Multiline = true;
-            TextBox.Size = Size;
+            UpdateNativeBounds();
 
             DisposeTexture();
             Redraw();
@@ -370,6 +406,7 @@ namespace Client.MirControls
         void MirTextBox_Shown(object sender, EventArgs e)
         {
             TextBox.Parent = Program.Form;
+            UpdateNativeBounds(); // 20261116：挂上窗体后按当前全屏/窗口态刷新物理 bounds
             CMain.Ctrl = false;
             CMain.Shift = false;
             CMain.Alt = false;

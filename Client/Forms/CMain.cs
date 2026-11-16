@@ -615,6 +615,9 @@ namespace Client
 
             if (!Settings.FullScreen)
                 Program.Form.CenterToScreen();
+
+            // 20261116 全屏拉伸适配：窗体尺寸变化后刷新原生 TextBox（登录框等）的物理 bounds
+            MirTextBox.RefreshAllNativeBounds();
         }
 
         public void CreateScreenShot()
@@ -692,6 +695,9 @@ namespace Client
 
             if (!Settings.FullScreen)
                 Program.Form.CenterToScreen();
+
+            // 20261116 全屏拉伸适配：逻辑分辨率变化后刷新原生 TextBox（登录框等）的物理 bounds
+            MirTextBox.RefreshAllNativeBounds();
         }
 
         #region ScreenCapture
