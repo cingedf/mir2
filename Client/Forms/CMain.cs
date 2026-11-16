@@ -150,11 +150,22 @@ namespace Client
             Alt = e.Alt;
             Ctrl = e.Control;
 
-            if (!String.IsNullOrEmpty(InputKeys.GetKey(KeybindOptions.TargetSpellLockOn)))
+            // 20261117 审计修复P1：GetKey 返回拼装显示串（如 "Shift + F1"），Enum.Parse 带 + 非法抛 ArgumentException，
+            // 且原逻辑在 try 之前不被捕获→按键处理中断。改取最后一段主键 + TryParse + 局部 try/catch，失败关闭锁定。
+            try
             {
-                SpellTargetLock = e.KeyCode == (Keys)Enum.Parse(typeof(Keys), InputKeys.GetKey(KeybindOptions.TargetSpellLockOn), true);
+                string fullKey = InputKeys.GetKey(KeybindOptions.TargetSpellLockOn);
+                string lockKeyText = string.Empty;
+                if (!String.IsNullOrEmpty(fullKey))
+                {
+                    string[] keyParts = fullKey.Split('+');
+                    lockKeyText = keyParts[keyParts.Length - 1].Trim();
+                }
+                SpellTargetLock = !String.IsNullOrEmpty(lockKeyText)
+                    && Enum.TryParse(lockKeyText, true, out Keys lockKey)
+                    && e.KeyCode == lockKey;
             }
-            else
+            catch
             {
                 SpellTargetLock = false;
             }
@@ -211,11 +222,22 @@ namespace Client
             Alt = e.Alt;
             Ctrl = e.Control;
 
-            if (!String.IsNullOrEmpty(InputKeys.GetKey(KeybindOptions.TargetSpellLockOn)))
+            // 20261117 审计修复P1：GetKey 返回拼装显示串（如 "Shift + F1"），Enum.Parse 带 + 非法抛 ArgumentException，
+            // 且原逻辑在 try 之前不被捕获→按键处理中断。改取最后一段主键 + TryParse + 局部 try/catch，失败关闭锁定。
+            try
             {
-                SpellTargetLock = e.KeyCode == (Keys)Enum.Parse(typeof(Keys), InputKeys.GetKey(KeybindOptions.TargetSpellLockOn), true);
+                string fullKey = InputKeys.GetKey(KeybindOptions.TargetSpellLockOn);
+                string lockKeyText = string.Empty;
+                if (!String.IsNullOrEmpty(fullKey))
+                {
+                    string[] keyParts = fullKey.Split('+');
+                    lockKeyText = keyParts[keyParts.Length - 1].Trim();
+                }
+                SpellTargetLock = !String.IsNullOrEmpty(lockKeyText)
+                    && Enum.TryParse(lockKeyText, true, out Keys lockKey)
+                    && e.KeyCode == lockKey;
             }
-            else
+            catch
             {
                 SpellTargetLock = false;
             }

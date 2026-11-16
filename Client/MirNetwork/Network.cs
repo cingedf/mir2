@@ -50,6 +50,8 @@ namespace Client.MirNetwork
 
         private static long _connectionGeneration;
         private static int _connectionLostNotification;
+        // 20261117 审计修复P1：初次连接失败弹窗改由 UI 线程 Process() 统一显示，异步回调仅置此标志
+        private static int _initialConnectionErrorNotification;
 
         private static ConnectionState _connectionState = ConnectionState.Disconnected;
         private static bool _hasConnected;
@@ -340,13 +342,10 @@ namespace Client.MirNetwork
                 Interlocked.Exchange(ref _connectionLostNotification, 1);
             }
 
-            if (!showInitialConnectionError)
-                return;
-
-            MirMessageBox errorBox = new MirMessageBox(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.ErrorConnectingToServer), MirMessageBoxButtons.Cancel);
-            errorBox.CancelButton.Click += (o, e) => Program.Form.Close();
-            errorBox.Label.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.MaximumConnectionAttemptsReached, MaxAttempts);
-            errorBox.Show();
+            // 20261117 审计修复P1：本方法由异步连接回调线程调用，直接 new/show MirMessageBox 操作无锁的
+            // MirControl 静态控件列表=跨线程不安全；改为置标志，由 UI 线程的 Process() 统一创建显示
+            if (showInitialConnectionError)
+                Interlocked.Exchange(ref _initialConnectionErrorNotification, 1);
         }
 
         private static void BeginReceive(ReceiveState state)
@@ -1113,6 +1112,15 @@ namespace Client.MirNetwork
 
                 if (showLostConnection)
                     MirMessageBox.Show(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.LostConnectionWithServer), true);
+            }
+
+            // 20261117 审计修复P1：UI 线程统一处理初次连接失败弹窗（异步回调仅置标志，见 HandleConnectionAttemptsExceeded）
+            if (Interlocked.Exchange(ref _initialConnectionErrorNotification, 0) != 0)
+            {
+                MirMessageBox errorBox = new MirMessageBox(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.ErrorConnectingToServer), MirMessageBoxButtons.Cancel);
+                errorBox.CancelButton.Click += (o, e) => Program.Form.Close();
+                errorBox.Label.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.MaximumConnectionAttemptsReached, MaxAttempts);
+                errorBox.Show();
             }
         }
 
