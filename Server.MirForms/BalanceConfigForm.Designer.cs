@@ -531,11 +531,11 @@
             // 
             heroCapGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             heroCapGridView.Columns.AddRange(new DataGridViewColumn[] { HeroCapType, HeroCapValue });
-            heroCapGridView.Dock = DockStyle.Bottom;
-            heroCapGridView.Location = new Point(0, -30);
+            heroCapGridView.Dock = DockStyle.Fill; // 20261116：原 Dock=Bottom+Location(0,-30) 把列头顶出面板可视区，改 Fill 使列头可见并与左侧列表对齐
+            heroCapGridView.Location = new Point(0, 0);
             heroCapGridView.Margin = new Padding(4, 4, 4, 4);
             heroCapGridView.Name = "heroCapGridView";
-            heroCapGridView.Size = new Size(233, 948);
+            heroCapGridView.Size = new Size(233, 918);
             heroCapGridView.TabIndex = 0;
             heroCapGridView.CellValidating += heroCapGridView_CellValidating;
             heroCapGridView.CellValueChanged += heroCapGridView_CellValueChanged;
@@ -544,7 +544,8 @@
             // 
             // HeroCapType
             // 
-            HeroCapType.HeaderText = "英雄类型";
+            HeroCapType.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill; // 20261116：与左侧列表类型列同为 Fill，视觉对齐
+            HeroCapType.HeaderText = "类型"; // 与左侧 heroGridView 列头「类型」对齐（下拉仍为全枚举中文）
             HeroCapType.Name = "HeroCapType";
             // 
             // HeroCapValue
