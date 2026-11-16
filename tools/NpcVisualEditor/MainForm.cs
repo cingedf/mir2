@@ -72,9 +72,22 @@ namespace NpcVisualEditor
             mNpc.DropDownItems.Add(new ToolStripMenuItem("新建NPC(&N)", null, (s, e) => NewNpc()));
             mNpc.DropDownItems.Add(new ToolStripMenuItem("编辑NPC(&E)", null, (s, e) => EditSelectedNpc()));
             mNpc.DropDownItems.Add(new ToolStripMenuItem("删除NPC(&D)", null, (s, e) => DeleteSelectedNpc()));
+            var mCreate = new ToolStripMenuItem("创作(&C)");
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("玩法模板生成器(&T)", null,
+                (s, e) => new TemplateForm(_serverDir, _envir.MapInfoList).ShowDialog(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("任务链流程图(&Q)", null,
+                (s, e) => new QuestFlowForm(_envir.QuestInfoList).ShowDialog(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("特效/BUFF模板(&B)", null,
+                (s, e) => new EffectBuffForm(_serverDir).ShowDialog(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("脚本命令向导(&W)", null,
+                (s, e) => new CommandWizardForm(_serverDir).ShowDialog(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("物品/怪物可视化图鉴(&I)", null,
+                (s, e) => new BrowserHostForm(_envir, _serverDir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&H)", null, (s, e) => ShowNpcCommandHelp()));
             var mHelp = new ToolStripMenuItem("帮助(&H)");
-            mHelp.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&C)", null, (s, e) => ShowNpcCommandHelp()));
-            menu.Items.AddRange(new ToolStripItem[] { mFile, mNpc, mHelp });
+            mHelp.DropDownItems.Add(new ToolStripMenuItem("关于(&A)", null,
+                (s, e) => { _tabs.SelectedIndex = _tabs.TabPages.Count - 1; }));
+            menu.Items.AddRange(new ToolStripItem[] { mFile, mNpc, mCreate, mHelp });
             MainMenuStrip = menu;
             Controls.Add(menu);
         }
@@ -84,6 +97,12 @@ namespace NpcVisualEditor
             _tabs = new TabControl { Dock = DockStyle.Fill };
             _tabs.TabPages.Add(BuildWorldTab());
             _tabs.TabPages.Add(BuildEcologyTab());
+
+            // 工具中心：复用现成工具（地图/图库/爆率/引擎内置编辑器）
+            var tpTools = new TabPage("工具中心");
+            tpTools.Controls.Add(new ToolHubForm(_serverDir, _clientDir) { Dock = DockStyle.Fill });
+            _tabs.TabPages.Add(tpTools);
+
             _tabs.TabPages.Add(BuildAboutTab());
             Controls.Add(_tabs);
         }
@@ -106,12 +125,14 @@ namespace NpcVisualEditor
             left.Controls.Add(_btnGo);
             left.Controls.Add(_txtMapSearch);
 
-            // 中：画布
+            // 中：画布 + 工具模式栏
             _canvas = new MapCanvas(_clientDir, this)
             {
                 Dock = DockStyle.Fill,
                 NpcActivated = npc => EditNpc(npc),
                 NpcMoved = npc => { _dirty = true; RefreshNpcLists(); },
+                MonsterName = idx => _envir.MonsterInfoList.FirstOrDefault(d => d.Index == idx)?.Name ?? idx.ToString(),
+                MapName = idx => _envir.MapInfoList.FirstOrDefault(d => d.Index == idx)?.FileName ?? idx.ToString(),
             };
             _canvas.NpcDeleted = npc =>
             {
@@ -124,6 +145,101 @@ namespace NpcVisualEditor
                 }
             };
             _canvas.NewNpcRequested = pt => NewNpcAt(pt);
+            _canvas.RespawnCreated = rp =>
+            {
+                if (_currentMap == null) return;
+                using var dlg = new RespawnEditForm(rp, _envir);
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    _currentMap.Respawns.Add(rp);
+                    _dirty = true;
+                    _canvas.Refresh();
+                }
+            };
+            _canvas.RespawnActivated = rp =>
+            {
+                using var dlg = new RespawnEditForm(rp, _envir);
+                if (dlg.ShowDialog(this) == DialogResult.OK) { _dirty = true; _canvas.Refresh(); }
+            };
+            _canvas.RespawnDeleted = rp =>
+            {
+                if (MessageBox.Show(this, "确定删除该刷怪点？", "确认", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                {
+                    _currentMap?.Respawns.Remove(rp);
+                    _dirty = true;
+                    _canvas.Refresh();
+                }
+            };
+            _canvas.SafeZoneCreated = sz =>
+            {
+                if (_currentMap == null) return;
+                sz.Info = _currentMap;
+                using var dlg = new SafeZoneEditForm(sz);
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    _currentMap.SafeZones.Add(sz);
+                    _dirty = true;
+                    RefreshNpcLists();
+                    _canvas.Refresh();
+                }
+            };
+            _canvas.SafeZoneActivated = sz =>
+            {
+                using var dlg = new SafeZoneEditForm(sz);
+                if (dlg.ShowDialog(this) == DialogResult.OK) { _dirty = true; RefreshNpcLists(); _canvas.Refresh(); }
+            };
+            _canvas.SafeZoneDeleted = sz =>
+            {
+                if (MessageBox.Show(this, "确定删除该安全区？", "确认", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                {
+                    _currentMap?.SafeZones.Remove(sz);
+                    _dirty = true; RefreshNpcLists(); _canvas.Refresh();
+                }
+            };
+            _canvas.MovementCreated = mv =>
+            {
+                if (_currentMap == null) return;
+                using var dlg = new MovementEditForm(mv, _envir);
+                if (dlg.ShowDialog(this) == DialogResult.OK && mv.MapIndex > 0)
+                {
+                    _currentMap.Movements.Add(mv);
+                    _dirty = true;
+                    _canvas.Refresh();
+                }
+            };
+            _canvas.MovementActivated = mv =>
+            {
+                using var dlg = new MovementEditForm(mv, _envir);
+                if (dlg.ShowDialog(this) == DialogResult.OK) { _dirty = true; _canvas.Refresh(); }
+            };
+            _canvas.MovementDeleted = mv =>
+            {
+                if (MessageBox.Show(this, "确定删除该传送门？", "确认", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                {
+                    _currentMap?.Movements.Remove(mv);
+                    _dirty = true; _canvas.Refresh();
+                }
+            };
+
+            var toolBar = new Panel { Dock = DockStyle.Top, Height = 34 };
+            string[] modes = { "选择/拖动", "新建NPC", "刷怪点(框选)", "安全区(画矩形)", "传送门(点两点)" };
+            for (int i = 0; i < modes.Length; i++)
+            {
+                int mode = i;
+                var btn = new RadioButton
+                {
+                    Text = modes[i],
+                    Location = new Point(8 + i * 122, 6),
+                    Size = new Size(120, 24),
+                    Appearance = Appearance.Button,
+                    Checked = i == 0
+                };
+                btn.CheckedChanged += (s, e) => { if (btn.Checked) _canvas.Mode = (CanvasMode)mode; };
+                toolBar.Controls.Add(btn);
+            }
+
+            page.Controls.Add(_canvas);
+            page.Controls.Add(toolBar);
 
             // 右：NPC / 安全区列表
             var right = new Panel { Dock = DockStyle.Right, Width = 330 };
@@ -146,7 +262,6 @@ namespace NpcVisualEditor
             rightTabs.TabPages.AddRange(new[] { tpMerchant, tpFixed, tpSafe });
             right.Controls.Add(rightTabs);
 
-            page.Controls.Add(_canvas);
             page.Controls.Add(right);
             page.Controls.Add(left);
             return page;
@@ -179,9 +294,14 @@ namespace NpcVisualEditor
             right.Width = 420;
             left.Dock = DockStyle.Fill;
 
+            // 可视化图鉴按钮（属性 + 外观图联动）
+            var btnBrowser = new Button { Text = "打开可视化图鉴（物品/怪物属性+外观）", Dock = DockStyle.Top, Height = 30 };
+            btnBrowser.Click += (s, e) => new BrowserHostForm(_envir, _serverDir).Show(this);
+
             page.Controls.Add(left);
             page.Controls.Add(splitter);
             page.Controls.Add(right);
+            page.Controls.Add(btnBrowser);
             return page;
         }
 

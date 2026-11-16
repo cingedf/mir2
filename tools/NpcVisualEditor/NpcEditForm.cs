@@ -70,6 +70,15 @@ namespace NpcVisualEditor
             _txtImage = new TextBox { Location = new Point(tx, y - 3), Width = 80, Text = _npc.Image.ToString() };
             _picPreview = new PictureBox { Location = new Point(tx + 120, y - 8), Size = new Size(64, 64), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle };
             _txtImage.TextChanged += (s, e) => UpdatePreview();
+            var btnPickImg = new Button { Text = "选择...", Location = new Point(tx + 200, y - 3), Width = 62 };
+            btnPickImg.Click += (s, e) =>
+            {
+                int cur = ushort.TryParse(_txtImage.Text, out ushort v) ? v : -1;
+                using var picker = new ImagePickerForm(_serverDir, "NPC", cur);
+                if (picker.ShowDialog(this) == DialogResult.OK)
+                    _txtImage.Text = picker.SelectedId.ToString();
+            };
+            Controls.Add(btnPickImg);
             y += dy;
 
             AddLabel("刷新间隔 Rate:", lx, y);

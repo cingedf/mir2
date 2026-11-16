@@ -41,11 +41,32 @@ namespace NpcVisualEditor
             };
 
             var bottom = new Panel { Dock = DockStyle.Bottom, Height = 40 };
+            var btnFlow = new Button { Text = "对话流程图", Location = new Point(140, 6), Width = 100 };
+            btnFlow.Click += (s, e) =>
+            {
+                // 先把当前文本落盘，流程图基于同一脚本文件解析
+                if (File.Exists(_scriptPath) || !string.IsNullOrEmpty(_txt.Text))
+                {
+                    try
+                    {
+                        var dir = Path.GetDirectoryName(_scriptPath);
+                        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                        File.WriteAllText(_scriptPath, _txt.Text, new UTF8Encoding(false));
+                    }
+                    catch { }
+                }
+                using var flow = new DialogueFlowForm(_scriptPath, npc.GameName);
+                flow.ShowDialog(this);
+                // 流程图保存后重载文本
+                if (File.Exists(_scriptPath))
+                    _txt.Text = File.ReadAllText(_scriptPath);
+                _onSaved?.Invoke();
+            };
             var btnSave = new Button { Text = "保存", Location = new Point(340, 6), Width = 80 };
             var btnClose = new Button { Text = "关闭", Location = new Point(440, 6), Width = 80 };
             btnSave.Click += BtnSave_Click;
             btnClose.Click += (s, e) => Close();
-            bottom.Controls.AddRange(new Control[] { btnSave, btnClose });
+            bottom.Controls.AddRange(new Control[] { btnFlow, btnSave, btnClose });
 
             Controls.Add(_txt);
             Controls.Add(bottom);
