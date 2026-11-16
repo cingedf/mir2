@@ -282,7 +282,10 @@ namespace Client.MirControls
         {
             BackColour = Color.Black;
 
-            DrawControlTexture = true;
+            // 20261116 全屏输入框重影修复：D3D 自绘纹理（CreateTexture 抓控件位图画进游戏画面）是旧版
+            // 独占全屏下「原生子控件被 D3D 表面盖住」的补救；现全屏=无边框窗口模式，原生 TextBox 直接
+            // 合成显示在画面上，自绘再画一遍=重影。关闭自绘，由原生控件独占显示。
+            DrawControlTexture = false;
             TextureValid = false;
 
             TextBox = new TextBox
@@ -330,7 +333,9 @@ namespace Client.MirControls
 
         protected unsafe override void CreateTexture()
         {
+            // 20261116 全屏输入框重影修复：全屏下不再自绘（原生控件直接显示，见 ctor 注释）
             if (!Settings.FullScreen) return;
+            if (!DrawControlTexture) return;
 
             if (Size.IsEmpty)
                 return;
