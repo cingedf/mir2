@@ -397,7 +397,11 @@ namespace Client.MirScenes.Dialogs
 
             for (int i = 0; i < TextLabel.Length; i++)
             {
-                if (TextLabel[i] != null) TextLabel[i].Text = "";
+                if (TextLabel[i] != null)
+                {
+                    TextLabel[i].Dispose(); // 20261116 审计修复：翻页重建时旧 MirLabel 不 Dispose 会滞留纹理/控件（对齐 TextButtons 模式）
+                    TextLabel[i] = null;
+                }
             }
 
             TextButtons.Clear();

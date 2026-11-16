@@ -243,7 +243,9 @@ namespace Client.MirSounds
                     }
                 }
 
-                keysToRemove.ForEach(key => { _loopingSounds.Remove(key); });
+                // 20261116 审计修复：过期循环音效必须先 Stop（内部置 _isDisposing 阻断 PlaybackStopped 重播链）
+                // 再移除，否则 LoopProvider 设备句柄泄漏且音效永不停
+                keysToRemove.ForEach(key => { _loopingSounds[key].Stop(); _loopingSounds.Remove(key); });
             }
         }
 

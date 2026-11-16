@@ -304,7 +304,15 @@ namespace Client.MirGraphics
             DXManager.Parameters.BackBufferWidth = Settings.ScreenWidth;
             DXManager.Parameters.BackBufferHeight = Settings.ScreenHeight;
             DXManager.Parameters.PresentationInterval = Settings.FPSCap ? PresentInterval.Default : PresentInterval.Immediate;
-            DXManager.Device.Reset(DXManager.Parameters);
+            // 20261116 审计修复：Reset 失败（设备丢失中）会抛异常打断调用链，捕获后保持 DeviceLost=true 交 AttemptReset 重试
+            try
+            {
+                DXManager.Device.Reset(DXManager.Parameters);
+            }
+            catch (Direct3D9Exception)
+            {
+                return;
+            }
 
             DXManager.LoadTextures();
         }

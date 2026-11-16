@@ -107,7 +107,9 @@ namespace Client.MirScenes.Dialogs
                 Index = buffImage
             };
 
-            _buffList.Insert(0, image);
+            // 20261116 审计修复：Buffs 列表是顺序 Add，图标列表也须同序 Add（原 Insert(0) 逆序，
+            // 导致 RemoveBuff(i) 用 Buffs 索引操作 _buffList 错位：dispose 错图标、正确图标滞留泄漏）
+            _buffList.Add(image);
             UpdateWindow();
         }
 
@@ -908,7 +910,8 @@ namespace Client.MirScenes.Dialogs
                 Index = buffImage
             };
 
-            _buffList.Insert(0, image);
+            // 20261116 审计修复：同上，图标列表与 PoisonBuffs 平行列表同序 Add
+            _buffList.Add(image);
             UpdateWindow();
         }
 

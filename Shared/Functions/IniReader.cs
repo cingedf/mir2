@@ -35,10 +35,14 @@ public class InIReader
         for (int a = 0; a < _contents.Count; a++)
             if (String.CompareOrdinal(_contents[a], "[" + section + "]") == 0)
                 for (int b = a + 1; b < _contents.Count; b++)
-                    if (String.CompareOrdinal(_contents[b].Split('=')[0], key) == 0)
-                        return _contents[b].Split('=')[1];
+                {
+                    // 20261116 审计修复：无 '=' 的行 Split 后只有 [0]，直接取 [1] 会越界
+                    string[] parts = _contents[b].Split('=');
+                    if (String.CompareOrdinal(parts[0], key) == 0)
+                        return parts.Length > 1 ? parts[1] : string.Empty;
                     else if (_contents[b].StartsWith("[") && _contents[b].EndsWith("]"))
                         return null;
+                }
         return null;
     }
 
@@ -71,7 +75,13 @@ public class InIReader
     {
         try
         {
-            File.WriteAllLines(_fileName, _contents);
+            // 20261116 审计修复：先写临时文件再原子替换，避免写一半崩溃/并发读写留下损坏 ini
+            string tmp = _fileName + ".tmp";
+            File.WriteAllLines(tmp, _contents);
+            if (File.Exists(_fileName))
+                File.Replace(tmp, _fileName, null);
+            else
+                File.Move(tmp, _fileName);
         }
         catch
         {

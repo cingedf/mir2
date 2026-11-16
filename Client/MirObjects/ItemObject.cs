@@ -143,7 +143,8 @@ namespace Client.MirObjects
                 Border = border,
                 Text = Name,//Regex.Replace(Name, @"\d+$", string.Empty),//In fact, the item names passed from the server no longer have numeric suffixes, as they are redundant and affect performance.
             };
-            
+
+            NameLabel.Disposing += (o, e) => LabelList.Remove(NameLabel); // 20261116 审计修复：缺注销钩子导致掉落物标签+GDI 资源永久滞留（对齐 MapObject.cs 模式）
             LabelList.Add(NameLabel);
         }
 

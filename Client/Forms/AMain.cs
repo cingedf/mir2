@@ -325,6 +325,10 @@ namespace Launcher
             }
             finally
             {
+                // 20261116 审计修复：下载失败路径此前不置 Completed，dl 永滞 ActiveDownloads，
+                // InterfaceTimer 完成条件永不成立 → Launch 永久禁用（补丁器锁死）；成功路径已设，幂等无害
+                dl.Completed = true;
+
                 if (ErrorFound)
                 {
                     MessageBox.Show(GameLanguage.ClientTextMap.GetLocalization((ClientTextKeys.FileDownload_Failure), fileName));

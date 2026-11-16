@@ -628,34 +628,31 @@ namespace Client
                 Now.ToShortDateString(),
                 Now.TimeOfDay);
 
-            Surface backbuffer = DXManager.Device.GetBackBuffer(0, 0);
-
+            // 20261116 审计修复：backbuffer Surface、Bitmap、Font 每次截图泄漏一份，统一 using/复用
+            using (Surface backbuffer = DXManager.Device.GetBackBuffer(0, 0))
             using (var stream = Surface.ToStream(backbuffer, ImageFileFormat.Png))
+            using (Bitmap image = new Bitmap(stream))
+            using (Graphics graphics = Graphics.FromImage(image))
+            using (StringFormat sf = new StringFormat
             {
-                Bitmap image = new Bitmap(stream);
+                LineAlignment = StringAlignment.Center,
+                Alignment = StringAlignment.Center
+            })
+            using (Font font = new Font(Settings.FontName, 9F))
+            {
+                graphics.DrawString(text, font, Brushes.Black, new Point((Settings.ScreenWidth / 2) + 3, 10), sf);
+                graphics.DrawString(text, font, Brushes.Black, new Point((Settings.ScreenWidth / 2) + 4, 9), sf);
+                graphics.DrawString(text, font, Brushes.Black, new Point((Settings.ScreenWidth / 2) + 5, 10), sf);
+                graphics.DrawString(text, font, Brushes.Black, new Point((Settings.ScreenWidth / 2) + 4, 11), sf);
+                graphics.DrawString(text, font, Brushes.White, new Point((Settings.ScreenWidth / 2) + 4, 10), sf);//SandyBrown
 
-                using (Graphics graphics = Graphics.FromImage(image))
-                {
-                    StringFormat sf = new StringFormat
-                    {
-                        LineAlignment = StringAlignment.Center,
-                        Alignment = StringAlignment.Center
-                    };
+                string path = Path.Combine(Application.StartupPath, @"Screenshots\");
+                if (!Directory.Exists(path))
+                    Directory.CreateDirectory(path);
 
-                    graphics.DrawString(text, new Font(Settings.FontName, 9F), Brushes.Black, new Point((Settings.ScreenWidth / 2) + 3, 10), sf);
-                    graphics.DrawString(text, new Font(Settings.FontName, 9F), Brushes.Black, new Point((Settings.ScreenWidth / 2) + 4, 9), sf);
-                    graphics.DrawString(text, new Font(Settings.FontName, 9F), Brushes.Black, new Point((Settings.ScreenWidth / 2) + 5, 10), sf);
-                    graphics.DrawString(text, new Font(Settings.FontName, 9F), Brushes.Black, new Point((Settings.ScreenWidth / 2) + 4, 11), sf);
-                    graphics.DrawString(text, new Font(Settings.FontName, 9F), Brushes.White, new Point((Settings.ScreenWidth / 2) + 4, 10), sf);//SandyBrown               
+                int count = Directory.GetFiles(path, "*.png").Length;
 
-                    string path = Path.Combine(Application.StartupPath, @"Screenshots\");
-                    if (!Directory.Exists(path))
-                        Directory.CreateDirectory(path);
-
-                    int count = Directory.GetFiles(path, "*.png").Length;
-
-                    image.Save(Path.Combine(path, string.Format("Image {0}.png", count)), ImageFormat.Png);
-                }
+                image.Save(Path.Combine(path, string.Format("Image {0}.png", count)), ImageFormat.Png);
             }
         }
 

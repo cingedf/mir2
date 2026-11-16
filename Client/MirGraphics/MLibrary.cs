@@ -970,8 +970,13 @@ namespace Client.MirGraphics
 
             DecompressImage(reader.ReadBytes(Length), stream.Data);
 
+            // 20261116 审计修复（use-after-unlock）：在 Unlock 前先完成 TrueSize 逐像素扫描——
+            // 此时 Data 裸指针有效；Unlock 后 VisiblePixel 不再需要裸指针（TrueSize 已缓存）。
+            GetTrueSize();
+
             stream.Data.Dispose();
             Image.UnlockRectangle(0);
+            Data = null; //20261116 审计修复：Unlock 后 Data 指针失效，置空防 use-after-unlock（VisiblePixel 安全回退 false）
 
             if (HasMask)
             {
@@ -1022,6 +1027,8 @@ namespace Client.MirGraphics
             int w = Width;
 
             bool result = false;
+            // 20261116 审计修复（use-after-unlock）：Data 仅在 Lock 窗口内有效（CreateTexture 时已预热 TrueSize），
+            // Unlock 后为 null，此处安全回退 false（拾取判定退化为整图可见，无崩溃）
             if (Data != null)
             {
                 int x = p.X;

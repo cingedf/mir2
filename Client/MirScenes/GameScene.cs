@@ -5591,6 +5591,7 @@ namespace Client.MirScenes
 
                     BuffsDialog.RemoveBuff(i);
                     BuffsDialog.Buffs.RemoveAt(i);
+                    break; //20261116 审计修复：移除后继续用旧 Count 迭代会跳元素/误删，与 AddBuff 只更新首个匹配对称，仅删首个
                 }
                 User.RefreshStats();
             }
@@ -5613,6 +5614,7 @@ namespace Client.MirScenes
 
                     HeroBuffsDialog.RemoveBuff(i);
                     HeroBuffsDialog.Buffs.RemoveAt(i);
+                    break; //20261116 审计修复：同上，仅删首个匹配
                 }
                 Hero.RefreshStats();
             }
@@ -13143,7 +13145,8 @@ namespace Client.MirScenes
 
         public void UpdateWeather()
         {
-            for (int i = GameScene.Scene.ParticleEngines.Count - 1; i > 0; i--)
+            // 20261116 审计修复：原 i>0 漏掉索引 0，每次换图泄漏一个 ParticleEngine（雾类数百粒子）
+            for (int i = GameScene.Scene.ParticleEngines.Count - 1; i >= 0; i--)
                 GameScene.Scene.ParticleEngines[i].Dispose();
 
             GameScene.Scene.ParticleEngines.Clear();
