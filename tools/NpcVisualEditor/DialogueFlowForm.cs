@@ -17,6 +17,8 @@ namespace NpcVisualEditor
     /// </summary>
     public class DialogueFlowForm : Form
     {
+        internal enum NodeKind { Dialogue, Condition, Event, Subgraph }
+
         internal class Node : DialogueNodeRef
         {
             public List<string> Targets = new(); // 跳转目标段名
@@ -24,6 +26,23 @@ namespace NpcVisualEditor
             public string SayText => string.Join(" ", Lines
                 .Where(l => !l.StartsWith("#") && !l.TrimStart().StartsWith("<"))
                 .Select(l => l.Trim()).Where(s => s.Length > 0));
+
+            /// <summary>按段内首命令分类节点类型（类型化对话图）。</summary>
+            public NodeKind Kind
+            {
+                get
+                {
+                    bool sub = Lines.Any(l => { var t = l.TrimStart(); return t.StartsWith("#INCLUDE", StringComparison.OrdinalIgnoreCase) || t.StartsWith("#INSERT", StringComparison.OrdinalIgnoreCase); });
+                    if (sub) return NodeKind.Subgraph;
+                    bool hasIf = Lines.Any(l => l.TrimStart().StartsWith("#IF", StringComparison.OrdinalIgnoreCase));
+                    bool check = Lines.Any(l => { var t = l.TrimStart(); return t.StartsWith("CHECK", StringComparison.OrdinalIgnoreCase) || t.StartsWith("RANDOM", StringComparison.OrdinalIgnoreCase) || t.StartsWith("ISADMIN", StringComparison.OrdinalIgnoreCase) || t.StartsWith("INGUILD", StringComparison.OrdinalIgnoreCase); });
+                    if (hasIf && check) return NodeKind.Condition;
+                    bool hasAct = Lines.Any(l => l.TrimStart().StartsWith("#ACT", StringComparison.OrdinalIgnoreCase));
+                    bool action = Lines.Any(l => { var t = l.TrimStart(); return t.StartsWith("GOTO", StringComparison.OrdinalIgnoreCase) || t.StartsWith("CALL", StringComparison.OrdinalIgnoreCase) || t.StartsWith("GIVE", StringComparison.OrdinalIgnoreCase) || t.StartsWith("TAKE", StringComparison.OrdinalIgnoreCase) || t.StartsWith("MOV", StringComparison.OrdinalIgnoreCase) || t.StartsWith("CALC", StringComparison.OrdinalIgnoreCase) || t.StartsWith("SET", StringComparison.OrdinalIgnoreCase) || t.StartsWith("MONGEN", StringComparison.OrdinalIgnoreCase); });
+                    if (hasAct && action) return NodeKind.Event;
+                    return NodeKind.Dialogue;
+                }
+            }
         }
 
         private readonly string _scriptPath;
@@ -33,8 +52,15 @@ namespace NpcVisualEditor
         private Node _selected;
 
         private static readonly Regex JumpRx = new(
-            @"<{1,2}\s*([^/@>]+?)\s*/@([A-Za-z0-9_]+?)(?:/[^>]*?)?>{1,2}",
+            @"<{1,2}\s*([^/@>]+?)\s*/@([A-Za-z0-9_\-\(\)]+?)(?:/[^>]*?)?>{1,2}",
             RegexOptions.Compiled);
+        // GOTO/GROUPGOTO/ROLLDIE/ROLLYUT 第2词；DELAYGOTO/TIMERECALL* 第3词
+        private static readonly Regex Goto2Rx = new(
+            @"^\s*(GOTO|GROUPGOTO|ROLLDIE|ROLLYUT)\s+@?([A-Za-z0-9_\-\(\)]+)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex Goto3Rx = new(
+            @"^\s*(DELAYGOTO|TIMERECALL|TIMERECALLGROUP)\s+\S+\s+@?([A-Za-z0-9_\-\(\)]+)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public DialogueFlowForm(string scriptPath, string npcName)
         {
@@ -96,6 +122,15 @@ namespace NpcVisualEditor
                     if (!cur.Targets.Contains(target, StringComparer.OrdinalIgnoreCase))
                         cur.Targets.Add(target);
                 }
+                // 命令行跳转：GOTO/GROUPGOTO 第2词、DELAYGOTO/TIMERECALL 第3词
+                var g2 = Goto2Rx.Match(line);
+                var g3 = g2.Success ? Match.Empty : Goto3Rx.Match(line);
+                if (g2.Success || g3.Success)
+                {
+                    string target = (g2.Success ? g2.Groups[2] : g3.Groups[2]).Value;
+                    if (!cur.Targets.Contains(target, StringComparer.OrdinalIgnoreCase))
+                        cur.Targets.Add(target);
+                }
             }
         }
 
@@ -136,16 +171,29 @@ namespace NpcVisualEditor
                 }
             }
 
-            // 节点
+            // 节点（按类型着色）
             foreach (var n in _nodes)
             {
                 bool sel = ReferenceEquals(n, _selected);
-                using var brush = new SolidBrush(sel ? Color.FromArgb(70, 90, 130) : Color.FromArgb(48, 48, 54));
+                Color kindColor = n.Kind switch
+                {
+                    NodeKind.Condition => Color.FromArgb(120, 85, 20),   // 条件-琥珀
+                    NodeKind.Event => Color.FromArgb(30, 95, 120),      // 事件-青
+                    NodeKind.Subgraph => Color.FromArgb(95, 45, 110),   // 子图-紫
+                    _ => Color.FromArgb(48, 48, 54)                     // 对话-灰
+                };
+                using var brush = new SolidBrush(sel ? Color.FromArgb(70, 90, 130) : kindColor);
                 g.FillRectangle(brush, n.Rect);
                 using var pen = new Pen(sel ? Color.Yellow : Color.Gray, sel ? 2 : 1);
                 g.DrawRectangle(pen, n.Rect);
                 TextRenderer.DrawText(g, "[@" + n.Name + "]", Font, new Point(n.Rect.X + 8, n.Rect.Y + 6), Color.Wheat);
                 using var f2 = new Font("Microsoft YaHei UI", 8F);
+                string tag = n.Kind switch
+                {
+                    NodeKind.Condition => "◇条件", NodeKind.Event => "◆事件",
+                    NodeKind.Subgraph => "▣子图", _ => "◇对话"
+                };
+                TextRenderer.DrawText(g, tag, f2, new Point(n.Rect.X + n.Rect.Width - 62, n.Rect.Y + 6), Color.LightYellow);
                 string say = n.SayText;
                 if (say.Length > 60) say = say[..60] + "...";
                 TextRenderer.DrawText(g, say, f2,

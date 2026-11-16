@@ -76,7 +76,7 @@ namespace NpcVisualEditor
             mCreate.DropDownItems.Add(new ToolStripMenuItem("玩法模板生成器(&T)", null,
                 (s, e) => new TemplateForm(_serverDir, _envir.MapInfoList).ShowDialog(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("任务链流程图(&Q)", null,
-                (s, e) => new QuestFlowForm(_envir.QuestInfoList).ShowDialog(this)));
+                (s, e) => new QuestFlowForm(_envir.QuestInfoList, _serverDir).ShowDialog(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("特效/BUFF模板(&B)", null,
                 (s, e) => new EffectBuffForm(_serverDir).ShowDialog(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("脚本命令向导(&W)", null,
@@ -105,6 +105,8 @@ namespace NpcVisualEditor
                 (s, e) => new CustomCommandForm(_serverDir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("路径导航(&P)", null,
                 (s, e) => new PathNavigationForm(_serverDir, _envir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("需求/伤害估算(&J)", null,
+                (s, e) => new DamageCalcForm().Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&N)", null, (s, e) => ShowNpcCommandHelp()));
             var mHelp = new ToolStripMenuItem("帮助(&H)");
             mHelp.DropDownItems.Add(new ToolStripMenuItem("关于(&A)", null,

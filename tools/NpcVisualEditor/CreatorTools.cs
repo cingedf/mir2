@@ -233,14 +233,24 @@ namespace NpcVisualEditor
     /// </summary>
     public class QuestFlowForm : Form
     {
+        private class QuestDetail
+        {
+            public HashSet<string> GoalKinds = new();
+            public List<string> RewardLines = new();
+        }
+
         private readonly List<QuestInfo> _quests;
+        private readonly string _serverDir;
+        private readonly Dictionary<int, QuestDetail> _details = new();
         private readonly Panel _canvas;
         private readonly Dictionary<int, Point> _positions = new();
         private QuestInfo _selected;
 
-        public QuestFlowForm(IEnumerable<QuestInfo> quests)
+        public QuestFlowForm(IEnumerable<QuestInfo> quests, string serverDir = null)
         {
             _quests = quests.OrderBy(q => q.Index).ToList();
+            _serverDir = serverDir;
+            LoadQuestDetails();
             Text = "任务链流程图";
             Font = new Font("Microsoft YaHei UI", 9F);
             StartPosition = FormStartPosition.CenterParent;
@@ -273,6 +283,61 @@ namespace NpcVisualEditor
             Controls.Add(bar);
         }
 
+        /// <summary>
+        /// 任务目标/奖励明细只在运行时由 Envir\Quests\&lt;FileName&gt;.txt 填充（MDB 中恒空），
+        /// 这里只读解析这些文本以补充静态视图；无文本文件的任务标注"运行时加载"。
+        /// </summary>
+        private void LoadQuestDetails()
+        {
+            if (string.IsNullOrEmpty(_serverDir)) return;
+            string dir = Path.Combine(_serverDir, "Envir", "Quests");
+            if (!Directory.Exists(dir)) return;
+            foreach (var q in _quests)
+            {
+                if (string.IsNullOrEmpty(q.FileName)) continue;
+                string path = Path.Combine(dir, q.FileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+                    ? q.FileName : q.FileName + ".txt");
+                if (!File.Exists(path)) continue;
+                var d = new QuestDetail();
+                string section = "";
+                foreach (var raw in File.ReadAllLines(path))
+                {
+                    string line = raw.Trim();
+                    var sm = System.Text.RegularExpressions.Regex.Match(line, @"^\[@([^\]]+)\]");
+                    if (sm.Success) { section = sm.Groups[1].Value.ToUpperInvariant(); continue; }
+                    if (line.Length == 0 || line.StartsWith(";")) continue;
+                    switch (section)
+                    {
+                        case "KILLTASKS": d.GoalKinds.Add("杀怪"); break;
+                        case "ITEMTASKS": d.GoalKinds.Add("收集"); break;
+                        case "CARRYITEMS": d.GoalKinds.Add("携带"); break;
+                        case "FLAGTASKS": d.GoalKinds.Add("标志"); break;
+                        case "FIXEDREWARDS": case "SELECTREWARDS": case "EXPREWARD":
+                        case "GOLDREWARD": case "CREDITREWARD":
+                            d.RewardLines.Add(line); break;
+                    }
+                }
+                _details[q.Index] = d;
+            }
+        }
+
+        private static string TypeName(QuestInfo q)
+        {
+            int t = (int)q.Type;
+            return t switch { 1 => "每日", 2 => "重复", 3 => "主线", _ => "一般" };
+        }
+
+        private static Color TypeColor(QuestInfo q)
+        {
+            return ((int)q.Type) switch
+            {
+                1 => Color.FromArgb(45, 105, 65),   // 每日-绿
+                2 => Color.FromArgb(110, 75, 35),   // 重复-棕
+                3 => Color.FromArgb(120, 40, 55),   // 主线-红
+                _ => Color.FromArgb(48, 48, 54)     // 一般-灰
+            };
+        }
+
         private Rectangle Rect(QuestInfo q)
         {
             var p = _positions[q.Index];
@@ -301,15 +366,20 @@ namespace NpcVisualEditor
             {
                 var r = Rect(q);
                 bool sel = ReferenceEquals(q, _selected);
-                using var brush = new SolidBrush(sel ? Color.FromArgb(70, 90, 130) : Color.FromArgb(48, 48, 54));
+                using var brush = new SolidBrush(sel ? Color.FromArgb(70, 90, 130) : TypeColor(q));
                 g.FillRectangle(brush, r);
                 using var pen = new Pen(sel ? Color.Yellow : Color.Gray, sel ? 2 : 1);
                 g.DrawRectangle(pen, r);
                 TextRenderer.DrawText(g, $"#{q.Index} {q.Name}", Font,
                     new Point(r.X + 8, r.Y + 8), Color.Wheat);
                 using var f = new Font("Microsoft YaHei UI", 8F);
-                string info = $"等级 {q.RequiredMinLevel}-{q.RequiredMaxLevel}  前置:{q.RequiredQuest}\r\n" +
-                              $"奖励 金币{q.GoldReward} 经验{q.ExpReward}";
+                TextRenderer.DrawText(g, TypeName(q), f,
+                    new Point(r.X + r.Width - 50, r.Y + 8), Color.LightYellow);
+                _details.TryGetValue(q.Index, out var detail);
+                string goals = detail != null && detail.GoalKinds.Count > 0
+                    ? string.Join("/", detail.GoalKinds) : "运行时加载";
+                string info = $"[{TypeName(q)}] 等级 {q.RequiredMinLevel}-{q.RequiredMaxLevel}  前置:{q.RequiredQuest}\r\n" +
+                              $"目标: {goals}  金币{q.GoldReward} 经验{q.ExpReward}";
                 TextRenderer.DrawText(g, info, f,
                     new Rectangle(r.X + 8, r.Y + 30, r.Width - 16, r.Height - 34),
                     Color.WhiteSmoke, TextFormatFlags.WordBreak);
@@ -318,8 +388,15 @@ namespace NpcVisualEditor
             if (_selected != null)
             {
                 using var f = new Font("Microsoft YaHei UI", 9F);
-                var d = _selected.Description.Count > 0 ? _selected.Description[0] : "";
-                TextRenderer.DrawText(g, "选中: " + d, f, new Point(30, _canvas.Height - 40), Color.Yellow);
+                string detailText;
+                if (_details.TryGetValue(_selected.Index, out var dd) && dd.RewardLines.Count > 0)
+                    detailText = "奖励明细: " + string.Join(" | ", dd.RewardLines.Take(4));
+                else
+                {
+                    var d = _selected.Description.Count > 0 ? _selected.Description[0] : "";
+                    detailText = "选中: " + d + "（目标/奖励明细运行时从 Quests 文本加载）";
+                }
+                TextRenderer.DrawText(g, detailText, f, new Point(30, _canvas.Height - 40), Color.Yellow);
             }
         }
     }
