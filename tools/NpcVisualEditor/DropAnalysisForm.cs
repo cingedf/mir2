@@ -39,7 +39,7 @@ namespace NpcVisualEditor
             Font = new Font("Microsoft YaHei UI", 9F);
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(1180, 760);
-            MinimumSize = new Size(900, 600);
+            MinimumSize = new Size(1080, 600);   // 参数栏按钮最右到 x≈1052，禁止缩到其内致按钮跑出可视区
             BuildUi();
             LoadFileList();
         }
@@ -56,7 +56,7 @@ namespace NpcVisualEditor
 
             var param = new Panel { Dock = DockStyle.Top, Height = 52 };
             int x = 12;
-            AddParam(param, "DropRate:", x, out _numDropRate, 1, 1, 10000);
+            AddParam(param, "爆率倍率:", x, out _numDropRate, 1, 1, 10000);
             AddParam(param, "掉落收益%:", x + 130, out _numBonus, 101, 0, 1000);
             AddParam(param, "稀有度%:", x + 280, out _numRarity, 0, 0, 1000);
             AddParam(param, "模拟次数:", x + 420, out _numSims, 100000, 1000, 5000000, 100);
@@ -73,7 +73,10 @@ namespace NpcVisualEditor
             _gridRows = NewGrid(DockStyle.Fill);
             var bottom = new Panel { Dock = DockStyle.Bottom, Height = 200 };
             _gridIssues = NewGrid(DockStyle.Fill);
-            _lblSummary = new Label { Dock = DockStyle.Bottom, Height = 26, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0) };
+            _lblSummary = new Label { Dock = DockStyle.Bottom, Height = 26, TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true, Padding = new Padding(8, 0, 0, 0) };
+            var summaryTip = new ToolTip();
+            _lblSummary.MouseHover += (s, e) => summaryTip.SetToolTip(_lblSummary, _lblSummary.Text);
             bottom.Controls.Add(_gridIssues);
             bottom.Controls.Add(_lblSummary);
 
@@ -133,13 +136,15 @@ namespace NpcVisualEditor
             _gridRows.Columns.Clear();
             foreach (var h in new[] { "层级", "类型", "物品/分组", "标称", "有效爆率", "期望/千次", "备注" })
                 _gridRows.Columns.Add(h, h);
+            int[] rowWeights = { 45, 55, 200, 70, 100, 100, 230 };
+            for (int i = 0; i < rowWeights.Length; i++) _gridRows.Columns[i].FillWeight = rowWeights[i];
             AddRows(r.Entries);
 
             _gridIssues.Columns.Clear();
             _gridIssues.Columns.Add("Issue", "异常");
             foreach (var issue in r.Issues) _gridIssues.Rows.Add(issue);
             _lblSummary.Text = $"{name}: {r.Entries.Count} 顶层条目, {r.Issues.Count} 异常 | " +
-                               $"DropRate={_numDropRate.Value} 收益={_numBonus.Value}% 稀有度={_numRarity.Value}%";
+                               $"爆率={_numDropRate.Value} 收益={_numBonus.Value}% 稀有度={_numRarity.Value}%";
         }
 
         private void AddRows(List<Entry> entries)
@@ -152,7 +157,7 @@ namespace NpcVisualEditor
                 string rateStr = e.QuestRequired ? "不掉(Q)" : (e.IsGroup ? "-" : $"{rate:P4}");
                 string per1k = e.IsGroup ? "-" : $"{rate * 1000:F1}";
                 string note = e.QuestRequired ? "任务物品，引擎跳过" : "";
-                _gridRows.Rows.Add(e.Depth, type, e.IsGold ? $"Gold {e.Gold}" : e.ItemName,
+                _gridRows.Rows.Add(e.Depth, type, e.IsGold ? $"金币 {e.Gold}" : e.ItemName,
                     odds, rateStr, per1k, note);
                 if (e.Children.Count > 0) AddRows(e.Children);
             }
@@ -165,41 +170,48 @@ namespace NpcVisualEditor
             int sims = (int)_numSims.Value;
             var rng = new Random();
             var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < sims; i++) Roll(r.Entries, rng, counts);
+            for (int i = 0; i < sims; i++)
+                foreach (var reward in Roll(r.Entries, rng)) AddCount(reward, counts);
             _gridRows.Columns.Clear();
             foreach (var h in new[] { "物品", "产出总数", "每次平均" }) _gridRows.Columns.Add(h, h);
+            _gridRows.Columns[0].FillWeight = 300;
+            _gridRows.Columns[1].FillWeight = 140;
+            _gridRows.Columns[2].FillWeight = 140;
             foreach (var kv in counts.OrderByDescending(k => k.Value))
                 _gridRows.Rows.Add(kv.Key, kv.Value, ((double)kv.Value / sims).ToString("F4"));
             _lblSummary.Text = $"{name}: 模拟 {sims:N0} 次击杀，产出 {counts.Count} 种物品";
         }
 
-        private void Roll(IEnumerable<Entry> entries, Random rng, Dictionary<string, int> counts)
+        /// <summary>
+        /// 严格复刻引擎 DropInfo.AttemptDrop 递归语义：
+        /// 每个条目（含 GROUP 组本身）先按自身 Chance 掷父骰，未中整条掉落作废；
+        /// GROUP 命中后递归判定子项 → 普通 GROUP 全给 / GROUP^ 取首个命中 / GROUP* 从命中里随机取 1。
+        /// 返回本次击杀实际产出的物品条目列表。
+        /// </summary>
+        private List<Entry> Roll(IEnumerable<Entry> entries, Random rng)
         {
+            var rewards = new List<Entry>();
             foreach (var e in entries)
             {
-                if (e.IsGroup)
-                {
-                    if (e.GroupKind == "GROUP*" || e.GroupKind == "GROUP^")
-                    {
-                        foreach (var c in e.Children)
-                        {
-                            if (rng.NextDouble() < DropAnalyzer.EffectiveRate(c, DropRate, BonusPercent))
-                            {
-                                AddCount(c, counts);
-                                if (e.GroupKind == "GROUP^") break;
-                            }
-                        }
-                    }
-                    else Roll(e.Children, rng, counts);  // GROUP：全子项各自判定
-                }
-                else if (rng.NextDouble() < DropAnalyzer.EffectiveRate(e, DropRate, BonusPercent))
-                    AddCount(e, counts);
+                double selfRate = e.IsGroup
+                    ? DropAnalyzer.ParentRate(e, DropRate, BonusPercent)
+                    : DropAnalyzer.EffectiveRate(e, DropRate, BonusPercent);
+                if (rng.NextDouble() >= selfRate) continue;          // 父骰未中（Q 项 selfRate=0 恒不中）
+
+                if (!e.IsGroup) { rewards.Add(e); continue; }        // 普通物品/金币
+
+                var hits = Roll(e.Children, rng);                    // 组内子项递归判定
+                if (hits.Count == 0) continue;
+                if (e.GroupKind == "GROUP*") rewards.Add(hits[rng.Next(hits.Count)]); // 随机取1
+                else if (e.GroupKind == "GROUP^") rewards.Add(hits[0]);               // 首个命中
+                else rewards.AddRange(hits);                                          // 普通 GROUP 全给
             }
+            return rewards;
         }
 
         private static void AddCount(Entry e, Dictionary<string, int> counts)
         {
-            string nm = e.IsGold ? $"Gold {e.Gold}" : e.ItemName;
+            string nm = e.IsGold ? $"金币 {e.Gold}" : e.ItemName;
             counts[nm] = counts.GetValueOrDefault(nm) + 1;
         }
 
@@ -208,6 +220,8 @@ namespace NpcVisualEditor
             _gridIssues.Columns.Clear();
             _gridIssues.Columns.Add("File", "文件");
             _gridIssues.Columns.Add("Issue", "异常");
+            _gridIssues.Columns[0].FillWeight = 220;
+            _gridIssues.Columns[1].FillWeight = 380;
             int total = 0;
             foreach (string name in _lstFiles.Items)
             {

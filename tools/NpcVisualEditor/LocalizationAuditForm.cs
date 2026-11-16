@@ -24,9 +24,10 @@ namespace NpcVisualEditor
             Font = new Font("Microsoft YaHei UI", 9F);
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(880, 620);
+            MinimumSize = new Size(880, 620);   // 顶部三按钮+说明 Label 为绝对定位，禁止缩小以免裁切
 
             var top = new Panel { Dock = DockStyle.Top, Height = 44 };
-            top.Controls.Add(new Button { Text = "扫描客户端 (Text/Enum)", Location = new Point(10, 9), Width = 180 }.Tap(b =>
+            top.Controls.Add(new Button { Text = "扫描客户端（文本/枚举）", Location = new Point(10, 9), Width = 180 }.Tap(b =>
                 b.Click += (s, e) => Scan(false)));
             top.Controls.Add(new Button { Text = "扫描服务端枚举 (12 类型)", Location = new Point(200, 9), Width = 190 }.Tap(b =>
                 b.Click += (s, e) => Scan(true)));
@@ -43,7 +44,10 @@ namespace NpcVisualEditor
             };
             Controls.Add(_grid);
 
-            _lbl = new Label { Dock = DockStyle.Bottom, Height = 28, TextAlign = ContentAlignment.MiddleLeft, Text = "  点击上方按钮开始扫描" };
+            _lbl = new Label { Dock = DockStyle.Bottom, Height = 28, TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true, Text = "  点击上方按钮开始扫描" };
+            var lblTip = new ToolTip();
+            _lbl.MouseHover += (s, e) => lblTip.SetToolTip(_lbl, _lbl.Text);
             Controls.Add(_lbl);
         }
 
@@ -85,6 +89,11 @@ namespace NpcVisualEditor
             _grid.Columns.Add("Section", "节");
             _grid.Columns.Add("Key", "缺失键");
             _grid.Columns.Add("Detail", "说明");
+            _grid.Columns[0].FillWeight = 60;
+            _grid.Columns[1].FillWeight = 200;
+            _grid.Columns[2].FillWeight = 80;
+            _grid.Columns[3].FillWeight = 160;
+            _grid.Columns[4].FillWeight = 400;
             foreach (var m in r.Missing.OrderBy(m => m.Section).ThenBy(m => m.Key))
                 _grid.Rows.Add(r.Scope, m.File, m.Section, m.Key, m.Detail);
             string counts = string.Join("  ", r.Counts.Select(kv => kv.Key + "=" + kv.Value));

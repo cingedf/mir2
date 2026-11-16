@@ -50,6 +50,7 @@ namespace NpcVisualEditor
             _btnEnter.Click += BtnEnter_Click;
             _btnExit.Click += (s, e) => Close();
             AcceptButton = _btnEnter;
+            CancelButton = _btnExit;   // Esc 退出
 
             LoadHistory();
         }

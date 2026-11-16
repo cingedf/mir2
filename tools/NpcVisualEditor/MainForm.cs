@@ -44,8 +44,12 @@ namespace NpcVisualEditor
             Text = $"NPC 可视化编辑器 — {serverDir}";
             Font = new Font("Microsoft YaHei UI", 9F);
             StartPosition = FormStartPosition.CenterScreen;
-            Size = new Size(1280, 800);
-            MinimumSize = new Size(1000, 640);
+            // 自适应工作区：小屏（如 1366x768）不超出可视范围，避免标题栏/底栏被裁
+            var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 800);
+            int w = Math.Min(1280, wa.Width - 40);
+            int h = Math.Min(800, wa.Height - 40);
+            Size = new Size(w, h);
+            MinimumSize = new Size(Math.Min(1000, w), Math.Min(640, h));
 
             BuildTabs();
             BuildMenu();
@@ -107,7 +111,7 @@ namespace NpcVisualEditor
                 (s, e) => new PathNavigationForm(_serverDir, _envir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("需求/伤害估算(&J)", null,
                 (s, e) => new DamageCalcForm().Show(this)));
-            mCreate.DropDownItems.Add(new ToolStripMenuItem("对象关系图谱(&G)", null,
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("对象关系图谱(&O)", null,
                 (s, e) => new ReferenceGraphForm(_serverDir, _envir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("本地化缺失键检测(&L)", null,
                 (s, e) => new LocalizationAuditForm(_serverDir, _clientDir).Show(this)));
@@ -164,7 +168,7 @@ namespace NpcVisualEditor
             };
             _canvas.NpcDeleted = npc =>
             {
-                if (MessageBox.Show(this, $"确定删除 NPC「{npc.GameName}」？", "确认",
+                if (MessageBox.Show(this, $"确定删除 NPC「{NpcUtil.SafeName(npc)}」？", "确认",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 {
                     _envir.NPCInfoList.Remove(npc);
@@ -249,7 +253,12 @@ namespace NpcVisualEditor
                 }
             };
 
-            var toolBar = new Panel { Dock = DockStyle.Top, Height = 34 };
+            // 工具模式栏：FlowLayoutPanel 自动换行，窄屏（MinimumSize=1000）不会遮挡第4/5按钮
+            var toolBar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true, Padding = new Padding(8, 6, 8, 6)
+            };
             string[] modes = { "选择/拖动", "新建NPC", "刷怪点(框选)", "安全区(画矩形)", "传送门(点两点)" };
             for (int i = 0; i < modes.Length; i++)
             {
@@ -257,8 +266,8 @@ namespace NpcVisualEditor
                 var btn = new RadioButton
                 {
                     Text = modes[i],
-                    Location = new Point(8 + i * 122, 6),
-                    Size = new Size(120, 24),
+                    AutoSize = true,
+                    Margin = new Padding(0, 0, 10, 0),
                     Appearance = Appearance.Button,
                     Checked = i == 0
                 };
@@ -510,8 +519,15 @@ namespace NpcVisualEditor
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
                 _dirty = true;
-                if (_currentMap != null && npc.MapIndex != _currentMap.Index)
-                    ZoomToMap(_currentMap);
+                // 脚本名/脚本内容可能被改（[TRADE] 段增减），商人判定缓存必须失效
+                _merchantCache.Clear();
+                // NPC 被改到别的地图：应跳到「新」地图查看，而非旧地图；ZoomToMap 内部已含
+                // LoadMap+RefreshNpcLists，直接返回避免后面的重复刷新。
+                if (npc.MapIndex != _currentMap?.Index)
+                {
+                    var target = _envir.MapInfoList.FirstOrDefault(m => m.Index == npc.MapIndex);
+                    if (target != null) { ZoomToMap(target); return; }
+                }
                 _canvas.SetNpcs(GetMapNpcs(_currentMap));
                 RefreshNpcLists();
             }
@@ -521,7 +537,7 @@ namespace NpcVisualEditor
         {
             var npc = SelectedNpc;
             if (npc == null) return;
-            if (MessageBox.Show(this, $"确定删除 NPC「{npc.GameName}」？", "确认",
+            if (MessageBox.Show(this, $"确定删除 NPC「{NpcUtil.SafeName(npc)}」？", "确认",
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No) return;
             _envir.NPCInfoList.Remove(npc);
             _dirty = true;

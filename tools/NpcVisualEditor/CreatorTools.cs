@@ -201,28 +201,49 @@ namespace NpcVisualEditor
                 "; === 赋予 BUFF: " + name + " ===\r\n" +
                 "[@GIVEBUFF]\r\n#IF\r\n#ACT\r\n" +
                 "GIVEBUFF " + name + " 1800 TRUE FALSE FALSE" + suffix + "\r\n" +
-                "MESSAGE 已附加增益：" + name + "\r\nBREAK\r\n";
+                "LOCALMESSAGE \"已附加增益：" + name + "\" Hint\r\nBREAK\r\n";
         }
 
-        private void BtnAdd_Click(object sender, EventArgs e)
+        /// <summary>把当前编辑框内容提交到 _lines（不弹框），返回是否产生变更。供"新增/更新"与"保存"共用，
+        /// 避免用户改了编辑框却没点"新增/更新"直接保存导致改动丢失。</summary>
+        private bool CommitCurrentEdit()
         {
             string name = _txtName.Text.Trim();
-            if (name.Length == 0) { MessageBox.Show("请填写 BUFF 名称。"); return; }
+            if (name.Length == 0) return false;
             var props = _txtProps.Text.Replace("\r\n", "\n").Split('\n')
                 .Select(p => p.Trim()).Where(p => p.Length > 0);
             string line = name + ";" + string.Join(";", props) + ";;";
             int idx = _lines.FindIndex(l => l.Split(';')[0] == name);
-            if (idx >= 0) _lines[idx] = line; else _lines.Add(line);
+            if (idx >= 0)
+            {
+                if (_lines[idx] == line) return false;
+                _lines[idx] = line;
+            }
+            else _lines.Add(line);
             RefreshList();
+            return true;
+        }
+
+        private void BtnAdd_Click(object sender, EventArgs e)
+        {
+            if (_txtName.Text.Trim().Length == 0) { MessageBox.Show("请填写 BUFF 名称。"); return; }
+            CommitCurrentEdit();
             MessageBox.Show("已加入列表，记得点“保存到 SetBuffs.txt”。");
         }
 
         private void BtnSave_Click(object sender, EventArgs e)
         {
+            CommitCurrentEdit(); // 保存前先提交当前编辑，防止编辑框未提交的改动丢失
             try
             {
+                // 与其他编辑器一致：覆盖前先做时间戳备份，避免误操作丢失原有 BUFF 定义
+                if (File.Exists(_buffsPath))
+                {
+                    var bak = _buffsPath + ".bak-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    File.Copy(_buffsPath, bak, true);
+                }
                 File.WriteAllLines(_buffsPath, _lines, new UTF8Encoding(false));
-                MessageBox.Show(this, "SetBuffs.txt 已保存。", "完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "SetBuffs.txt 已保存（已自动备份原文件）。", "完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex) { MessageBox.Show("保存失败: " + ex.Message); }
         }

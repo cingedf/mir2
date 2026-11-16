@@ -23,6 +23,7 @@ namespace NpcVisualEditor
         private readonly ListBox _list;
         private readonly DataGridView _grid;
         private readonly Label _lblStatus;
+        private string _statusBase = "  正在构建引用图…";
 
         public ReferenceGraphForm(string serverDir, Envir envir)
         {
@@ -64,7 +65,10 @@ namespace NpcVisualEditor
             };
 
             var bottom = new Panel { Dock = DockStyle.Bottom, Height = 30 };
-            _lblStatus = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Text = "  正在构建引用图…" };
+            _lblStatus = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true, Text = "  正在构建引用图…" };
+            var statusTip = new ToolTip();
+            _lblStatus.MouseHover += (s, e) => statusTip.SetToolTip(_lblStatus, _lblStatus.Text);
             bottom.Controls.Add(_lblStatus);
 
             Controls.Add(_grid);
@@ -80,7 +84,8 @@ namespace NpcVisualEditor
             try
             {
                 _graph = ReferenceGraph.Build(_envir, _serverDir);
-                _lblStatus.Text = $"  图谱就绪：节点 {_graph.Nodes.Count} · 引用边 {_graph.Edges.Count}（只读离线分析）";
+                _statusBase = $"  图谱就绪：节点 {_graph.Nodes.Count} · 引用边 {_graph.Edges.Count}（只读离线分析）";
+                _lblStatus.Text = _statusBase;
                 ApplyFilter(0);
             }
             catch (Exception ex)
@@ -93,6 +98,9 @@ namespace NpcVisualEditor
         {
             _list.Items.Clear();
             _filtered.Clear();
+            // 筛选变化后清空上次选中对象的明细，避免旧 grid 残留误导
+            _grid.Rows.Clear();
+            _grid.Columns.Clear();
             if (_graph == null) return;
             string kw = _txtFilter.Text.Trim();
             foreach (var n in _graph.Nodes.Values.OrderBy(n => n.Kind).ThenBy(n => n.DisplayName))
@@ -103,7 +111,7 @@ namespace NpcVisualEditor
                 _filtered.Add(n);
                 _list.Items.Add($"[{KindName(n.Kind)}] {n.DisplayName} (#{n.Id})  入{n.InDegree}/出{n.OutDegree}");
             }
-            _lblStatus.Text += $"  显示 {_filtered.Count} 项";
+            _lblStatus.Text = _statusBase + $"  显示 {_filtered.Count} 项";
         }
 
         private void RefreshImpact()
@@ -118,6 +126,11 @@ namespace NpcVisualEditor
             _grid.Columns.Add("Target", "对象");
             _grid.Columns.Add("Evidence", "证据位置");
             _grid.Columns.Add("Src", "来源");
+            _grid.Columns[0].FillWeight = 60;
+            _grid.Columns[1].FillWeight = 100;
+            _grid.Columns[2].FillWeight = 200;
+            _grid.Columns[3].FillWeight = 400;
+            _grid.Columns[4].FillWeight = 80;
             foreach (var e in edges)
             {
                 string otherKey = _reverse ? e.FromKey : e.ToKey;
@@ -128,7 +141,7 @@ namespace NpcVisualEditor
                     _graph.Nodes.TryGetValue(e.ToKey, out var to) ? to.DisplayName : e.ToKey,
                     e.Evidence, e.IsText ? "文本" : "MDB");
             }
-            _lblStatus.Text = $"  [{KindName(node.Kind)}] {node.DisplayName} — {(_reverse ? "影响闭包" : "依赖闭包")} {edges.Count} 条边（含递归）";
+            _lblStatus.Text = _statusBase + $"  [{KindName(node.Kind)}] {node.DisplayName} — {(_reverse ? "影响闭包" : "依赖闭包")} {edges.Count} 条边（含递归）";
         }
 
         private static string KindName(ReferenceGraph.NodeKind k) => k switch

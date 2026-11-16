@@ -45,7 +45,7 @@ namespace NpcVisualEditor
         public static Result ParseFile(string path, HashSet<string> itemNames)
         {
             var result = new Result { Name = Path.GetFileNameWithoutExtension(path) };
-            var lines = File.ReadAllLines(path);
+            var lines = File.ReadAllLines(path, DropFormatter.DetectEncoding(path).enc);
             if (lines.Length == 0 || lines.All(l => string.IsNullOrWhiteSpace(l) || l.TrimStart().StartsWith(";")))
                 result.Issues.Add("空文件（无有效掉落）");
 
@@ -67,20 +67,17 @@ namespace NpcVisualEditor
                 string line = raw.Trim();
                 if (line.Length == 0 || line.StartsWith(";")) continue;
 
+                // 独占行的 { / } 是分组开闭标记（引擎 MonsterInfo.ParseGroup L450/L456）
+                if (line == "{")
+                {
+                    // 开组由紧邻的 GROUP 行处理（见下），独占 { 在此仅作容错：无父组时提示
+                    if (groupStack.Count == 0) issues.Add("'{' 无前置 GROUP 行");
+                    continue;
+                }
                 if (line == "}")
                 {
                     if (stack.Count > 1) { stack.Pop(); groupStack.Pop(); }
                     else issues.Add("多余的 '}'");
-                    continue;
-                }
-
-                if (line.StartsWith("GROUP", StringComparison.OrdinalIgnoreCase))
-                {
-                    string kind = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)[0].ToUpperInvariant();
-                    var grp = new Entry { Raw = line, GroupKind = kind, Depth = groupStack.Count };
-                    stack.Peek().Add(grp);
-                    if (line.Contains("{")) { groupStack.Push(grp); stack.Push(grp.Children); }
-                    else issues.Add("GROUP 缺少 '{'");
                     continue;
                 }
 
@@ -91,9 +88,10 @@ namespace NpcVisualEditor
                     string path = Path.Combine(dir, sub);
                     if (File.Exists(path))
                     {
-                        if (!visiting.Add(sub)) { issues.Add($"#INSERT 循环引用: {sub}"); continue; }
-                        ParseLines(File.ReadAllLines(path), Path.GetDirectoryName(path), stack, groupStack, issues, itemNames, visiting);
-                        visiting.Remove(sub);
+                        string full = Path.GetFullPath(path);
+                        if (!visiting.Add(full)) { issues.Add($"#INSERT 循环引用: {sub}"); continue; }
+                        ParseLines(File.ReadAllLines(path, DropFormatter.DetectEncoding(path).enc), Path.GetDirectoryName(path), stack, groupStack, issues, itemNames, visiting);
+                        visiting.Remove(full);
                     }
                     else issues.Add($"#INSERT 文件不存在: {sub}");
                     continue;
@@ -105,12 +103,28 @@ namespace NpcVisualEditor
                 {
                     issues.Add($"非法分母: {line}"); continue;
                 }
-                var e = new Entry { Raw = line, Chance = n, ItemName = m.Groups[2].Value, Depth = groupStack.Count };
+                string token = m.Groups[2].Value;
+                // 引擎真实 GROUP 语法：1/N GROUP|GROUP*|GROUP^ + 独占行 { }（MonsterInfo.FromLine L348）
+                if (token.StartsWith("GROUP", StringComparison.OrdinalIgnoreCase))
+                {
+                    var grp = new Entry
+                    {
+                        Raw = line, Chance = n, ItemName = token, Depth = groupStack.Count,
+                        GroupKind = token.ToUpperInvariant()
+                    };
+                    stack.Peek().Add(grp);
+                    groupStack.Push(grp);
+                    stack.Push(grp.Children);
+                    continue;
+                }
+
+                var e = new Entry { Raw = line, Chance = n, ItemName = token, Depth = groupStack.Count };
                 string third = m.Groups[3].Value;
                 if (e.ItemName.Equals("Gold", StringComparison.OrdinalIgnoreCase))
                 {
                     e.IsGold = true;
                     e.Gold = uint.TryParse(third, out var g) ? g : 0;
+                    if (e.Gold == 0) { issues.Add($"Gold 金额为 0（引擎拒绝）: {line}"); stack.Peek().Add(e); continue; }
                 }
                 else
                 {
@@ -122,11 +136,22 @@ namespace NpcVisualEditor
             }
         }
 
-        /// <summary>有效爆率 = 1/rate，复刻 AttemptDrop 两次 int 截断。Q 项恒为 0。</summary>
+        /// <summary>有效爆率 = 1/rate，复刻 AttemptDrop 两次 int 截断。Q 项与分组恒为 0。</summary>
         public static double EffectiveRate(Entry e, double dropRate, int bonusPercent)
         {
             if (e.QuestRequired || e.IsGroup) return 0.0;
-            int rate = (int)(e.Chance / dropRate);            // 截断1
+            return RateFromChance(e.Chance, dropRate, bonusPercent);
+        }
+
+        /// <summary>分组父级掷骰成功率。GROUP 行本身是 1/N，引擎 AttemptDrop 首先判它。</summary>
+        public static double ParentRate(Entry e, double dropRate, int bonusPercent)
+        {
+            return RateFromChance(e.Chance, dropRate, bonusPercent);
+        }
+
+        private static double RateFromChance(int chance, double dropRate, int bonusPercent)
+        {
+            int rate = (int)(chance / dropRate);              // 截断1
             if (bonusPercent > 0) rate = (int)(rate / (1.0 + bonusPercent / 100.0)); // 截断2
             if (rate < 1) rate = 1;
             return 1.0 / rate;

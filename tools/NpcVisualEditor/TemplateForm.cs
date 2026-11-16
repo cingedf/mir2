@@ -27,6 +27,7 @@ namespace NpcVisualEditor
         {
             public string Key, Name, Desc;
             public Func<TemplateForm, string> Build;
+            public override string ToString() => Name; // 下拉框显示中文名而非类型名
         }
 
         private readonly Dictionary<string, Tpl> _templates;
@@ -82,6 +83,7 @@ namespace NpcVisualEditor
             Controls.Add(right);
 
             _cmbTemplate.SelectedIndexChanged += (s, e) => { BuildParams(); UpdatePreview(); };
+            _lstMaps.SelectedIndexChanged += (s, e) => UpdatePreview(); // 传送模板换地图时刷新
             BuildParams();
             UpdatePreview();
         }
@@ -97,7 +99,7 @@ namespace NpcVisualEditor
                 "[@EXCHANGE]\r\n#IF\r\nCHECKITEM " + f._pItem.Text + " " + f._pCount.Text + "\r\n" +
                 "#ACT\r\nTAKEITEM " + f._pItem.Text + " " + f._pCount.Text + "\r\n" +
                 "GIVEGOLD " + f._pGold.Text + "\r\nGIVEEXP " + f._pExp.Text + "\r\n" +
-                "MESSAGE 兑换成功！\r\nBREAK\r\n\r\n" +
+                "LOCALMESSAGE \"兑换成功！\" Hint\r\nBREAK\r\n\r\n" +
                 "#ELSESAY\r\n你没有足够的「" + f._pItem.Text + "」。\r\n");
 
             Add("teleport", "传送NPC", "点击传送到指定地图坐标", f =>
@@ -115,7 +117,7 @@ namespace NpcVisualEditor
                 "[@ASK]\r\n#IF\r\n#SAY\r\n请输入你的答案，答对有奖！\r\n" +
                 "<<答案是" + f._pAnswer.Text + "/@RIGHT/sandybrown>> <答错了/@WRONG>\r\n\r\n" +
                 "[@RIGHT]\r\n#IF\r\n#ACT\r\nGIVEGOLD " + f._pGold.Text + "\r\n" +
-                "MESSAGE 回答正确，奖励已发放！\r\nBREAK\r\n\r\n" +
+                "LOCALMESSAGE \"回答正确，奖励已发放！\" Hint\r\nBREAK\r\n\r\n" +
                 "[@WRONG]\r\n#IF\r\n#SAY\r\n很遗憾，答错了，再来一次？\r\n<再试一次/@MAIN>\r\n");
 
             Add("signin", "每日签到", "每天签到领取奖励（基于 CheckDay/变量标志）", f =>
@@ -123,36 +125,36 @@ namespace NpcVisualEditor
                 "#ELSESAY\r\n你今天已经签到过了，明天再来吧。\r\n\r\n" +
                 "[@SIGN]\r\n#IF\r\nCHECK [200] 0\r\n#ACT\r\nMOV [200] 1\r\n" +
                 "GIVEGOLD " + f._pGold.Text + "\r\nGIVEEXP " + f._pExp.Text + "\r\n" +
-                "MESSAGE 签到成功！\r\nBREAK\r\n");
+                "LOCALMESSAGE \"签到成功！\" Hint\r\nBREAK\r\n");
 
             Add("boss", "BOSS召唤", "检查物品→召唤BOSS到当前地图", f =>
                 "[@MAIN]\r\n#SAY\r\n想召唤BOSS吗？需要「" + f._pItem.Text + "」×" + f._pCount.Text + "。\r\n" +
                 "<<召唤BOSS/@SUMMON/sandybrown>> <关闭/@Exit>\r\n\r\n" +
                 "[@SUMMON]\r\n#IF\r\nCHECKITEM " + f._pItem.Text + " " + f._pCount.Text + "\r\n" +
                 "#ACT\r\nTAKEITEM " + f._pItem.Text + " " + f._pCount.Text + "\r\n" +
-                "SUMMONMON " + f._pBuff.Text + " 1\r\nMESSAGE BOSS已召唤！\r\nBREAK\r\n\r\n" +
+                "MONGEN " + f._pBuff.Text + " 1\r\nLOCALMESSAGE \"BOSS已召唤！\" Hint\r\nBREAK\r\n\r\n" +
                 "#ELSESAY\r\n召唤材料不足。\r\n");
 
             Add("upgrade", "装备升级", "双装备合成升级（检查→扣除→给予）", f =>
                 "[@MAIN]\r\n#SAY\r\n我可以帮你升级装备。\r\n<升级/@UP> <关闭/@Exit>\r\n\r\n" +
-                "[@UP]\r\n#IF\r\nCHECKITEM " + f._pItem.Text + " 2\r\nCHECKGOLD " + f._pGold.Text + "\r\n" +
+                "[@UP]\r\n#IF\r\nCHECKITEM " + f._pItem.Text + " 2\r\nCHECKGOLD >= " + f._pGold.Text + "\r\n" +
                 "#ACT\r\nTAKEITEM " + f._pItem.Text + " 2\r\n" +
-                "GIVEITEM " + f._pItem.Text + " 1\r\nMESSAGE 升级成功！\r\nBREAK\r\n\r\n" +
+                "GIVEITEM " + f._pItem.Text + " 1\r\nLOCALMESSAGE \"升级成功！\" Hint\r\nBREAK\r\n\r\n" +
                 "#ELSESAY\r\n需要 2 件装备和 " + f._pGold.Text + " 金币。\r\n");
 
             Add("buff", "增益BUFF赋予", "给予玩家限时增益效果", f =>
                 "[@MAIN]\r\n#SAY\r\n需要增益效果吗？\r\n<<接受BUFF/@BUFF/cornflowerblue>> <关闭/@Exit>\r\n\r\n" +
-                "[@BUFF]\r\n#IF\r\nCHECKGOLD " + f._pGold.Text + "\r\n#ACT\r\n" +
+                "[@BUFF]\r\n#IF\r\nCHECKGOLD >= " + f._pGold.Text + "\r\n#ACT\r\n" +
                 "GIVEBUFF " + f._pBuff.Text + " 1800 TRUE FALSE FALSE\r\n" +
-                "MESSAGE 增益已附加！\r\nBREAK\r\n\r\n" +
+                "LOCALMESSAGE \"增益已附加！\" Hint\r\nBREAK\r\n\r\n" +
                 "#ELSESAY\r\n金币不足（需要 " + f._pGold.Text + "）。\r\n");
 
             Add("reward", "等级奖励", "达到等级领取奖励", f =>
-                "[@MAIN]\r\n#IF\r\nCHECKLEVEL " + f._pCount.Text + "\r\n#SAY\r\n你已达到领取等级。\r\n" +
+                "[@MAIN]\r\n#IF\r\nLEVEL >= " + f._pCount.Text + "\r\n#SAY\r\n你已达到领取等级。\r\n" +
                 "<<领取奖励/@GET/cornflowerblue>> <关闭/@Exit>\r\n#ELSESAY\r\n等级不足 " + f._pCount.Text + " 级。\r\n\r\n" +
                 "[@GET]\r\n#IF\r\nCHECK [201] 0\r\n#ACT\r\nMOV [201] 1\r\n" +
                 "GIVEITEM " + f._pItem.Text + " 1\r\nGIVEGOLD " + f._pGold.Text + "\r\n" +
-                "MESSAGE 奖励已发放！\r\nBREAK\r\n#ELSESAY\r\n奖励已领取过。\r\n");
+                "LOCALMESSAGE \"奖励已发放！\" Hint\r\nBREAK\r\n#ELSESAY\r\n奖励已领取过。\r\n");
 
             return d;
         }
@@ -168,6 +170,7 @@ namespace NpcVisualEditor
             {
                 _paramPanel.Controls.Add(new Label { Text = label, Location = new Point(10, y), AutoSize = true });
                 textBox = new TextBox { Location = new Point(150, y - 3), Width = 200, Text = def };
+                textBox.TextChanged += (s, e) => UpdatePreview(); // 参数改动实时刷新预览，避免保存过期脚本
                 _paramPanel.Controls.Add(textBox);
                 y += 34;
             }

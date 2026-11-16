@@ -50,12 +50,14 @@ namespace NpcVisualEditor
                 AllowUserToAddRows = false,
                 RowHeadersVisible = false,
             };
+            // Fill 模式下 Width 会被忽略，必须用 FillWeight 控制列宽比例，
+            // 否则五列等分导致「级别/行」过宽、「问题」过窄被截断。
             _grid.Columns.AddRange(new[] {
-                new DataGridViewTextBoxColumn { Name = "level", HeaderText = "级别", Width = 60 },
-                new DataGridViewTextBoxColumn { Name = "file", HeaderText = "文件", Width = 200 },
-                new DataGridViewTextBoxColumn { Name = "line", HeaderText = "行", Width = 45 },
-                new DataGridViewTextBoxColumn { Name = "section", HeaderText = "段", Width = 100 },
-                new DataGridViewTextBoxColumn { Name = "msg", HeaderText = "问题", Width = 500 },
+                new DataGridViewTextBoxColumn { Name = "level", HeaderText = "级别", FillWeight = 60 },
+                new DataGridViewTextBoxColumn { Name = "file", HeaderText = "文件", FillWeight = 200 },
+                new DataGridViewTextBoxColumn { Name = "line", HeaderText = "行", FillWeight = 45 },
+                new DataGridViewTextBoxColumn { Name = "section", HeaderText = "段", FillWeight = 100 },
+                new DataGridViewTextBoxColumn { Name = "msg", HeaderText = "问题", FillWeight = 500 },
             });
             _grid.CellDoubleClick += (s, e) => OpenSource(e.RowIndex);
 
@@ -82,7 +84,21 @@ namespace NpcVisualEditor
                     .Where(f => string.IsNullOrEmpty(filter) || Path.GetFileName(f).IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
                     .OrderBy(f => f).ToArray();
 
-                _reports = files.AsParallel().Select(f => ScriptChecker.CheckFile(f, _commands)).ToList();
+                // 单文件失败（被占用/编码异常）不应让整批扫描崩溃。
+                _reports = files.AsParallel().Select(f =>
+                {
+                    try { return ScriptChecker.CheckFile(f, _commands); }
+                    catch (Exception ex)
+                    {
+                        var bad = new ScriptChecker.FileReport { File = f };
+                        bad.Issues.Add(new ScriptChecker.Issue
+                        {
+                            Level = ScriptChecker.Severity.Warning, File = f, Line = 0, Section = "",
+                            Message = "无法读取该文件: " + ex.Message
+                        });
+                        return bad;
+                    }
+                }).ToList();
 
                 var rows = _reports.SelectMany(r => r.Issues.Select(i => new
                 {
@@ -92,7 +108,7 @@ namespace NpcVisualEditor
                 _grid.Rows.Clear();
                 foreach (var r in rows)
                 {
-                    int idx = _grid.Rows.Add(r.Level.ToString(), Path.GetFileName(r.File), r.Line, r.Section, r.Message);
+                    int idx = _grid.Rows.Add(LevelText(r.Level), Path.GetFileName(r.File), r.Line, r.Section, r.Message);
                     _grid.Rows[idx].Tag = r.File;
                     if (r.Level == ScriptChecker.Severity.Error)
                         _grid.Rows[idx].DefaultCellStyle.ForeColor = Color.Firebrick;
@@ -107,6 +123,13 @@ namespace NpcVisualEditor
             }
             finally { Cursor = Cursors.Default; }
         }
+
+        private static string LevelText(ScriptChecker.Severity level) => level switch
+        {
+            ScriptChecker.Severity.Error => "错误",
+            ScriptChecker.Severity.Warning => "警告",
+            _ => "提示",
+        };
 
         private void OpenSource(int rowIndex)
         {

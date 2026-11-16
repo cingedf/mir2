@@ -98,7 +98,9 @@ namespace NpcVisualEditor
             int n = _nodes.Count;
             if (n == 0) return;
             var ordered = _nodes.OrderByDescending(x => x.OutDegree + x.InDegree).ToList();
-            double radius = Math.Max(180, n * 6.0);
+            // 圆周周长需容纳所有节点（节点宽92px + 最小间隔18px），r ≈ n*(92+18)/(2π) ≈ n*17.5。
+            // 原 n*6 半径过小，节点大面积重叠；留余量取 n*18。
+            double radius = Math.Max(220, n * 18.0);
             for (int i = 0; i < n; i++)
             {
                 double ang = 2 * Math.PI * i / n;
@@ -127,6 +129,22 @@ namespace NpcVisualEditor
                     Height / 2f + (p.Y + pan.Y) * zoom);
             }
 
+            /// <summary>计算边的起止屏幕点：裁到节点矩形边缘，留 3px 让箭头落在节点外而非被节点填充覆盖。</summary>
+            private static (PointF from, PointF to) EdgeEnds(PointF a, PointF b, float hw, float hh)
+            {
+                float dx = b.X - a.X, dy = b.Y - a.Y;
+                float len = (float)Math.Sqrt(dx * dx + dy * dy);
+                if (len < 1f) return (a, b);
+                float ux = dx / len, uy = dy / len;
+                // 矩形边界交点参数 t：min(hw/|ux|, hh/|uy|)
+                float tx = Math.Abs(ux) > 1e-4f ? hw / Math.Abs(ux) : float.MaxValue;
+                float ty = Math.Abs(uy) > 1e-4f ? hh / Math.Abs(uy) : float.MaxValue;
+                float t = Math.Min(tx, ty) + 3f;
+                return (
+                    new PointF(a.X + ux * t, a.Y + uy * t),
+                    new PointF(b.X - ux * t, b.Y - uy * t));
+            }
+
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
@@ -134,14 +152,46 @@ namespace NpcVisualEditor
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.Clear(Color.FromArgb(18, 20, 26));
 
-                // 边（箭头）
+                // 边（箭头）——端点裁到节点边缘，箭头落在目标节点外；双向边垂直错开避免重合
                 using var pen = new Pen(Color.FromArgb(120, 140, 170), 1.5f);
-                pen.EndCap = LineCap.ArrowAnchor;
+                var edgeSet = new HashSet<(MapNode from, MapNode to)>(_f._edges.Select(x => (x.From, x.To)));
+                float hw = 46f * _f._zoom, hh = 18f * _f._zoom;
                 foreach (var edge in _f._edges)
                 {
                     var a = WorldToScreen(edge.From.Pos);
                     var b = WorldToScreen(edge.To.Pos);
-                    g.DrawLine(pen, a, b);
+                    var (from, to) = EdgeEnds(a, b, hw, hh);
+                    bool reverse = edgeSet.Contains((edge.To, edge.From));
+                    // 双向边：两条线向相反法向偏移，避免完全重合看不出方向
+                    float ox = 0f, oy = 0f;
+                    if (reverse)
+                    {
+                        float dx = to.X - from.X, dy = to.Y - from.Y;
+                        float len = (float)Math.Sqrt(dx * dx + dy * dy);
+                        if (len > 1f)
+                        {
+                            float sign = edge.From.Info.Index < edge.To.Info.Index ? 1f : -1f;
+                            const float gap = 7f;
+                            ox = -dy / len * gap * sign;
+                            oy = dx / len * gap * sign;
+                        }
+                    }
+                    from = new PointF(from.X + ox, from.Y + oy);
+                    to = new PointF(to.X + ox, to.Y + oy);
+                    if (reverse) using (var bp = new Pen(Color.FromArgb(150, 170, 200), 1.2f)) g.DrawLine(bp, from, to);
+                    else g.DrawLine(pen, from, to);
+                    // 箭头三角：顶点在 to，沿 from→to 方向
+                    float hx = to.X - from.X, hy = to.Y - from.Y;
+                    float hlen = (float)Math.Sqrt(hx * hx + hy * hy);
+                    if (hlen > 1f)
+                    {
+                        float ux = hx / hlen, uy = hy / hlen;
+                        const float alen = 9f, awid = 5f;
+                        var p1 = new PointF(to.X - ux * alen + (-uy) * awid, to.Y - uy * alen + ux * awid);
+                        var p2 = new PointF(to.X - ux * alen - (-uy) * awid, to.Y - uy * alen - ux * awid);
+                        using var arrow = new SolidBrush(reverse ? Color.FromArgb(150, 170, 200) : Color.FromArgb(120, 140, 170));
+                        g.FillPolygon(arrow, new[] { to, p1, p2 });
+                    }
                 }
 
                 // 节点
@@ -160,9 +210,11 @@ namespace NpcVisualEditor
                     {
                         string title = string.IsNullOrEmpty(node.Info.Title)
                             ? node.Info.FileName : node.Info.Title;
-                        using var f = new Font("Microsoft YaHei UI", 8f * _f._zoom);
-                        TextRenderer.DrawText(g, title, f, Point.Round(new PointF(r.X + 3, r.Y + 3)),
-                            Color.White);
+                        using var f = new Font("Microsoft YaHei UI", Math.Max(7f, 8f * _f._zoom));
+                        // 按节点框宽度裁剪长名，居中绘制，避免溢出遮挡相邻节点
+                        TextRenderer.DrawText(g, title, f, Rectangle.Round(r), Color.White,
+                            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter |
+                            TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
                     }
                 }
 

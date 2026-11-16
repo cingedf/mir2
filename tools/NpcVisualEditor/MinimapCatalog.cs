@@ -45,7 +45,16 @@ namespace NpcVisualEditor
 
         public bool TryGet(string mapFileName, out int logicalWidth, out int logicalHeight, out string pngName)
         {
-            if (_sizes.TryGetValue(mapFileName, out var s))
+            // 引擎 MapInfo.FileName 是不带扩展名的地图号（如 "0"/"0101"），
+            // 而对照表第一列是 "0.map"。两种写法都要能命中。
+            if (!string.IsNullOrEmpty(mapFileName) && _sizes.TryGetValue(mapFileName, out var s))
+            {
+                logicalWidth = s.Width; logicalHeight = s.Height; pngName = s.Png;
+                return true;
+            }
+            if (!string.IsNullOrEmpty(mapFileName) &&
+                _sizes.TryGetValue(mapFileName.EndsWith(".map", StringComparison.OrdinalIgnoreCase)
+                    ? mapFileName : mapFileName + ".map", out s))
             {
                 logicalWidth = s.Width; logicalHeight = s.Height; pngName = s.Png;
                 return true;

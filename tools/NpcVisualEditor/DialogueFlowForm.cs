@@ -47,6 +47,9 @@ namespace NpcVisualEditor
 
         private readonly string _scriptPath;
         private readonly List<Node> _nodes = new();
+        // 段头之前的内容（注释、#INSERT 指令等）必须原样保留：
+        // 00Default.txt 全篇只有 #INSERT 前言、无任何 [@段]，丢弃会导致保存后文件被清空。
+        private readonly List<string> _preamble = new();
         private Node _drag;
         private Point _dragOffset;
         private Node _selected;
@@ -84,7 +87,7 @@ namespace NpcVisualEditor
             toolbar.Controls.AddRange(new Control[] { btnEdit, btnDel, btnSave, btnFit });
             Controls.Add(toolbar);
 
-            _canvas = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.FromArgb(30, 30, 34) };
+            _canvas = new BufferedCanvasPanel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.FromArgb(30, 30, 34) };
             _canvas.Paint += Canvas_Paint;
             _canvas.MouseDown += Canvas_MouseDown;
             _canvas.MouseMove += Canvas_MouseMove;
@@ -101,6 +104,7 @@ namespace NpcVisualEditor
         private void ParseScript()
         {
             _nodes.Clear();
+            _preamble.Clear();
             if (!File.Exists(_scriptPath)) return;
             string[] lines = File.ReadAllLines(_scriptPath);
             Node cur = null;
@@ -114,37 +118,61 @@ namespace NpcVisualEditor
                     _nodes.Add(cur);
                     continue;
                 }
-                if (cur == null) continue; // 文件头注释等
+                if (cur == null)
+                {
+                    // 段外内容（注释、#INSERT 等）原样保留，保存时写回文件头。
+                    _preamble.Add(line);
+                    continue;
+                }
                 cur.Lines.Add(line);
-                foreach (Match j in JumpRx.Matches(line))
-                {
-                    string target = j.Groups[2].Value;
-                    if (!cur.Targets.Contains(target, StringComparer.OrdinalIgnoreCase))
-                        cur.Targets.Add(target);
-                }
-                // 命令行跳转：GOTO/GROUPGOTO 第2词、DELAYGOTO/TIMERECALL 第3词
-                var g2 = Goto2Rx.Match(line);
-                var g3 = g2.Success ? Match.Empty : Goto3Rx.Match(line);
-                if (g2.Success || g3.Success)
-                {
-                    string target = (g2.Success ? g2.Groups[2] : g3.Groups[2]).Value;
-                    if (!cur.Targets.Contains(target, StringComparer.OrdinalIgnoreCase))
-                        cur.Targets.Add(target);
-                }
+                CollectTargets(cur, line);
             }
+        }
+
+        /// <summary>
+        /// 收集一行中的跳转目标（按钮 + GOTO 命令行），供解析与编辑共用，
+        /// 避免编辑段后只重建按钮边、丢失 GOTO/DELAYGOTO 命令行跳转边。
+        /// </summary>
+        private static void CollectTargets(Node n, string line)
+        {
+            foreach (Match j in JumpRx.Matches(line))
+            {
+                string target = j.Groups[2].Value;
+                if (!n.Targets.Contains(target, StringComparer.OrdinalIgnoreCase))
+                    n.Targets.Add(target);
+            }
+            var g2 = Goto2Rx.Match(line);
+            var g3 = g2.Success ? Match.Empty : Goto3Rx.Match(line);
+            if (g2.Success || g3.Success)
+            {
+                string target = (g2.Success ? g2.Groups[2] : g3.Groups[2]).Value;
+                if (!n.Targets.Contains(target, StringComparer.OrdinalIgnoreCase))
+                    n.Targets.Add(target);
+            }
+        }
+
+        /// <summary>按所有节点的实际范围扩展滚动区，避免节点拖出可视区后不可达。</summary>
+        private void UpdateScrollSize()
+        {
+            int maxX = 400, maxY = 700;
+            foreach (var n in _nodes)
+            {
+                maxX = Math.Max(maxX, n.Rect.Right + 240);
+                maxY = Math.Max(maxY, n.Rect.Bottom + 60);
+            }
+            _canvas.AutoScrollMinSize = new Size(maxX, maxY);
         }
 
         private void AutoLayout()
         {
-            int x = 30, y = 30, colH = 0;
+            int x = 30, y = 30;
             foreach (var n in _nodes)
             {
                 n.Rect = new Rectangle(x, y, 200, 110);
-                colH = Math.Max(colH, n.Rect.Height + 30);
                 y += n.Rect.Height + 30;
                 if (y > 600) { y = 30; x += 240; }
             }
-            _canvas.AutoScrollMinSize = new Size(x + 240, Math.Max(colH, 700));
+            UpdateScrollSize();
         }
 
         private void Canvas_Paint(object sender, PaintEventArgs e)
@@ -152,8 +180,10 @@ namespace NpcVisualEditor
             var g = e.Graphics;
             g.TranslateTransform(_canvas.AutoScrollPosition.X, _canvas.AutoScrollPosition.Y);
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var drawFont = new Font("Microsoft YaHei UI", 9F);
 
-            // 连线（贝塞尔）
+            // 连线（贝塞尔）：按目标聚合，避免多源指向同一节点时箭头圆点与文字重叠。
+            var incoming = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (var n in _nodes)
             {
                 foreach (var t in n.Targets)
@@ -164,10 +194,12 @@ namespace NpcVisualEditor
                     var b = new Point(dst.Rect.X + dst.Rect.Width / 2, dst.Rect.Top);
                     using var pen = new Pen(Color.CornflowerBlue, 2);
                     g.DrawBezier(pen, a, new Point(a.X, a.Y + 60), new Point(b.X, b.Y - 60), b);
-                    // 箭头
-                    g.FillEllipse(Brushes.CornflowerBlue, b.X - 4, b.Y - 4, 8, 8);
-                    using var font = new Font("Microsoft YaHei UI", 8F);
-                    TextRenderer.DrawText(g, "→" + t, font, new Point(b.X + 6, b.Y - 8), Color.LightBlue);
+                    incoming.TryGetValue(t, out int idx);
+                    incoming[t] = idx + 1;
+                    if (idx == 0) // 箭头圆点只画一次
+                        g.FillEllipse(Brushes.CornflowerBlue, b.X - 4, b.Y - 4, 8, 8);
+                    TextRenderer.DrawText(g, "→" + t, drawFont,
+                        new Point(b.X + 6, b.Y - 8 - idx * 14), Color.LightBlue);
                 }
             }
 
@@ -186,17 +218,19 @@ namespace NpcVisualEditor
                 g.FillRectangle(brush, n.Rect);
                 using var pen = new Pen(sel ? Color.Yellow : Color.Gray, sel ? 2 : 1);
                 g.DrawRectangle(pen, n.Rect);
-                TextRenderer.DrawText(g, "[@" + n.Name + "]", Font, new Point(n.Rect.X + 8, n.Rect.Y + 6), Color.Wheat);
-                using var f2 = new Font("Microsoft YaHei UI", 8F);
+                string title = "[@" + n.Name + "]";
+                if (title.Length > 18) title = title[..18] + "..."; // 防止长段名与类型标签重叠
+                TextRenderer.DrawText(g, title, drawFont, new Point(n.Rect.X + 8, n.Rect.Y + 6), Color.Wheat);
+                // 统一使用普通中文方括号，避免特殊字形在部分字体下显示为方框。
                 string tag = n.Kind switch
                 {
-                    NodeKind.Condition => "◇条件", NodeKind.Event => "◆事件",
-                    NodeKind.Subgraph => "▣子图", _ => "◇对话"
+                    NodeKind.Condition => "[条件]", NodeKind.Event => "[事件]",
+                    NodeKind.Subgraph => "[子图]", _ => "[对话]"
                 };
-                TextRenderer.DrawText(g, tag, f2, new Point(n.Rect.X + n.Rect.Width - 62, n.Rect.Y + 6), Color.LightYellow);
+                TextRenderer.DrawText(g, tag, drawFont, new Point(n.Rect.X + n.Rect.Width - 64, n.Rect.Y + 6), Color.LightYellow);
                 string say = n.SayText;
                 if (say.Length > 60) say = say[..60] + "...";
-                TextRenderer.DrawText(g, say, f2,
+                TextRenderer.DrawText(g, say, drawFont,
                     new Rectangle(n.Rect.X + 8, n.Rect.Y + 28, n.Rect.Width - 16, n.Rect.Height - 36),
                     Color.WhiteSmoke, TextFormatFlags.WordBreak);
             }
@@ -229,7 +263,11 @@ namespace NpcVisualEditor
         {
             if (_drag == null || e.Button != MouseButtons.Left) return;
             var p = CanvasPoint(e);
-            _drag.Rect = new Rectangle(p.X - _dragOffset.X, p.Y - _dragOffset.Y, _drag.Rect.Width, _drag.Rect.Height);
+            // 钳制到非负坐标，并随节点实际范围扩展滚动区，防止拖出可视区后无法找回。
+            int nx = Math.Max(0, p.X - _dragOffset.X);
+            int ny = Math.Max(0, p.Y - _dragOffset.Y);
+            _drag.Rect = new Rectangle(nx, ny, _drag.Rect.Width, _drag.Rect.Height);
+            UpdateScrollSize();
             _canvas.Invalidate();
         }
 
@@ -242,29 +280,53 @@ namespace NpcVisualEditor
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
             name = dlg.Value.Trim().TrimStart('@');
             if (name.Length == 0) return;
+            // 段名重复会导致连线只命中第一个同名段、跳转错乱，提前拒绝。
+            if (_nodes.Any(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageBox.Show(this, "段名已存在，请使用其它名称。", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             var n = new Node { Name = name };
             n.Lines.AddRange(new[] { "#SAY", "在这里输入对话内容。", "<返回/@MAIN> <关闭/@Exit>" });
             n.Targets.Add("MAIN");
             n.Rect = new Rectangle(30, 30 + _nodes.Count * 140, 200, 110);
             _nodes.Add(n);
             _selected = n;
+            UpdateScrollSize();
             _canvas.Invalidate();
         }
 
         private void EditSelected()
         {
             if (_selected == null) { MessageBox.Show("请先选择一个段。"); return; }
+            string oldName = _selected.Name;
             var dlg = new NodeEditForm(_selected);
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
+                string newName = _selected.Name;
+                // 段名与其它段冲突则恢复原名，避免 [@段] 重复导致连线命中错误目标。
+                if (_nodes.Any(x => !ReferenceEquals(x, _selected) &&
+                                    x.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    newName = oldName;
+                    _selected.Name = oldName;
+                    MessageBox.Show(this, "段名与其它段重复，已保留原名。", "提示",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                // 段名变更时同步重写其它段的跳转目标，避免改名后入边静默断链。
+                if (!string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var n in _nodes)
+                        for (int i = 0; i < n.Targets.Count; i++)
+                            if (string.Equals(n.Targets[i], oldName, StringComparison.OrdinalIgnoreCase))
+                                n.Targets[i] = newName;
+                }
+                // 复用与解析相同的跳转收集逻辑（按钮 + GOTO 命令行）。
                 _selected.Targets.Clear();
                 foreach (var line in _selected.Lines)
-                    foreach (Match j in JumpRx.Matches(line))
-                    {
-                        string t = j.Groups[2].Value;
-                        if (!_selected.Targets.Contains(t, StringComparer.OrdinalIgnoreCase))
-                            _selected.Targets.Add(t);
-                    }
+                    CollectTargets(_selected, line);
+                UpdateScrollSize();
                 _canvas.Invalidate();
             }
         }
@@ -277,6 +339,7 @@ namespace NpcVisualEditor
             {
                 _nodes.Remove(_selected);
                 _selected = null;
+                UpdateScrollSize();
                 _canvas.Invalidate();
             }
         }
@@ -286,6 +349,9 @@ namespace NpcVisualEditor
             try
             {
                 var sb = new StringBuilder();
+                // 先写回段外前言（#INSERT 指令、注释等），原样保留，防止文件被清空。
+                foreach (var l in _preamble) sb.AppendLine(l);
+                if (_preamble.Count > 0 && _nodes.Count > 0) sb.AppendLine();
                 foreach (var n in _nodes)
                 {
                     sb.AppendLine("[@" + n.Name + "]");
@@ -301,6 +367,16 @@ namespace NpcVisualEditor
             {
                 MessageBox.Show(this, "保存失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+    }
+
+    /// <summary>启用双缓冲的画布 Panel，避免拖动节点时整屏闪烁。</summary>
+    internal sealed class BufferedCanvasPanel : Panel
+    {
+        public BufferedCanvasPanel()
+        {
+            DoubleBuffered = true;
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
         }
     }
 
@@ -349,12 +425,17 @@ namespace NpcVisualEditor
             var ok = new Button { Text = "确定", Location = new Point(340, 490), Width = 90, DialogResult = DialogResult.OK };
             ok.Click += (s, e) =>
             {
-                node.Name = _txtName.Text.Trim().TrimStart('@');
+                string name = _txtName.Text.Trim().TrimStart('@');
+                if (name.Length == 0) // 空段名保持原值，避免生成空段头 [@]
+                    name = node.Name;
+                node.Name = name;
                 node.Lines.Clear();
                 node.Lines.AddRange(_txtBody.Text.Replace("\r\n", "\n").Split('\n'));
             };
             var cancel = new Button { Text = "取消", Location = new Point(450, 490), Width = 80, DialogResult = DialogResult.Cancel };
             Controls.AddRange(new Control[] { _txtName, _txtBody, ok, cancel });
+            AcceptButton = ok;
+            CancelButton = cancel;
         }
     }
 

@@ -71,7 +71,7 @@ namespace NpcVisualEditor
         {
             // 顶部参数栏
             var top = new Panel { Dock = DockStyle.Top, Height = 46, Padding = new Padding(8, 8, 0, 0) };
-            top.Controls.Add(new Label { Text = "DropRate:", Location = new Point(8, 12), AutoSize = true });
+            top.Controls.Add(new Label { Text = "爆率倍率:", Location = new Point(8, 12), AutoSize = true });
             _numDropRate = new NumericUpDown
             {
                 Location = new Point(78, 8), Width = 70, Minimum = 0.1M, Maximum = 10000M,
@@ -87,7 +87,7 @@ namespace NpcVisualEditor
             top.Controls.Add(_chkWeightByCount);
             top.Controls.Add(new Label
             {
-                Text = "（只读分析：MDB 不含掉落明细，数据来自 Envir\\Drops\\*.txt；bonus=0）",
+                Text = "（只读分析：MDB 不含掉落明细，数据来自 Envir\\Drops\\*.txt；额外加成=0）",
                 Location = new Point(320, 12), AutoSize = true, ForeColor = Color.Gray
             });
 
@@ -109,8 +109,11 @@ namespace NpcVisualEditor
             _summary = new Label
             {
                 Dock = DockStyle.Bottom, Height = 30, TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true,
                 Padding = new Padding(8, 0, 0, 0)
             };
+            var summaryTip = new ToolTip();
+            _summary.MouseHover += (s, e) => summaryTip.SetToolTip(_summary, _summary.Text);
             right.Controls.Add(_grid);
             right.Controls.Add(_summary);
 
@@ -138,6 +141,12 @@ namespace NpcVisualEditor
                 _tree.Nodes.Add(node);
             }
             _tree.EndUpdate();
+            if (_tree.Nodes.Count == 0)
+            {
+                _summary.Text = "  未加载地图：服务端无地图数据或刷怪信息，无法分析。";
+                _grid.Rows.Clear();
+                _grid.Columns.Clear();
+            }
         }
 
         private List<MonStat> AggregateMonsters(MapInfo map)
@@ -187,6 +196,11 @@ namespace NpcVisualEditor
             _grid.Columns.Add("Sources", "来源数");
             _grid.Columns.Add("Rate", "有效爆率");
             _grid.Columns.Add("Per1K", "每千次期望");
+            _grid.Columns[0].FillWeight = 240;
+            _grid.Columns[1].FillWeight = 200;
+            _grid.Columns[2].FillWeight = 80;
+            _grid.Columns[3].FillWeight = 110;
+            _grid.Columns[4].FillWeight = 120;
 
             double dropRate = (double)_numDropRate.Value;
             var aggs = new Dictionary<string, DropAgg>(StringComparer.OrdinalIgnoreCase);

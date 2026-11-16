@@ -165,6 +165,9 @@ namespace NpcVisualEditor
             var sb = new StringBuilder();
             foreach (var e in entries)
             {
+                // 跳过缺 #INCLUDE 路径的条目：否则写出 "#INCLUDE [] @Main" 畸形脚本，
+                // 被引擎解析成指向空路径，命令喊话触发时找不到脚本。
+                if (string.IsNullOrWhiteSpace(e.IncludePath)) continue;
                 if (!string.IsNullOrWhiteSpace(e.Comment)) sb.AppendLine(";;" + e.Comment.TrimStart(';'));
                 sb.AppendLine($"[@_CUSTOMCOMMAND({e.Name})]");
                 sb.AppendLine($"#INCLUDE [{e.IncludePath}] @{e.Page}");
@@ -184,6 +187,15 @@ namespace NpcVisualEditor
         {
             var list = CollectFromGrid();
             if (list.Count == 0) { MessageBox.Show(this, "没有可保存的命令。", "提示"); return; }
+            // 缺 #INCLUDE 路径的条目会被 Serialize 跳过，先明确提示，避免用户以为已保存
+            var noPath = list.Where(x => string.IsNullOrWhiteSpace(x.IncludePath)).Select(x => x.Name).ToList();
+            if (noPath.Count > 0)
+            {
+                MessageBox.Show(this, "以下命令缺少 #INCLUDE 路径，将被跳过（不会保存）：\n" +
+                    string.Join(", ", noPath) + "\n请补上脚本路径后重试。", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             // 重名检测
             var dup = list.GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
             if (dup.Count > 0)

@@ -14,7 +14,7 @@ namespace NpcVisualEditor
     /// </summary>
     public class ToolHubForm : UserControl
     {
-        private readonly string _serverDir, _clientDir;
+        private readonly string _serverDir, _clientDir, _srcRoot;
         private readonly ListView _list;
         private readonly TextBox _detail;
         private readonly List<ToolEntry> _tools = new();
@@ -29,12 +29,16 @@ namespace NpcVisualEditor
         {
             _serverDir = serverDir;
             _clientDir = clientDir;
+            // 源码根目录：exe 在 <root>\tools\NpcVisualEditor\bin\Release\，上溯 4 级即仓库根。
+            // 避免写死 C:\1.40\... 绝对路径，换机器/换部署区仍可用。
+            _srcRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
 
             var header = new Label
             {
                 Dock = DockStyle.Top, Height = 42,
                 Text = "工具入口中心 — 一键启动现成工具（复用，不重复造车）\r\n" +
-                       "所有工具以当前服务端目录为工作目录启动；关闭本窗口不影响工具运行。",
+                       "按工具所需以服务端/客户端目录为工作目录启动；关闭本窗口不影响工具运行。",
                 TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 2, 0, 0)
             };
 
@@ -61,6 +65,14 @@ namespace NpcVisualEditor
             };
             _list.SelectedIndexChanged += (s, e) => UpdateDetail();
             _list.DoubleClick += (s, e) => RunSelected();
+            // 窗口缩放时"用途"列填充剩余宽度，避免窄屏下"状态"列被裁掉。
+            _list.Resize += (s, e) =>
+            {
+                if (_list.Columns.Count < 4) return;
+                int used = _list.Columns[0].Width + _list.Columns[1].Width + _list.Columns[3].Width + 4;
+                int rest = _list.ClientSize.Width - used;
+                if (rest > 120) _list.Columns[2].Width = rest;
+            };
 
             _detail = new TextBox
             {
@@ -82,9 +94,9 @@ namespace NpcVisualEditor
             Add("客户端地图编辑器", "客户端资源", "可视化编辑地图、批量导出小地图 PNG",
                 Path.Combine(_clientDir, "Map Editor.exe"), "", false, true);
             Add("源码地图编辑器 (MapEditor)", "客户端资源", "地图瓦片/小地图导出（源码构建版）",
-                @"C:\1.40\mir2-angelk727\tools\MapEditor\Map Editor\bin\x64\Release\net8.0-windows\Map Editor.exe", "", false, true);
+                Path.Combine(_srcRoot, "tools", "MapEditor", "Map Editor", "bin", "x64", "Release", "net8.0-windows", "Map Editor.exe"), "", false, true);
             Add("图库编辑器 (LibraryEditor)", "客户端资源", "WIL/WIX/WZL/MIX/LIB 帧浏览与导出",
-                @"C:\1.40\mir2-angelk727\LibraryEditor\bin\x86\Release\net8.0-windows\LibraryEditor.exe", "", false, false);
+                Path.Combine(_srcRoot, "LibraryEditor", "bin", "x86", "Release", "net8.0-windows", "LibraryEditor.exe"), "", false, false);
             Add("爆率编辑器 (DropEditor)", "服务端数据", "怪物爆率 DropPath 可视化编辑",
                 Path.Combine(_serverDir, "Envir", "DropEditor.exe"), "", true, false);
 
@@ -94,15 +106,15 @@ namespace NpcVisualEditor
                 "各 Database 表单自带 CSV 导入导出按钮（唯一能把 Exports\\*.csv 改动写回 MirDB 的官方往返通道，XLS 可直接用 Excel 打开 CSV）",
                 Path.Combine(_serverDir, "Server.exe"), "", true, false);
             Add("商城迁移工具", "服务端数据", "批量铺货架/迁移商城数据",
-                @"C:\1.40\mir2-angelk727\tools\GameShopMigrate\bin\Release\net8.0\GameShopMigrate.exe", "", true, false);
+                Path.Combine(_srcRoot, "tools", "GameShopMigrate", "bin", "Release", "net8.0", "GameShopMigrate.exe"), "", true, false);
             Add("刷怪点种子工具", "服务端数据", "批量生成刷怪点",
-                @"C:\1.40\mir2-angelk727\tools\MonsterSpawnSeed\bin\Release\net8.0\MonsterSpawnSeed.exe", "", true, false);
+                Path.Combine(_srcRoot, "tools", "MonsterSpawnSeed", "bin", "Release", "net8.0", "MonsterSpawnSeed.exe"), "", true, false);
             Add("物品种子工具", "服务端数据", "批量生成物品掉落",
-                @"C:\1.40\mir2-angelk727\tools\ItemSpawnSeed\bin\Release\net8.0\ItemSpawnSeed.exe", "", true, false);
+                Path.Combine(_srcRoot, "tools", "ItemSpawnSeed", "bin", "Release", "net8.0", "ItemSpawnSeed.exe"), "", true, false);
             Add("NPC Flag 修复", "服务端数据", "地图 Flag 批量修复",
-                @"C:\1.40\mir2-angelk727\tools\NPCFlagFix\bin\Release\net8.0\NPCFlagFix.exe", "", true, false);
+                Path.Combine(_srcRoot, "tools", "NPCFlagFix", "bin", "Release", "net8.0", "NPCFlagFix.exe"), "", true, false);
             Add("重生点修复", "服务端数据", "刷怪重生点批量修复",
-                @"C:\1.40\mir2-angelk727\tools\RespawnFix\bin\Release\net8.0\RespawnFix.exe", "", true, false);
+                Path.Combine(_srcRoot, "tools", "RespawnFix", "bin", "Release", "net8.0", "RespawnFix.exe"), "", true, false);
         }
 
         private void Add(string name, string cat, string desc, string exe, string args = "",
@@ -157,12 +169,22 @@ namespace NpcVisualEditor
                 MessageBox.Show("服务端目录不存在。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            if (t.NeedsClient && !Directory.Exists(_clientDir))
+            {
+                MessageBox.Show("客户端目录不存在。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             try
             {
+                // 工作目录按工具所需选择；纯工具（不依赖服务端/客户端）用自身目录，
+                // 避免 _clientDir 无效时 Process.Start 抛 Win32 异常。
+                string workDir = t.NeedsServer ? _serverDir
+                    : t.NeedsClient ? _clientDir
+                    : Path.GetDirectoryName(t.ExePath);
                 var psi = new ProcessStartInfo(t.ExePath)
                 {
                     Arguments = t.Args,
-                    WorkingDirectory = t.NeedsServer ? _serverDir : (_clientDir ?? ""),
+                    WorkingDirectory = workDir,
                     UseShellExecute = false
                 };
                 Process.Start(psi);

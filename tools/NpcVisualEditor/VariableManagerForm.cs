@@ -21,9 +21,12 @@ namespace NpcVisualEditor
         private readonly Label _lblSummary;
         private readonly TextBox _txtFilter;
 
-        // MOV/CALC/INC/DEC 第一个参数 = 变量定义；<$OUTPUT(A1)> = 显示引用
-        private static readonly Regex RxAssign = new(@"^\s*(MOV|CALC|INC|DEC|SUM|CHECKCALC)\s+([A-Za-z][0-9])(?:\s|$)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        // 赋值命令首参 = 变量定义；CHECKCALC 是 #IF 段检查命令（读变量比较）不算赋值。
+        private static readonly Regex RxAssign = new(@"^\s*(MOV|CALC|INC|DEC|SUM|LOADVALUE|SAVEVALUE)\s+([A-Za-z][0-9])(?:\s|$)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly Regex RxVar = new(@"(?<![A-Za-z0-9])([A-Za-z][0-9])(?![A-Za-z0-9])", RegexOptions.Compiled);
+        // 显示 / %引用：用正则精确判定，避免整行 Contains 把同一变量在别处的出现误计
+        private static readonly Regex RxDisplay = new(@"<\$[A-Za-z_]+\(\s*([A-Za-z][0-9])\s*\)>", RegexOptions.Compiled);
+        private static readonly Regex RxPercent = new(@"%([A-Za-z][0-9])(?![A-Za-z0-9])", RegexOptions.Compiled);
 
         private class VarStat
         {
@@ -53,15 +56,23 @@ namespace NpcVisualEditor
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             };
             _grid.Columns.AddRange(new[] {
-                new DataGridViewTextBoxColumn { HeaderText = "变量名", Width = 100 },
-                new DataGridViewTextBoxColumn { HeaderText = "赋值次数", Width = 100 },
-                new DataGridViewTextBoxColumn { HeaderText = "引用次数", Width = 100 },
-                new DataGridViewTextBoxColumn { HeaderText = "显示次数", Width = 100 },
-                new DataGridViewTextBoxColumn { HeaderText = "建议", Width = 320 },
+                new DataGridViewTextBoxColumn { HeaderText = "变量名", FillWeight = 100 },
+                new DataGridViewTextBoxColumn { HeaderText = "赋值次数", FillWeight = 80 },
+                new DataGridViewTextBoxColumn { HeaderText = "引用次数", FillWeight = 80 },
+                new DataGridViewTextBoxColumn { HeaderText = "显示次数", FillWeight = 80 },
+                new DataGridViewTextBoxColumn { HeaderText = "建议", FillWeight = 360 },
             });
 
             _lblSummary = new Label { Dock = DockStyle.Bottom, Height = 28, TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true,
                 Text = "就绪。扫描后可查看各变量使用情况与空闲编号建议。" };
+            var summaryTip = new ToolTip();
+            // 空闲建议可能很长，Label 单行放不下 → 截断显示 + 悬停全文
+            _lblSummary.MouseHover += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(_lblSummary.Text))
+                    summaryTip.Show(_lblSummary.Text, _lblSummary, 4000);
+            };
 
             Controls.Add(_grid);
             Controls.Add(top);
@@ -93,17 +104,24 @@ namespace NpcVisualEditor
                 {
                     if (!string.IsNullOrEmpty(filter) && Path.GetFileName(f).IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
                     files++;
-                    foreach (var raw in File.ReadAllLines(f))
+                    string[] lines;
+                    try { lines = File.ReadAllLines(f); }
+                    catch { continue; } // 单文件读取失败（占用/编码）跳过，不影响整批
+                    foreach (var raw in lines)
                     {
                         var am = RxAssign.Match(raw);
                         if (am.Success) Get(am.Groups[2].Value).Assign++;
+                        // 精确收集本行的显示变量与 %引用变量（整行 Contains 会把
+                        // "A1" 作为 "A10" 的子串、或别处出现误计到当前 token 上）
+                        var disp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (Match dm in RxDisplay.Matches(raw)) disp.Add(dm.Groups[1].Value);
+                        var pct = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (Match pm in RxPercent.Matches(raw)) pct.Add(pm.Groups[1].Value);
                         foreach (Match m in RxVar.Matches(raw))
                         {
                             string n = m.Groups[1].Value;
-                            if (raw.Contains("$OUTPUT(" + n + ")", StringComparison.OrdinalIgnoreCase))
-                                Get(n).Displays++;
-                            else if (raw.Contains("%" + n, StringComparison.OrdinalIgnoreCase))
-                                Get(n).Refs++;
+                            if (disp.Contains(n)) Get(n).Displays++;
+                            else if (pct.Contains(n)) Get(n).Refs++;
                         }
                     }
                 }

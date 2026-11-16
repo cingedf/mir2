@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace NpcVisualEditor
 {
     /// <summary>
-    /// 爆率文件格式化器（#25）。现网 Drops\*.txt 为 GBK/CRLF/无BOM 扁平结构。
+    /// 爆率文件格式化器（#25）。现网 Drops\*.txt 为 UTF-8 无 BOM/CRLF 扁平结构（编码自适应）。
     /// 双模式：仅排版（保真，默认）/树重建（需人工确认）。保存前自动备份。
     /// </summary>
     public class DropFormatForm : Form
@@ -73,8 +73,8 @@ namespace NpcVisualEditor
                 ScrollBars = ScrollBars.Both, Font = new Font("Consolas", 9F) };
             split.Panel1.Controls.Add(_txtBefore);
             split.Panel2.Controls.Add(_txtAfter);
-            split.Panel1.Controls.Add(new Label { Text = "原始（GBK）", Dock = DockStyle.Top });
-            split.Panel2.Controls.Add(new Label { Text = "格式化预览（GBK，保存时写回）", Dock = DockStyle.Top });
+            split.Panel1.Controls.Add(new Label { Text = "原始（保持原编码）", Dock = DockStyle.Top });
+            split.Panel2.Controls.Add(new Label { Text = "格式化预览（保存时按原编码写回）", Dock = DockStyle.Top });
 
             right.Controls.Add(split);
             right.Controls.Add(_lblSummary);
@@ -112,8 +112,9 @@ namespace NpcVisualEditor
                 string text = DropFormatter.ReadText(_currentFile);
                 var mode = _rbRebuild.Checked ? DropFormatter.FormatMode.Rebuild : DropFormatter.FormatMode.LayoutOnly;
                 _lastResult = DropFormatter.Format(text, mode);
-                _txtBefore.Text = _lastResult.Original.Replace("\n", "\r\n");
-                _txtAfter.Text = _lastResult.Formatted.Replace("\n", "\r\n");
+                // 统一换行后再显示：Original 可能是 CRLF，直接 Replace("\n","\r\n") 会产生 \r\r\n 重复空行
+                _txtBefore.Text = NormCrlf(_lastResult.Original);
+                _txtAfter.Text = NormCrlf(_lastResult.Formatted);
                 _lblSummary.Text = $"{Path.GetFileName(_currentFile)} — 变更 {_lastResult.Changes.Count} 处，行数 {_lastResult.LinesBefore}→{_lastResult.LinesAfter}";
             }
             catch (Exception ex)
@@ -121,6 +122,9 @@ namespace NpcVisualEditor
                 _lblSummary.Text = "读取失败: " + ex.Message;
             }
         }
+
+        private static string NormCrlf(string s) =>
+            string.IsNullOrEmpty(s) ? s : s.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "\r\n");
 
         private void BtnApply_Click(object sender, EventArgs e)
         {

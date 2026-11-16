@@ -30,6 +30,8 @@ namespace NpcVisualEditor
             public int Assigns => Occurrences.Count(o => o.Kind == UseKind.Assign);
             public int Refs => Occurrences.Count(o => o.Kind == UseKind.Reference);
             public int Displays => Occurrences.Count(o => o.Kind == UseKind.Display);
+            // 让 ListBox 显示可读摘要，而不是类名 "NpcVisualEditor.VariableTrace+VarInfo"
+            public override string ToString() => $"{Name}  赋{Assigns} 引{Refs} 显{Displays}";
         }
 
         public class Index
@@ -42,9 +44,10 @@ namespace NpcVisualEditor
         // 变量 token：单字母+单数字，带边界（避免 A10 误匹配成 A1）
         private static readonly Regex RxVar =
             new(@"(?<![A-Za-z0-9])([A-Za-z][0-9])(?![A-Za-z0-9])", RegexOptions.Compiled);
-        // 赋值命令首参：MOV/CALC/INC/DEC/SUM/CHECKCALC/LOADVALUE/SAVEVALUE
+        // 赋值命令首参：MOV/CALC/INC/DEC/SUM/LOADVALUE/SAVEVALUE。
+        // CHECKCALC 是 #IF 段的检查命令（读变量比较），不是赋值，故不计入。
         private static readonly Regex RxAssign =
-            new(@"^\s*(MOV|CALC|INC|DEC|SUM|CHECKCALC|LOADVALUE|SAVEVALUE)\s+([A-Za-z][0-9])(?:\s|$)",
+            new(@"^\s*(MOV|CALC|INC|DEC|SUM|LOADVALUE|SAVEVALUE)\s+([A-Za-z][0-9])(?:\s|$)",
                 RegexOptions.IgnoreCase | RegexOptions.Compiled);
         // 显示：<$OUTPUT(A1)> / <$STR(A1)> 等
         private static readonly Regex RxDisplay =

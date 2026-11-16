@@ -25,7 +25,8 @@ namespace NpcVisualEditor
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false; MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(400, 360);
+            // 8 个字段行(32+7×30=242)+复选框/路线/坐标/按钮，需 ≥400 高，否则确定/取消被裁。
+            ClientSize = new Size(400, 400);
 
             int y = 16;
             Controls.Add(new Label { Text = "怪物:", Location = new Point(20, y), AutoSize = true });
@@ -37,13 +38,13 @@ namespace NpcVisualEditor
             Controls.Add(_cmbMonster);
             y += 32;
 
-            _numCount = AddNum("数量 Count", r.Count, ref y);
-            _numSpread = AddNum("范围 Spread", r.Spread, ref y);
-            _numDelay = AddNum("延迟 Delay(秒)", r.Delay, ref y);
-            _numRandom = AddNum("随机延迟 RandomDelay", r.RandomDelay, ref y);
-            _numDirection = AddNum("方向 Direction", r.Direction, 255, ref y);
-            _numIndex = AddNum("重生组 RespawnIndex", r.RespawnIndex, int.MaxValue, ref y);
-            _numTicks = AddNum("RespawnTicks(0=不用)", r.RespawnTicks, ref y);
+            _numCount = AddNum("数量", r.Count, ref y);
+            _numSpread = AddNum("范围", r.Spread, ref y);
+            _numDelay = AddNum("延迟(秒)", r.Delay, ref y);
+            _numRandom = AddNum("随机延迟", r.RandomDelay, ref y);
+            _numDirection = AddNum("方向", r.Direction, 255, ref y);
+            _numIndex = AddNum("重生组", r.RespawnIndex, int.MaxValue, ref y);
+            _numTicks = AddNum("重生计时(0=不用)", r.RespawnTicks, ref y);
 
             _chkSaveTime = new CheckBox { Text = "保存重生时间 (SaveRespawnTime)", Location = new Point(110, y), AutoSize = true, Checked = r.SaveRespawnTime };
             y += 30;
@@ -108,13 +109,13 @@ namespace NpcVisualEditor
 
             int y = 18;
             Controls.Add(new Label { Text = "中心 X:", Location = new Point(20, y), AutoSize = true });
-            var x = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = 10000, Value = sz.Location.X };
+            var x = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = 10000, Value = Math.Min(10000, Math.Max(0, sz.Location.X)) };
             y += 30;
             Controls.Add(new Label { Text = "中心 Y:", Location = new Point(20, y), AutoSize = true });
-            var yy = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = 10000, Value = sz.Location.Y };
+            var yy = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = 10000, Value = Math.Min(10000, Math.Max(0, sz.Location.Y)) };
             y += 30;
             Controls.Add(new Label { Text = "半径 Size:", Location = new Point(20, y), AutoSize = true });
-            var size = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = ushort.MaxValue, Value = sz.Size };
+            var size = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = ushort.MaxValue, Value = Math.Min((decimal)ushort.MaxValue, Math.Max(0m, sz.Size)) };
             y += 30;
             var start = new CheckBox { Text = "作为复活起始点 (StartPoint)", Location = new Point(20, y), AutoSize = true, Checked = sz.StartPoint };
             y += 30;
@@ -166,7 +167,6 @@ namespace NpcVisualEditor
             var big = new CheckBox { Text = "大地图显示", Location = new Point(20, y), AutoSize = true, Checked = m.ShowOnBigMap };
             y += 30;
             Controls.AddRange(new Control[] { hole, move, big });
-            foreach (var c in new Control[] { hole, move, big }) { }
             // 原值回填
             hole.Checked = m.NeedHole; move.Checked = m.NeedMove; big.Checked = m.ShowOnBigMap;
 

@@ -260,11 +260,22 @@ namespace NpcVisualEditor
         private void AddConfigRow()
         {
             string sec = _cmbConfigSection?.SelectedItem as string;
-            if (string.IsNullOrEmpty(sec)) return;
+            if (string.IsNullOrEmpty(sec) || _mir2Ini == null) return;
             using var dlg = new KeyValueInput("新增配置项");
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
-                _mir2Ini.SetValue(sec, dlg.KeyName, dlg.KeyValue);
+                string key = dlg.KeyName;
+                if (string.IsNullOrEmpty(key))
+                {
+                    MessageBox.Show(this, "键名不能为空。", "无效键名", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (_mir2Ini.GetKeys(sec).Any(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    MessageBox.Show(this, "该键已存在，请先编辑现有项。", "键重复", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                _mir2Ini.SetValue(sec, key, dlg.KeyValue);
                 FillConfigGrid();
             }
         }
@@ -302,24 +313,41 @@ namespace NpcVisualEditor
             }
             _gridKeys.Columns[0].ReadOnly = true;
 
+            // 列宽权重：Fill 模式下 Width 无效，用 FillWeight 控制比例，避免 6 列等分导致"值/功能"列被挤窄。
+            _gridKeys.Columns[0].FillWeight = 200;
+            _gridKeys.Columns[1].FillWeight = 200;
+            for (int ci = 2; ci < _gridKeys.Columns.Count; ci++) _gridKeys.Columns[ci].FillWeight = 85;
+
+            // INI 中可能含 ComboBox 预置项之外的值（如历史遗留键位），先补进 Items，
+            // 否则 DataGridView 在显示或提交时抛"ComboBoxCell 值无效"异常。
+            foreach (DataGridViewComboBoxColumn col in _gridKeys.Columns.OfType<DataGridViewComboBoxColumn>())
+            {
+                string field = col.Name == "key" ? "RequireKey" : col.Name;
+                foreach (string sec0 in _keysIni.Sections)
+                {
+                    string v0 = _keysIni.GetValue(sec0, field);
+                    if (!string.IsNullOrEmpty(v0) && !col.Items.Contains(v0)) col.Items.Add(v0);
+                }
+            }
+
             _gridKeys.CellEndEdit += (s, e) =>
             {
-                if (e.RowIndex < 0) return;
+                if (e.RowIndex < 0 || e.ColumnIndex == 0) return;
+                var col = _gridKeys.Columns[e.ColumnIndex];
+                if (col is not DataGridViewComboBoxColumn) return;
                 string sec = _gridKeys.Rows[e.RowIndex].Cells[0].Value?.ToString();
                 if (string.IsNullOrEmpty(sec)) return;
-                foreach (DataGridViewColumn col in _gridKeys.Columns)
-                {
-                    if (col.Index == 0 || col is not DataGridViewComboBoxColumn) continue;
-                    string v = _gridKeys.Rows[e.RowIndex].Cells[col.Index].Value?.ToString() ?? "";
-                    string field = col.Name == "key" ? "RequireKey" : col.Name;
-                    _keysIni.SetValue(sec, field, v);
-                }
+                // 只写回本次编辑的那一列，避免把同一行未编辑列（可能含外部改动）一并覆盖。
+                string v = _gridKeys.Rows[e.RowIndex].Cells[e.ColumnIndex].Value?.ToString() ?? "";
+                string field = col.Name == "key" ? "RequireKey" : col.Name;
+                _keysIni.SetValue(sec, field, v);
             };
             page.Controls.Add(_gridKeys);
             page.Controls.Add(new Label
             {
                 Text = "修饰键：0=不能按此键 / 1=必须按下 / 2=无关（默认）。按键值参考 System.Windows.Forms.Keys。",
-                Dock = DockStyle.Top, Height = 28, ForeColor = Color.Gray
+                Dock = DockStyle.Top, Height = 28, ForeColor = Color.Gray,
+                AutoSize = false, Padding = new Padding(6, 6, 0, 0)
             });
             _tabs.TabPages.Add(page);
 
@@ -365,6 +393,8 @@ namespace NpcVisualEditor
             _cmbJsonSection.SelectedIndexChanged += (s, e) => FillLocGrid();
 
             _gridLoc = MakeGrid();
+            _gridLoc.Columns[0].FillWeight = 140;
+            _gridLoc.Columns[1].FillWeight = 400; // 文案通常较长，值列留足宽度避免截断
             _gridLoc.CellEndEdit += (s, e) =>
             {
                 if (e.RowIndex < 0 || e.ColumnIndex != 1 || _locDoc == null) return;
@@ -395,6 +425,10 @@ namespace NpcVisualEditor
             }
             catch (Exception ex)
             {
+                // 反序列化失败时清空旧文档，避免界面显示与磁盘文件不一致的陈旧内容。
+                _locDoc = new();
+                _cmbJsonSection.Items.Clear();
+                _gridLoc?.Rows.Clear();
                 MessageBox.Show(this, "读取文案失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -418,11 +452,31 @@ namespace NpcVisualEditor
             try
             {
                 string tab = _tabs.SelectedTab?.Text ?? "";
-                if (tab.StartsWith("Mir2Config")) _mir2Ini?.Save();
-                else if (tab.StartsWith("KeyBinds")) _keysIni?.Save();
+                if (tab.StartsWith("Mir2Config"))
+                {
+                    if (_mir2Ini == null)
+                    {
+                        MessageBox.Show(this, "Mir2Config.ini 未加载，无法保存。", "未加载", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    _mir2Ini.Save();
+                }
+                else if (tab.StartsWith("KeyBinds"))
+                {
+                    if (_keysIni == null)
+                    {
+                        MessageBox.Show(this, "KeyBinds.ini 未加载，无法保存。", "未加载", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    _keysIni.Save();
+                }
                 else if (tab.StartsWith("Localization"))
                 {
-                    if (_locPath == null || _locDoc == null) return;
+                    if (_locPath == null || _locDoc == null)
+                    {
+                        MessageBox.Show(this, "文案文件未加载，无法保存。", "未加载", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
                     var opts = new JsonSerializerOptions
                     {
                         WriteIndented = true,
@@ -442,10 +496,19 @@ namespace NpcVisualEditor
 
         private void ReloadCurrent()
         {
-            string tab = _tabs.SelectedTab?.Text ?? "";
-            if (tab.StartsWith("Mir2Config")) { LoadMir2Config(); FillConfigGrid(); }
-            else if (tab.StartsWith("KeyBinds")) { LoadKeyBinds(); }
-            else if (tab.StartsWith("Localization")) { LoadLocFile(); }
+            // 三个 Load* 每次都会 new TabPage 并 Add；先把旧页整体释放清空，避免重复叠加页签与状态泄漏。
+            int idx = _tabs.SelectedIndex;
+            var pages = _tabs.TabPages.Cast<TabPage>().ToList();
+            _tabs.TabPages.Clear();
+            foreach (var p in pages) p.Dispose();
+            _mir2Ini = null; _keysIni = null; _locDoc = null; _locPath = null;
+            _gridConfig = null; _gridKeys = null; _gridLoc = null;
+            _cmbConfigSection = null; _cmbLang = null; _cmbJsonSection = null;
+
+            LoadMir2Config();
+            LoadKeyBinds();
+            LoadLocalization();
+            if (idx >= 0 && idx < _tabs.TabPages.Count) _tabs.SelectedIndex = idx;
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -464,6 +527,8 @@ namespace NpcVisualEditor
             };
             g.Columns.Add("key", "键 / 名称");
             g.Columns.Add("value", "值");
+            g.Columns[0].FillWeight = 160;
+            g.Columns[1].FillWeight = 340; // 键名列窄、值列宽，避免值被挤 truncation
             return g;
         }
 
@@ -510,14 +575,15 @@ namespace NpcVisualEditor
             _k = new TextBox { Location = new Point(70, 12), Width = 250 };
             _v = new TextBox { Location = new Point(70, 48), Width = 250 };
             var btnOk = new Button { Text = "确定", Location = new Point(120, 78), Width = 80, DialogResult = DialogResult.OK };
+            var btnCancel = new Button { Text = "取消", Location = new Point(210, 78), Width = 80, DialogResult = DialogResult.Cancel };
             Controls.AddRange(new Control[]
             {
                 new Label { Text = "键:", Location = new Point(15, 16), AutoSize = true }, _k,
                 new Label { Text = "值:", Location = new Point(15, 52), AutoSize = true }, _v,
-                btnOk,
-                new Button { Text = "取消", Location = new Point(210, 78), Width = 80, DialogResult = DialogResult.Cancel },
+                btnOk, btnCancel,
             });
             AcceptButton = btnOk;
+            CancelButton = btnCancel; // Esc 取消
         }
     }
 }

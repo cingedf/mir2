@@ -117,11 +117,13 @@ namespace NpcVisualEditor
 
         private void UpdatePreview()
         {
+            // 先释放旧图再加载，避免反复输入ID造成 GDI+ 句柄泄漏
+            var oldImg = _picPreview.Image;
             _picPreview.Image = null;
+            oldImg?.Dispose();
             if (!ushort.TryParse(_txtImage.Text, out ushort img)) return;
             string dir = Path.Combine(_serverDir, "Envir", "Previews", "NPC");
             if (!Directory.Exists(dir)) return;
-            // 命名约定待子代理报告校准：先按 <img>.bmp / *<img>*.bmp 匹配
             string path = Path.Combine(dir, img + ".bmp");
             if (!File.Exists(path))
             {
@@ -133,9 +135,13 @@ namespace NpcVisualEditor
             try
             {
                 using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-                _picPreview.Image = Image.FromStream(fs);
+                using var tmp = Image.FromStream(fs);
+                _picPreview.Image = new Bitmap(tmp); // 深拷贝，脱离流生命周期
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"NPC 预览图加载失败 {path}: {ex.Message}");
+            }
         }
 
         private void BtnOk_Click(object sender, EventArgs e)
@@ -167,6 +173,17 @@ namespace NpcVisualEditor
             _npc.Rate = (ushort)_numRate.Value;
             _npc.ShowOnBigMap = _chkBigMap.Checked;
             _npc.CanTeleportTo = _chkTeleport.Checked;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                var img = _picPreview.Image;
+                _picPreview.Image = null;
+                img?.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }

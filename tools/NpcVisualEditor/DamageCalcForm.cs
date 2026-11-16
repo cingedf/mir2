@@ -18,7 +18,8 @@ namespace NpcVisualEditor
     public class DamageCalcForm : Form
     {
         private readonly NumericUpDown _numLevel, _numMinDC, _numMaxDC, _numMinMC, _numMaxMC;
-        private readonly NumericUpDown _numMinSC, _numMaxSC, _numLuck, _numArmour;
+        private readonly NumericUpDown _numMinSC, _numMaxSC, _numMinAC, _numMaxAC, _numMinMAC, _numMaxMAC;
+        private readonly NumericUpDown _numLuck, _numArmour;
         private readonly NumericUpDown _numSkillBase, _numSkillPower, _numSkillLevel;
         private readonly NumericUpDown _numMultiBase, _numMultiBonus, _numReqAmount;
         private readonly ComboBox _cmbReqType;
@@ -58,6 +59,10 @@ namespace NpcVisualEditor
             _numMaxMC = AddRow(panel, "魔法上限 (MaxMC)", ref y, 0, 9999, 0);
             _numMinSC = AddRow(panel, "道术下限 (MinSC)", ref y, 0, 9999, 0);
             _numMaxSC = AddRow(panel, "道术上限 (MaxSC)", ref y, 0, 9999, 0);
+            _numMinAC = AddRow(panel, "防御下限 (MinAC)", ref y, 0, 9999, 0);
+            _numMaxAC = AddRow(panel, "防御上限 (MaxAC)", ref y, 0, 9999, 0);
+            _numMinMAC = AddRow(panel, "魔防下限 (MinMAC)", ref y, 0, 9999, 0);
+            _numMaxMAC = AddRow(panel, "魔防上限 (MaxMAC)", ref y, 0, 9999, 0);
             _numLuck = AddRow(panel, "幸运 (+7 以上必出上限)", ref y, 0, 20, 0);
             _numArmour = AddRow(panel, "目标防御 (AC, 仅参考)", ref y, 0, 9999, 0);
 
@@ -151,14 +156,22 @@ namespace NpcVisualEditor
             int minDc = Val(_numMinDC), maxDc = Val(_numMaxDC);
             int minMc = Val(_numMinMC), maxMc = Val(_numMaxMC);
             int minSc = Val(_numMinSC), maxSc = Val(_numMaxSC);
+            int minAc = Val(_numMinAC), maxAc = Val(_numMaxAC);
+            int minMac = Val(_numMinMAC), maxMac = Val(_numMaxMAC);
             // 佩戴判定复刻 HumanObject.cs:1141-1227：按 RequiredType 取对应属性与 Threshold 比较
+            // ReqNames 顺序: 0 Level/1 MaxAC/2 MaxMAC/3 MaxDC/4 MaxMC/5 MaxSC/6 MaxLevel
+            //                7 MinAC/8 MinMAC/9 MinDC/10 MinMC/11 MinSC
             int actual = reqType switch
             {
                 0 => level,                            // Level
+                1 => maxAc,                            // MaxAC
+                2 => maxMac,                           // MaxMAC
                 3 => maxDc,                            // MaxDC
                 4 => maxMc,                            // MaxMC
                 5 => maxSc,                            // MaxSC
                 6 => level,                            // MaxLevel（简化按等级）
+                7 => minAc,                            // MinAC
+                8 => minMac,                           // MinMAC
                 9 => minDc, 10 => minMc, 11 => minSc,
                 _ => -1
             };

@@ -33,10 +33,12 @@ namespace NpcVisualEditor
         // 段定义 [@名称]；段名可含 - 与 (参数)
         private static readonly Regex RxSegment = new(@"^\s*\[@([^\]]+)\]", RegexOptions.Compiled);
         // 按钮跳转 <文字/@目标> 或 <<文字/@目标/颜色>>
-        private static readonly Regex RxJump = new(@"<{1,2}\s*[^/@>]*?/@([A-Za-z0-9_\-\(\)]+?)(?:/[^>]*?)?>{1,2}", RegexOptions.Compiled);
+        // 目标字符类必须覆盖中文段名（实证部署区有 93 个中文段、24 个中文跳转目标）；
+        // 与段定义 [^\]]+ 保持同等宽度——排除 / @ > 与空白即可，颜色后缀由后续可选组处理。
+        private static readonly Regex RxJump = new(@"<{1,2}\s*[^/@>]*?/@([^/@>\s]+?)(?:/[^>]*?)?>{1,2}", RegexOptions.Compiled);
         // 命令行 GOTO/GROUPGOTO 第二词、DELAYGOTO/TIMERECALL 第三词
-        private static readonly Regex RxGoto2 = new(@"^\s*(GOTO|GROUPGOTO)\s+@?([A-Za-z0-9_\-\(\)]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private static readonly Regex RxGoto3 = new(@"^\s*(DELAYGOTO|TIMERECALL|TIMERECALLGROUP)\s+\S+\s+@?([A-Za-z0-9_\-\(\)]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex RxGoto2 = new(@"^\s*(GOTO|GROUPGOTO)\s+@?([^\s@]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex RxGoto3 = new(@"^\s*(DELAYGOTO|TIMERECALL|TIMERECALLGROUP)\s+\S+\s+@?([^\s@]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         // 变量：引擎按最严 [A-Z][0-9] 判定（字母+单数字）
         private static readonly Regex RxVarStrict = new(@"(?<![A-Za-z0-9])[A-Za-z][0-9](?![A-Za-z0-9])", RegexOptions.Compiled);
         // 多字母变量误用（如 TempGold / A10）——引擎会部分匹配或拒绝
@@ -100,7 +102,9 @@ namespace NpcVisualEditor
                 if (mm.Success && commands.Count > 0)
                 {
                     string cmd = mm.Groups[1].Value.ToUpperInvariant();
-                    int need = cmd == "CALC" ? 4 : 2; // CALC 至少4参，MOV/CHECKCALC 至少2
+                    // 引擎 parts 含命令名：MOV 需 parts.Length>=3 → 去命令名后≥2；
+                    // CALC/CHECKCALC 需 parts.Length>=4 → 去命令名后≥3（原 CALC=4 属 off-by-one）。
+                    int need = cmd == "MOV" ? 2 : 3;
                     var parts = mm.Groups[2].Value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
                     if (parts.Length < need)
                         rep.Issues.Add(new Issue { Level = Severity.Error, File = path, Section = section, Line = ln,
@@ -179,6 +183,10 @@ namespace NpcVisualEditor
                     if (idx >= 0)
                     {
                         var cycle = stack.Skip(idx).Concat(new[] { next }).ToList();
+                        // 自环（A→A）已由上方单独报 Error，DFS 不再重复报 Warning。
+                        if (cycle.Count <= 1 ||
+                            (cycle.Count == 2 && string.Equals(cycle[0], cycle[1], StringComparison.OrdinalIgnoreCase)))
+                            continue;
                         string key = string.Join("→", cycle.Distinct(StringComparer.OrdinalIgnoreCase)
                             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
                         if (reported.Add(key))

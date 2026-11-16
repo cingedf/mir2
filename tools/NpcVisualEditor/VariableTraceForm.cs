@@ -60,12 +60,13 @@ namespace NpcVisualEditor
                 AllowUserToAddRows = false,
                 RowHeadersVisible = false,
             };
+            // Fill 模式下 Width 被忽略，须用 FillWeight 控制列宽比例
             _grid.Columns.AddRange(new[] {
-                new DataGridViewTextBoxColumn { Name = "kind", HeaderText = "类型", Width = 50 },
-                new DataGridViewTextBoxColumn { Name = "file", HeaderText = "文件", Width = 260 },
-                new DataGridViewTextBoxColumn { Name = "line", HeaderText = "行", Width = 45 },
-                new DataGridViewTextBoxColumn { Name = "section", HeaderText = "段", Width = 110 },
-                new DataGridViewTextBoxColumn { Name = "text", HeaderText = "内容", Width = 520 },
+                new DataGridViewTextBoxColumn { Name = "kind", HeaderText = "类型", FillWeight = 50 },
+                new DataGridViewTextBoxColumn { Name = "file", HeaderText = "文件", FillWeight = 260 },
+                new DataGridViewTextBoxColumn { Name = "line", HeaderText = "行", FillWeight = 45 },
+                new DataGridViewTextBoxColumn { Name = "section", HeaderText = "段", FillWeight = 110 },
+                new DataGridViewTextBoxColumn { Name = "text", HeaderText = "内容", FillWeight = 520 },
             });
             _grid.CellDoubleClick += (s, e) => OpenSource(e.RowIndex);
 

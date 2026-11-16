@@ -76,7 +76,11 @@ namespace NpcVisualEditor
         public void LoadMap(MapInfo map, List<NPCInfo> npcs)
         {
             _map = map;
-            // 优先用对照表逻辑格尺寸；缺失时退回 PNG 像素尺寸
+            _npcs = npcs ?? new List<NPCInfo>();
+            // 切换地图时先重置视图，再加载新小地图（避免回退尺寸误用上一张图）
+            _zoom = 1f; _pan = Point.Empty;
+            LoadMinimap();
+            // 优先用对照表逻辑格尺寸；缺失时退回"本次"加载的小图像素尺寸
             if (map != null && _catalog.TryGet(map.FileName, out int lw, out int lh, out _))
             {
                 _logicalW = lw; _logicalH = lh;
@@ -86,14 +90,6 @@ namespace NpcVisualEditor
                 _logicalW = _minimap?.Width ?? 0;
                 _logicalH = _minimap?.Height ?? 0;
             }
-            SetNpcs(npcs);
-            LoadMinimap();
-            if (_logicalW <= 0 && _minimap != null)
-            {
-                _logicalW = _minimap.Width; _logicalH = _minimap.Height;
-            }
-            // 切换地图时重置视图
-            _zoom = 1f; _pan = Point.Empty;
             Invalidate();
         }
 
@@ -113,12 +109,18 @@ namespace NpcVisualEditor
             _scaled = null;
 
             if (_map == null || string.IsNullOrEmpty(_clientDir)) return;
-            string png = Path.Combine(_clientDir, "Map", "MiniMaps_Export", _map.FileName + "_MiniMap.png");
+            // 优先用对照表登记的自定义 PNG 名（少数地图文件名 ≠ <地图名>_MiniMap.png）
+            string pngName = _map.FileName + "_MiniMap.png";
+            if (_catalog.TryGet(_map.FileName, out _, out _, out string custom) && !string.IsNullOrEmpty(custom))
+                pngName = custom;
+            string png = Path.Combine(_clientDir, "Map", "MiniMaps_Export", pngName);
             if (!File.Exists(png)) return;
             try
             {
                 using var fs = new FileStream(png, FileMode.Open, FileAccess.Read);
-                _minimap = Image.FromStream(fs);
+                // 深拷贝位图：Image.FromStream 要求流在图像生命周期内保持打开，
+                // 直接缓存 FromStream 结果在 fs 释放后可能 GDI+ 损坏。
+                _minimap = new Bitmap(Image.FromStream(fs));
             }
             catch { _minimap = null; }
         }
@@ -150,8 +152,11 @@ namespace NpcVisualEditor
         {
             var r = MapRect();
             if (r.IsEmpty) return Point.Empty;
-            return new Point(Math.Max(0, (int)((clientPoint.X - r.X) / _scaleX)),
-                             Math.Max(0, (int)((clientPoint.Y - r.Y) / _scaleY)));
+            int x = (int)((clientPoint.X - r.X) / _scaleX);
+            int y = (int)((clientPoint.Y - r.Y) / _scaleY);
+            x = Math.Max(0, _logicalW > 0 ? Math.Min(x, _logicalW) : x);
+            y = Math.Max(0, _logicalH > 0 ? Math.Min(y, _logicalH) : y);
+            return new Point(x, y);
         }
 
         private NPCInfo NpcAt(Point c)
@@ -277,7 +282,7 @@ namespace NpcVisualEditor
                 g.FillEllipse(brush, p.X - 5, p.Y - 5, 10, 10);
                 using var pen = new Pen(hot ? Color.Black : Color.White);
                 g.DrawEllipse(pen, p.X - 5, p.Y - 5, 10, 10);
-                TextRenderer.DrawText(g, npc.GameName, Font, new Point(p.X + 8, p.Y - 8),
+                TextRenderer.DrawText(g, NpcUtil.SafeName(npc), Font, new Point(p.X + 8, p.Y - 8),
                     hot ? Color.Yellow : Color.White);
             }
 
@@ -362,8 +367,12 @@ namespace NpcVisualEditor
 
             if (e.Button == MouseButtons.Middle)
             {
+                // 中键平移时清理其它进行中的拖动状态，避免鼠标移出/松手丢失导致状态机卡死
                 _panning = true;
                 _panStart = e.Location;
+                _dragging = false;
+                _dragNpc = null;
+                _movePending = false;
                 Capture = true;
                 return;
             }
@@ -408,6 +417,8 @@ namespace NpcVisualEditor
                             _dragNpc = npc;
                             var mp = ClientToMap(e.Location);
                             _dragOffset = new Point(mp.X - npc.Location.X, mp.Y - npc.Location.Y);
+                            // 捕获鼠标：拖出控件边界时仍能收到 MouseMove/MouseUp，防止状态机卡死
+                            Capture = true;
                         }
                         break;
                 }
@@ -468,6 +479,7 @@ namespace NpcVisualEditor
             {
                 var moved = _dragNpc;
                 _dragNpc = null;
+                Capture = false;
                 NpcMoved?.Invoke(moved);
             }
         }
