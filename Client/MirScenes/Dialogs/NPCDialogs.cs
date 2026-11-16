@@ -474,7 +474,8 @@ namespace Client.MirScenes.Dialogs
                         int matchLength = match.Length;
                         // 20261116 同字重影修复：主 Label 只画等宽空格占位，链接层 NewLink 成为该段文字唯一绘制者，
                         // 消除主层白字与彩色链接层因测宽口径不一致产生的叠印；位置用 CalculateLinkOffset 统一口径
-                        currentLine = currentLine.Remove(matchStart, matchLength).Insert(matchStart, new string(' ', displayName.Length));
+                        // 20261116 二次修复：占位按显示宽度生成（中文全角≈2倍半角宽），此前按字符数占位导致中文占位过窄错位重叠
+                        currentLine = currentLine.Remove(matchStart, matchLength).Insert(matchStart, BuildPlaceholder(displayName, font));
 
                         string textUpToLink = currentLine.Substring(0, matchStart);
                         Point offset = CalculateLinkOffset(textUpToLink, TextLabel[i]);
@@ -494,7 +495,8 @@ namespace Client.MirScenes.Dialogs
 
                         // 20261116 同字重影修复：主 Label 只画等宽空格占位，按钮层（黄字按钮/彩色字/链接按钮）
                         // 成为该段文字唯一绘制者，消除主层白字与按钮层叠印；定位统一用 CalculateLinkOffset 口径
-                        string placeholder = new string(' ', txt.Length);
+                        // 20261116 二次修复：占位按显示宽度生成（中文全角≈2倍半角宽），此前按字符数占位导致中文占位过窄错位重叠
+                        string placeholder = BuildPlaceholder(txt, font);
                         currentLine = currentLine.Remove(capture.Index - 1 - offSet, capture.Length + 2).Insert(capture.Index - 1 - offSet, placeholder);
                         string text2 = currentLine.Substring(0, capture.Index - 1 - offSet);
                         Point buttonOffset = CalculateLinkOffset(text2, TextLabel[i]);
@@ -978,6 +980,27 @@ namespace Client.MirScenes.Dialogs
         }
 
         private static readonly TextFormatFlags LinkMeasureFlags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
+
+        /// <summary>
+        /// 20261116 NPC 重影修复：生成与目标文本显示宽度等宽的半角空格占位串。
+        /// 全角字符（中文等 >255）约占 2 个半角空格宽，此前按字符数生成占位导致中文占位区
+        /// 只有彩色层文字一半宽，主层后续文字与彩色层错位重叠（白字+彩字双层）。
+        /// 逐字符实测宽度累计，与 CalculateLinkOffset 同口径（NoPadding|NoPrefix）。
+        /// </summary>
+        internal static string BuildPlaceholder(string text, System.Drawing.Font font)
+        {
+            if (string.IsNullOrEmpty(text) || font == null) return string.Empty;
+
+            int totalWidth = 0;
+            foreach (char ch in text)
+                totalWidth += TextRenderer.MeasureText(CMain.Graphics, ch.ToString(), font, new Size(int.MaxValue, int.MaxValue), LinkMeasureFlags).Width;
+
+            if (totalWidth <= 0) return new string(' ', text.Length);
+
+            const int spaceWidth = 5; // 半角空格典型宽（9F 字体），累计误差由宽余量兜底
+            int spaces = Math.Max(text.Length, (int)Math.Ceiling(totalWidth / (double)spaceWidth));
+            return new string(' ', spaces);
+        }
 
         internal static Point CalculateLinkOffset(string text, MirLabel label)
         {
