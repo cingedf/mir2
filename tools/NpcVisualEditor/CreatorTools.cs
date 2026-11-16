@@ -182,11 +182,15 @@ namespace NpcVisualEditor
             RefreshList();
         }
 
-        private void RefreshList()
+        private void RefreshList(int selectIndex = -1)
         {
             _lstBuffs.BeginUpdate();
             _lstBuffs.Items.Clear();
             foreach (var l in _lines) _lstBuffs.Items.Add(l.Split(';')[0]);
+            // 重建后显式恢复选中项：否则会回到无选中/首项，SelectedIndexChanged 用旧项回填编辑框，
+            // 让用户刚新增/更新的内容被首项覆盖，看起来像"新增失败"。
+            if (selectIndex >= 0 && selectIndex < _lstBuffs.Items.Count)
+                _lstBuffs.SelectedIndex = selectIndex;
             _lstBuffs.EndUpdate();
         }
 
@@ -204,24 +208,24 @@ namespace NpcVisualEditor
                 "LOCALMESSAGE \"已附加增益：" + name + "\" Hint\r\nBREAK\r\n";
         }
 
-        /// <summary>把当前编辑框内容提交到 _lines（不弹框），返回是否产生变更。供"新增/更新"与"保存"共用，
-        /// 避免用户改了编辑框却没点"新增/更新"直接保存导致改动丢失。</summary>
-        private bool CommitCurrentEdit()
+        /// <summary>把当前编辑框内容提交到 _lines（不弹框），返回所提交行的索引（-1=未提交）。
+        /// 供"新增/更新"与"保存"共用，避免用户改了编辑框却没点"新增/更新"直接保存导致改动丢失。</summary>
+        private int CommitCurrentEdit()
         {
             string name = _txtName.Text.Trim();
-            if (name.Length == 0) return false;
+            if (name.Length == 0) return -1;
             var props = _txtProps.Text.Replace("\r\n", "\n").Split('\n')
                 .Select(p => p.Trim()).Where(p => p.Length > 0);
             string line = name + ";" + string.Join(";", props) + ";;";
             int idx = _lines.FindIndex(l => l.Split(';')[0] == name);
             if (idx >= 0)
             {
-                if (_lines[idx] == line) return false;
+                if (_lines[idx] == line) return idx; // 无变更也保持选中当前行
                 _lines[idx] = line;
             }
-            else _lines.Add(line);
-            RefreshList();
-            return true;
+            else { _lines.Add(line); idx = _lines.Count - 1; }
+            RefreshList(idx);
+            return idx;
         }
 
         private void BtnAdd_Click(object sender, EventArgs e)

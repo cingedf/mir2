@@ -160,6 +160,10 @@ namespace NpcVisualEditor
         private DataGridView _gridLoc;
         private Dictionary<string, Dictionary<string, string>> _locDoc;
         private string _locPath;
+        // 文案未保存保护：编辑 Localization 值列后置 dirty，切换语言/重载/关闭时提示，避免静默丢失。
+        private bool _locDirty;
+        private int _locLangIndex = -1;      // 最近一次已提交（落盘/载入）的语言索引，用于 Cancel 还原
+        private bool _locLangGuard;          // 抑制 Cancel 还原时重入 SelectedIndexChanged
 
         public ClientConfigForm(string clientDir)
         {
@@ -389,7 +393,26 @@ namespace NpcVisualEditor
                 Text = "可直接编辑中文文案；Enum 节为枚举显示名。",
                 Location = new Point(410, 12), AutoSize = true, ForeColor = Color.Gray
             });
-            _cmbLang.SelectedIndexChanged += (s, e) => LoadLocFile();
+            _cmbLang.SelectedIndexChanged += (s, e) =>
+            {
+                if (_locLangGuard) return;
+                // 切语言会用磁盘内容覆盖内存文档；若有未保存文案，先确认避免静默丢失。
+                if (_locDirty)
+                {
+                    var r = MessageBox.Show(this,
+                        "当前文案有未保存的修改。是否先保存再切换？\n（否=丢弃修改，取消=留在当前语言）",
+                        "未保存的修改", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                    if (r == DialogResult.Cancel)
+                    {
+                        _locLangGuard = true;
+                        _cmbLang.SelectedIndex = _locLangIndex;
+                        _locLangGuard = false;
+                        return;
+                    }
+                    if (r == DialogResult.Yes && !SaveLocalization()) return; // 保存失败则不切换
+                }
+                LoadLocFile();
+            };
             _cmbJsonSection.SelectedIndexChanged += (s, e) => FillLocGrid();
 
             _gridLoc = MakeGrid();
@@ -401,7 +424,11 @@ namespace NpcVisualEditor
                 string sec = _cmbJsonSection.SelectedItem as string;
                 string key = _gridLoc.Rows[e.RowIndex].Cells[0].Value as string;
                 if (sec != null && key != null && _locDoc.TryGetValue(sec, out var dict))
-                    dict[key] = _gridLoc.Rows[e.RowIndex].Cells[1].Value?.ToString() ?? "";
+                {
+                    string val = _gridLoc.Rows[e.RowIndex].Cells[1].Value?.ToString() ?? "";
+                    if (!dict.TryGetValue(key, out var old) || old != val) _locDirty = true;
+                    dict[key] = val;
+                }
             };
             page.Controls.Add(_gridLoc);
             page.Controls.Add(top);
@@ -422,6 +449,8 @@ namespace NpcVisualEditor
                 _cmbJsonSection.Items.Clear();
                 foreach (var k in _locDoc.Keys) _cmbJsonSection.Items.Add(k);
                 if (_cmbJsonSection.Items.Count > 0) _cmbJsonSection.SelectedIndex = 0;
+                _locDirty = false;                       // 新载入的内容与磁盘一致
+                _locLangIndex = _cmbLang.SelectedIndex;  // 记录已提交索引，供 Cancel 还原
             }
             catch (Exception ex)
             {
@@ -429,6 +458,7 @@ namespace NpcVisualEditor
                 _locDoc = new();
                 _cmbJsonSection.Items.Clear();
                 _gridLoc?.Rows.Clear();
+                _locDirty = false;
                 MessageBox.Show(this, "读取文案失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -472,18 +502,7 @@ namespace NpcVisualEditor
                 }
                 else if (tab.StartsWith("Localization"))
                 {
-                    if (_locPath == null || _locDoc == null)
-                    {
-                        MessageBox.Show(this, "文案文件未加载，无法保存。", "未加载", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
-                    var opts = new JsonSerializerOptions
-                    {
-                        WriteIndented = true,
-                        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                    };
-                    string json = JsonSerializer.Serialize(_locDoc, opts).Replace("\n", "\r\n");
-                    File.WriteAllText(_locPath, json, new UTF8Encoding(false));
+                    if (!SaveLocalization()) return;
                 }
                 else return;
                 MessageBox.Show(this, "已保存：" + tab, "完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -494,8 +513,44 @@ namespace NpcVisualEditor
             }
         }
 
+        /// <summary>保存当前 Localization 文档到磁盘；成功返回 true 并清 dirty。供保存/切换语言/关闭共用。</summary>
+        private bool SaveLocalization()
+        {
+            if (_locPath == null || _locDoc == null)
+            {
+                MessageBox.Show(this, "文案文件未加载，无法保存。", "未加载", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            try
+            {
+                var opts = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                string json = JsonSerializer.Serialize(_locDoc, opts).Replace("\n", "\r\n");
+                File.WriteAllText(_locPath, json, new UTF8Encoding(false));
+                _locDirty = false;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "保存文案失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
         private void ReloadCurrent()
         {
+            // 重新载入会用磁盘内容覆盖内存；若有未保存文案先确认，避免静默丢失。
+            if (_locDirty)
+            {
+                var r = MessageBox.Show(this,
+                    "当前文案有未保存的修改，重新载入将丢弃它们。是否先保存？\n（否=丢弃修改，取消=不重新载入）",
+                    "未保存的修改", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                if (r == DialogResult.Cancel) return;
+                if (r == DialogResult.Yes && !SaveLocalization()) return;
+            }
             // 三个 Load* 每次都会 new TabPage 并 Add；先把旧页整体释放清空，避免重复叠加页签与状态泄漏。
             int idx = _tabs.SelectedIndex;
             var pages = _tabs.TabPages.Cast<TabPage>().ToList();
@@ -515,6 +570,19 @@ namespace NpcVisualEditor
         {
             if (keyData == (Keys.Control | Keys.S)) { SaveCurrent(); return true; }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (_locDirty)
+            {
+                var r = MessageBox.Show(this,
+                    "当前文案有未保存的修改。是否先保存再关闭？\n（否=丢弃修改，取消=不关闭）",
+                    "未保存的修改", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                if (r == DialogResult.Cancel) { e.Cancel = true; return; }
+                if (r == DialogResult.Yes && !SaveLocalization()) { e.Cancel = true; return; }
+            }
+            base.OnFormClosing(e);
         }
 
         // ---------- 控件工厂 ----------

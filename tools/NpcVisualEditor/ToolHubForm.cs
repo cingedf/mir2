@@ -147,7 +147,11 @@ namespace NpcVisualEditor
 
         private void UpdateDetail()
         {
-            if (_list.SelectedItems.Count == 0) return;
+            if (_list.SelectedItems.Count == 0)
+            {
+                _detail.Text = "选择工具查看说明。"; // 无选中时清空，避免详情残留上一个已消失的工具
+                return;
+            }
             var t = (ToolEntry)_list.SelectedItems[0].Tag;
             _detail.Text = $"名称: {t.Name}\r\n分类: {t.Category}\r\n路径: {t.ExePath}\r\n" +
                            $"参数: {t.Args}\r\n说明: {t.Description}\r\n" +

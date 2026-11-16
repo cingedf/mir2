@@ -455,21 +455,30 @@ namespace NpcVisualEditor
             return Path.Combine(_serverDir, "Envir", "NPCs", npc.FileName + ".txt");
         }
 
-        public void RefreshNpcLists()
+        public void RefreshNpcLists(NPCInfo toSelect = null)
         {
             var npcs = _currentMap == null ? new List<NPCInfo>() : GetMapNpcs(_currentMap);
 
+            ListBox targetList = null;
             _lstMerchant.BeginUpdate();
             _lstMerchant.Items.Clear();
             _lstFixed.BeginUpdate();
             _lstFixed.Items.Clear();
             foreach (var npc in npcs.OrderBy(d => d.Name))
             {
-                if (IsMerchant(npc)) _lstMerchant.Items.Add(npc);
-                else _lstFixed.Items.Add(npc);
+                ListBox list = IsMerchant(npc) ? _lstMerchant : _lstFixed;
+                list.Items.Add(npc);
+                if (toSelect != null && ReferenceEquals(npc, toSelect)) targetList = list;
             }
             _lstMerchant.EndUpdate();
             _lstFixed.EndUpdate();
+
+            // 新建成功后自动选中新项并滚动到可见，避免用户在长列表中找不到刚建的 NPC。
+            if (targetList != null && targetList.Items.Contains(toSelect))
+            {
+                targetList.SelectedItem = toSelect;
+                targetList.TopIndex = Math.Max(0, targetList.Items.IndexOf(toSelect) - 3);
+            }
 
             _lstSafeZone.BeginUpdate();
             _lstSafeZone.Items.Clear();
@@ -502,7 +511,7 @@ namespace NpcVisualEditor
                 _envir.NPCInfoList.Add(npc);
                 _dirty = true;
                 _canvas.SetNpcs(GetMapNpcs(_currentMap));
-                RefreshNpcLists();
+                RefreshNpcLists(npc); // 新建后选中并滚动到新项
             }
         }
 

@@ -294,6 +294,10 @@ namespace NpcVisualEditor
             _nodes.Add(n);
             _selected = n;
             UpdateScrollSize();
+            // 段很多时新节点会落在视口外；滚动到让新节点可见，避免"选中了却看不见"。
+            int targetY = n.Rect.Bottom - _canvas.ClientSize.Height + 60;
+            if (targetY > _canvas.AutoScrollPosition.Y)
+                _canvas.AutoScrollPosition = new Point(0, targetY);
             _canvas.Invalidate();
         }
 
