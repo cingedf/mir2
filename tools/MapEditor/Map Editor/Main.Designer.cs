@@ -191,6 +191,11 @@
             panelShandaMir2Preview = new System.Windows.Forms.Panel();
             panelWemadeMir3Preview = new System.Windows.Forms.Panel();
             panelShandaMir3Preview = new System.Windows.Forms.Panel();
+            // 新增：图库页 Panel2 内嵌套分割容器（左侧编号缩略图 / 右侧预览面板，可拖动调整宽度）
+            splitWemdeMir2Preview = new System.Windows.Forms.SplitContainer();
+            splitShandaMir2Preview = new System.Windows.Forms.SplitContainer();
+            splitWemdeMir3Preview = new System.Windows.Forms.SplitContainer();
+            splitShandaMir3Preview = new System.Windows.Forms.SplitContainer();
             toolStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabMap.SuspendLayout();
@@ -243,6 +248,19 @@
             ((System.ComponentModel.ISupportInitialize)splitTiles).BeginInit();
             splitTiles.Panel1.SuspendLayout();
             splitTiles.Panel2.SuspendLayout();
+            // 新增：图库页内嵌预览分割容器
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir2Preview).BeginInit();
+            splitWemdeMir2Preview.Panel1.SuspendLayout();
+            splitWemdeMir2Preview.Panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir2Preview).BeginInit();
+            splitShandaMir2Preview.Panel1.SuspendLayout();
+            splitShandaMir2Preview.Panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir3Preview).BeginInit();
+            splitWemdeMir3Preview.Panel1.SuspendLayout();
+            splitWemdeMir3Preview.Panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir3Preview).BeginInit();
+            splitShandaMir3Preview.Panel1.SuspendLayout();
+            splitShandaMir3Preview.Panel2.SuspendLayout();
             SuspendLayout();
             // 
             // toolStrip1
@@ -829,17 +847,35 @@
             // 
             splitWemdeMir2.Panel1.Controls.Add(WemadeMir2LibListBox);
             // 
-            // splitWemdeMir2.Panel2
+            // splitWemdeMir2.Panel2（内嵌嵌套分割容器：编号缩略图 / 预览面板可拖）
             // 
-            splitWemdeMir2.Panel2.Controls.Add(WemadeMir2LibListView);
-            splitWemdeMir2.Panel2.Controls.Add(panelWemadeMir2Preview);
+            splitWemdeMir2.Panel2.Controls.Add(splitWemdeMir2Preview);
             splitWemdeMir2.Panel2MinSize = 200;
             splitWemdeMir2.Size = new System.Drawing.Size(1721, 974);
             splitWemdeMir2.SplitterDistance = 200;
             splitWemdeMir2.SplitterWidth = 6;
             splitWemdeMir2.TabIndex = 10;
             // 
-            // panelWemadeMir2Preview（右侧预览面板：4 标签 2x2 + 图片预览，Dock=Right 避免与编号缩略图重叠）
+            // splitWemdeMir2Preview（WemadeMir2 页内嵌分割：左侧编号缩略图 / 右侧预览面板，可拖动调整宽度）
+            // 
+            splitWemdeMir2Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitWemdeMir2Preview.Location = new System.Drawing.Point(0, 0);
+            splitWemdeMir2Preview.Name = "splitWemdeMir2Preview";
+            // 
+            // splitWemdeMir2Preview.Panel1
+            // 
+            splitWemdeMir2Preview.Panel1.Controls.Add(WemadeMir2LibListView);
+            // 
+            // splitWemdeMir2Preview.Panel2
+            // 
+            splitWemdeMir2Preview.Panel2.Controls.Add(panelWemadeMir2Preview);
+            splitWemdeMir2Preview.Panel2MinSize = 200;
+            splitWemdeMir2Preview.Size = new System.Drawing.Size(1521, 974);
+            splitWemdeMir2Preview.SplitterDistance = 1255;
+            splitWemdeMir2Preview.SplitterWidth = 6;
+            splitWemdeMir2Preview.TabIndex = 22;
+            // 
+            // panelWemadeMir2Preview（右侧预览面板：4 标签 2x2 + 图片预览，置于嵌套分割 Panel2，可随分割拖动改变宽度）
             // 
             panelWemadeMir2Preview.BackColor = System.Drawing.SystemColors.ControlDark;
             panelWemadeMir2Preview.Controls.Add(LabWemadeMir2Width);
@@ -847,8 +883,8 @@
             panelWemadeMir2Preview.Controls.Add(labeWemadeMir2OffSetX);
             panelWemadeMir2Preview.Controls.Add(labWemadeMir2OffSetY);
             panelWemadeMir2Preview.Controls.Add(picWemdeMir2);
-            panelWemadeMir2Preview.Dock = System.Windows.Forms.DockStyle.Right;
-            panelWemadeMir2Preview.Location = new System.Drawing.Point(1255, 0);
+            panelWemadeMir2Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            panelWemadeMir2Preview.Location = new System.Drawing.Point(0, 0);
             panelWemadeMir2Preview.Name = "panelWemadeMir2Preview";
             panelWemadeMir2Preview.Size = new System.Drawing.Size(260, 974);
             panelWemadeMir2Preview.TabIndex = 21;
@@ -930,7 +966,7 @@
             WemadeMir2LibListView.Location = new System.Drawing.Point(0, 0);
             WemadeMir2LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             WemadeMir2LibListView.Name = "WemadeMir2LibListView";
-            WemadeMir2LibListView.Size = new System.Drawing.Size(1515, 974);
+            WemadeMir2LibListView.Size = new System.Drawing.Size(1255, 974);
             WemadeMir2LibListView.TabIndex = 9;
             WemadeMir2LibListView.UseCompatibleStateImageBehavior = false;
             WemadeMir2LibListView.VirtualMode = true;
@@ -966,17 +1002,35 @@
             // 
             splitShandaMir2.Panel1.Controls.Add(ShandaMir2LibListBox);
             // 
-            // splitShandaMir2.Panel2
+            // splitShandaMir2.Panel2（内嵌嵌套分割容器：编号缩略图 / 预览面板可拖）
             // 
-            splitShandaMir2.Panel2.Controls.Add(ShandaMir2LibListView);
-            splitShandaMir2.Panel2.Controls.Add(panelShandaMir2Preview);
+            splitShandaMir2.Panel2.Controls.Add(splitShandaMir2Preview);
             splitShandaMir2.Panel2MinSize = 200;
             splitShandaMir2.Size = new System.Drawing.Size(1721, 974);
             splitShandaMir2.SplitterDistance = 175;
             splitShandaMir2.SplitterWidth = 6;
             splitShandaMir2.TabIndex = 8;
             // 
-            // panelShandaMir2Preview（右侧预览面板：4 标签 2x2 + 图片预览，Dock=Right 避免与编号缩略图重叠）
+            // splitShandaMir2Preview（ShandaMir2 页内嵌分割：左侧编号缩略图 / 右侧预览面板，可拖动调整宽度）
+            // 
+            splitShandaMir2Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitShandaMir2Preview.Location = new System.Drawing.Point(0, 0);
+            splitShandaMir2Preview.Name = "splitShandaMir2Preview";
+            // 
+            // splitShandaMir2Preview.Panel1
+            // 
+            splitShandaMir2Preview.Panel1.Controls.Add(ShandaMir2LibListView);
+            // 
+            // splitShandaMir2Preview.Panel2
+            // 
+            splitShandaMir2Preview.Panel2.Controls.Add(panelShandaMir2Preview);
+            splitShandaMir2Preview.Panel2MinSize = 200;
+            splitShandaMir2Preview.Size = new System.Drawing.Size(1546, 974);
+            splitShandaMir2Preview.SplitterDistance = 1280;
+            splitShandaMir2Preview.SplitterWidth = 6;
+            splitShandaMir2Preview.TabIndex = 22;
+            // 
+            // panelShandaMir2Preview（右侧预览面板：4 标签 2x2 + 图片预览，置于嵌套分割 Panel2，可随分割拖动改变宽度）
             // 
             panelShandaMir2Preview.BackColor = System.Drawing.SystemColors.ControlDark;
             panelShandaMir2Preview.Controls.Add(labShandaMir2Width);
@@ -984,8 +1038,8 @@
             panelShandaMir2Preview.Controls.Add(labShandaMir2OffSetX);
             panelShandaMir2Preview.Controls.Add(labshandaMir2OffSetY);
             panelShandaMir2Preview.Controls.Add(picShandaMir2);
-            panelShandaMir2Preview.Dock = System.Windows.Forms.DockStyle.Right;
-            panelShandaMir2Preview.Location = new System.Drawing.Point(1255, 0);
+            panelShandaMir2Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            panelShandaMir2Preview.Location = new System.Drawing.Point(0, 0);
             panelShandaMir2Preview.Name = "panelShandaMir2Preview";
             panelShandaMir2Preview.Size = new System.Drawing.Size(260, 974);
             panelShandaMir2Preview.TabIndex = 21;
@@ -1067,7 +1121,7 @@
             ShandaMir2LibListView.Location = new System.Drawing.Point(0, 0);
             ShandaMir2LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             ShandaMir2LibListView.Name = "ShandaMir2LibListView";
-            ShandaMir2LibListView.Size = new System.Drawing.Size(1540, 974);
+            ShandaMir2LibListView.Size = new System.Drawing.Size(1280, 974);
             ShandaMir2LibListView.TabIndex = 7;
             ShandaMir2LibListView.UseCompatibleStateImageBehavior = false;
             ShandaMir2LibListView.VirtualMode = true;
@@ -1103,17 +1157,35 @@
             // 
             splitWemdeMir3.Panel1.Controls.Add(WemadeMir3LibListBox);
             // 
-            // splitWemdeMir3.Panel2
+            // splitWemdeMir3.Panel2（内嵌嵌套分割容器：编号缩略图 / 预览面板可拖）
             // 
-            splitWemdeMir3.Panel2.Controls.Add(WemadeMir3LibListView);
-            splitWemdeMir3.Panel2.Controls.Add(panelWemadeMir3Preview);
+            splitWemdeMir3.Panel2.Controls.Add(splitWemdeMir3Preview);
             splitWemdeMir3.Panel2MinSize = 200;
             splitWemdeMir3.Size = new System.Drawing.Size(1721, 974);
             splitWemdeMir3.SplitterDistance = 224;
             splitWemdeMir3.SplitterWidth = 6;
             splitWemdeMir3.TabIndex = 10;
             // 
-            // panelWemadeMir3Preview（右侧预览面板：4 标签 2x2 + 图片预览，Dock=Right 避免与编号缩略图重叠）
+            // splitWemdeMir3Preview（WemadeMir3 页内嵌分割：左侧编号缩略图 / 右侧预览面板，可拖动调整宽度）
+            // 
+            splitWemdeMir3Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitWemdeMir3Preview.Location = new System.Drawing.Point(0, 0);
+            splitWemdeMir3Preview.Name = "splitWemdeMir3Preview";
+            // 
+            // splitWemdeMir3Preview.Panel1
+            // 
+            splitWemdeMir3Preview.Panel1.Controls.Add(WemadeMir3LibListView);
+            // 
+            // splitWemdeMir3Preview.Panel2
+            // 
+            splitWemdeMir3Preview.Panel2.Controls.Add(panelWemadeMir3Preview);
+            splitWemdeMir3Preview.Panel2MinSize = 200;
+            splitWemdeMir3Preview.Size = new System.Drawing.Size(1497, 974);
+            splitWemdeMir3Preview.SplitterDistance = 1231;
+            splitWemdeMir3Preview.SplitterWidth = 6;
+            splitWemdeMir3Preview.TabIndex = 22;
+            // 
+            // panelWemadeMir3Preview（右侧预览面板：4 标签 2x2 + 图片预览，置于嵌套分割 Panel2，可随分割拖动改变宽度）
             // 
             panelWemadeMir3Preview.BackColor = System.Drawing.SystemColors.ControlDark;
             panelWemadeMir3Preview.Controls.Add(LabWemadeMir3Width);
@@ -1121,8 +1193,8 @@
             panelWemadeMir3Preview.Controls.Add(labeWemadeMir3OffSetX);
             panelWemadeMir3Preview.Controls.Add(labWemadeMir3OffSetY);
             panelWemadeMir3Preview.Controls.Add(picWemdeMir3);
-            panelWemadeMir3Preview.Dock = System.Windows.Forms.DockStyle.Right;
-            panelWemadeMir3Preview.Location = new System.Drawing.Point(1255, 0);
+            panelWemadeMir3Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            panelWemadeMir3Preview.Location = new System.Drawing.Point(0, 0);
             panelWemadeMir3Preview.Name = "panelWemadeMir3Preview";
             panelWemadeMir3Preview.Size = new System.Drawing.Size(260, 974);
             panelWemadeMir3Preview.TabIndex = 21;
@@ -1204,7 +1276,7 @@
             WemadeMir3LibListView.Location = new System.Drawing.Point(0, 0);
             WemadeMir3LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             WemadeMir3LibListView.Name = "WemadeMir3LibListView";
-            WemadeMir3LibListView.Size = new System.Drawing.Size(1491, 974);
+            WemadeMir3LibListView.Size = new System.Drawing.Size(1231, 974);
             WemadeMir3LibListView.TabIndex = 9;
             WemadeMir3LibListView.UseCompatibleStateImageBehavior = false;
             WemadeMir3LibListView.VirtualMode = true;
@@ -1239,17 +1311,35 @@
             // 
             splitShandaMir3.Panel1.Controls.Add(ShandaMir3LibListBox);
             // 
-            // splitShandaMir3.Panel2
+            // splitShandaMir3.Panel2（内嵌嵌套分割容器：编号缩略图 / 预览面板可拖）
             // 
-            splitShandaMir3.Panel2.Controls.Add(ShandaMir3LibListView);
-            splitShandaMir3.Panel2.Controls.Add(panelShandaMir3Preview);
+            splitShandaMir3.Panel2.Controls.Add(splitShandaMir3Preview);
             splitShandaMir3.Panel2MinSize = 200;
             splitShandaMir3.Size = new System.Drawing.Size(1721, 974);
             splitShandaMir3.SplitterDistance = 220;
             splitShandaMir3.SplitterWidth = 6;
             splitShandaMir3.TabIndex = 10;
             // 
-            // panelShandaMir3Preview（右侧预览面板：4 标签 2x2 + 图片预览，Dock=Right 避免与编号缩略图重叠）
+            // splitShandaMir3Preview（ShandaMir3 页内嵌分割：左侧编号缩略图 / 右侧预览面板，可拖动调整宽度）
+            // 
+            splitShandaMir3Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitShandaMir3Preview.Location = new System.Drawing.Point(0, 0);
+            splitShandaMir3Preview.Name = "splitShandaMir3Preview";
+            // 
+            // splitShandaMir3Preview.Panel1
+            // 
+            splitShandaMir3Preview.Panel1.Controls.Add(ShandaMir3LibListView);
+            // 
+            // splitShandaMir3Preview.Panel2
+            // 
+            splitShandaMir3Preview.Panel2.Controls.Add(panelShandaMir3Preview);
+            splitShandaMir3Preview.Panel2MinSize = 200;
+            splitShandaMir3Preview.Size = new System.Drawing.Size(1501, 974);
+            splitShandaMir3Preview.SplitterDistance = 1235;
+            splitShandaMir3Preview.SplitterWidth = 6;
+            splitShandaMir3Preview.TabIndex = 22;
+            // 
+            // panelShandaMir3Preview（右侧预览面板：4 标签 2x2 + 图片预览，置于嵌套分割 Panel2，可随分割拖动改变宽度）
             // 
             panelShandaMir3Preview.BackColor = System.Drawing.SystemColors.ControlDark;
             panelShandaMir3Preview.Controls.Add(labShandaMir3Width);
@@ -1257,8 +1347,8 @@
             panelShandaMir3Preview.Controls.Add(labShandaMir3OffSetX);
             panelShandaMir3Preview.Controls.Add(labshandaMir3OffSetY);
             panelShandaMir3Preview.Controls.Add(picShandaMir3);
-            panelShandaMir3Preview.Dock = System.Windows.Forms.DockStyle.Right;
-            panelShandaMir3Preview.Location = new System.Drawing.Point(1255, 0);
+            panelShandaMir3Preview.Dock = System.Windows.Forms.DockStyle.Fill;
+            panelShandaMir3Preview.Location = new System.Drawing.Point(0, 0);
             panelShandaMir3Preview.Name = "panelShandaMir3Preview";
             panelShandaMir3Preview.Size = new System.Drawing.Size(260, 974);
             panelShandaMir3Preview.TabIndex = 21;
@@ -1340,7 +1430,7 @@
             ShandaMir3LibListView.Location = new System.Drawing.Point(0, 0);
             ShandaMir3LibListView.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             ShandaMir3LibListView.Name = "ShandaMir3LibListView";
-            ShandaMir3LibListView.Size = new System.Drawing.Size(1495, 974);
+            ShandaMir3LibListView.Size = new System.Drawing.Size(1235, 974);
             ShandaMir3LibListView.TabIndex = 9;
             ShandaMir3LibListView.UseCompatibleStateImageBehavior = false;
             ShandaMir3LibListView.VirtualMode = true;
@@ -2011,6 +2101,27 @@
             splitTiles.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitTiles).EndInit();
             splitTiles.ResumeLayout(false);
+            // 新增：图库页内嵌预览分割容器
+            splitWemdeMir2Preview.Panel1.ResumeLayout(false);
+            splitWemdeMir2Preview.Panel2.ResumeLayout(false);
+            splitWemdeMir2Preview.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir2Preview).EndInit();
+            splitWemdeMir2Preview.ResumeLayout(false);
+            splitShandaMir2Preview.Panel1.ResumeLayout(false);
+            splitShandaMir2Preview.Panel2.ResumeLayout(false);
+            splitShandaMir2Preview.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir2Preview).EndInit();
+            splitShandaMir2Preview.ResumeLayout(false);
+            splitWemdeMir3Preview.Panel1.ResumeLayout(false);
+            splitWemdeMir3Preview.Panel2.ResumeLayout(false);
+            splitWemdeMir3Preview.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitWemdeMir3Preview).EndInit();
+            splitWemdeMir3Preview.ResumeLayout(false);
+            splitShandaMir3Preview.Panel1.ResumeLayout(false);
+            splitShandaMir3Preview.Panel2.ResumeLayout(false);
+            splitShandaMir3Preview.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)splitShandaMir3Preview).EndInit();
+            splitShandaMir3Preview.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitMain).EndInit();
             splitMain.ResumeLayout(false);
             ResumeLayout(false);
@@ -2180,6 +2291,11 @@
         private System.Windows.Forms.SplitContainer splitWemdeMir3;
         private System.Windows.Forms.SplitContainer splitShandaMir3;
         private System.Windows.Forms.SplitContainer splitTiles;
+        // 新增：图库页内嵌预览分割容器（编号缩略图 / 预览面板可拖）
+        private System.Windows.Forms.SplitContainer splitWemdeMir2Preview;
+        private System.Windows.Forms.SplitContainer splitShandaMir2Preview;
+        private System.Windows.Forms.SplitContainer splitWemdeMir3Preview;
+        private System.Windows.Forms.SplitContainer splitShandaMir3Preview;
     }
 }
 
