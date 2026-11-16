@@ -83,6 +83,8 @@ namespace NpcVisualEditor
                 (s, e) => new CommandWizardForm(_serverDir).ShowDialog(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("物品/怪物可视化图鉴(&I)", null,
                 (s, e) => new BrowserHostForm(_envir, _serverDir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("客户端配置编辑器(&G)", null,
+                (s, e) => OpenClientConfig()));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&H)", null, (s, e) => ShowNpcCommandHelp()));
             var mHelp = new ToolStripMenuItem("帮助(&H)");
             mHelp.DropDownItems.Add(new ToolStripMenuItem("关于(&A)", null,
@@ -499,6 +501,18 @@ namespace NpcVisualEditor
             _dirty = true;
             _canvas.SetNpcs(GetMapNpcs(_currentMap));
             RefreshNpcLists();
+        }
+
+        private void OpenClientConfig()
+        {
+            if (string.IsNullOrEmpty(_clientDir) || !Directory.Exists(_clientDir))
+            {
+                MessageBox.Show(this, "未设置有效的客户端目录，无法编辑客户端配置。\r\n" +
+                    "请在启动器中选择客户端目录后重新进入。", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            new ClientConfigForm(_clientDir).Show(this);
         }
 
         private void ShowNpcCommandHelp()
