@@ -11105,7 +11105,9 @@ namespace Client.MirScenes
             BackColour = Color.Black;
 
             MouseDown += OnMouseDown;
-            MouseMove += (o, e) => MouseLocation = e.Location;
+            // 20261116 全屏拉伸适配：e.Location 是窗体物理坐标，非 1920 分辨率全屏下未换算会导致
+            // NPC 命中/鼠标地图格全偏（1920 时比例=1 恰好正确）；改用 CMain.MPoint（已按拉伸比例换算的逻辑坐标）
+            MouseMove += (o, e) => MouseLocation = CMain.MPoint;
             Click += OnMouseClick;
         }
 
