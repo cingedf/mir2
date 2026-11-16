@@ -8,11 +8,11 @@ using System.Text.RegularExpressions;
 namespace NpcVisualEditor
 {
     /// <summary>
-    /// 爆率文件格式化（纯逻辑）。现网 Drops\*.txt 为 GBK/CRLF/无BOM 的扁平
-    /// "1/N 物品" + ";分类" 注释结构。两种模式：
+    /// 爆率文件格式化（纯逻辑）。现网 Drops\*.txt 为扁平 "1/N 物品" + ";分类" 注释结构。
+    /// 两种模式：
     ///  - LayoutOnly：逐行保真，仅统一行格式/缩进，保留注释与 #INSERT 原位（默认，风险最低）；
     ///  - Rebuild：基于 DropAnalyzer 解析结果树完整重排（需人工确认）。
-    /// 编码必须原样保留 GB18030 + CRLF + 无 BOM。
+    /// 编码自适应：BOM → UTF8-strict → GB18030 回退；写回时用原文件编码原样保留，避免损坏文件。
     /// </summary>
     public static class DropFormatter
     {
@@ -38,14 +38,32 @@ namespace NpcVisualEditor
             return Encoding.GetEncoding("GB18030");
         }
 
-        public static string ReadText(string path) => File.ReadAllText(path, GetGb18030());
+        /// <summary>
+        /// 编码探测：BOM → UTF8-strict → GB18030 回退。
+        /// 返回 (encoding, hasBom)。部署区实测 Drops\鸡.txt 等为 UTF-8 无 BOM + CRLF，
+        /// 早期误判为 GBK；自适应避免 UTF-8 中文被读成乱码或写回时被转码损坏。
+        /// </summary>
+        public static (Encoding enc, bool bom) DetectEncoding(string path)
+        {
+            var b = File.ReadAllBytes(path);
+            if (b.Length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF)
+                return (new UTF8Encoding(true), true);
+            if (b.Length >= 2 && b[0] == 0xFF && b[1] == 0xFE)
+                return (Encoding.Unicode, true);
+            var strict = new UTF8Encoding(false, true);
+            try { strict.GetString(b); return (new UTF8Encoding(false), false); }
+            catch { return (GetGb18030(), false); }
+        }
 
+        /// <summary>按自适应编码读取（UTF8 无 BOM 时严格解码，非乱码）。</summary>
+        public static string ReadText(string path) => File.ReadAllText(path, DetectEncoding(path).enc);
+
+        /// <summary>写回时探测原文件编码并原样保留（BOM/换行风格一致）。</summary>
         public static void WriteText(string path, string text)
         {
-            // 统一 CRLF，GB18030 无 BOM
+            var (enc, bom) = File.Exists(path) ? DetectEncoding(path) : (new UTF8Encoding(false), false);
             string crlf = text.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "\r\n");
-            var gb = GetGb18030();
-            File.WriteAllText(path, crlf, gb);
+            File.WriteAllText(path, crlf, enc);
         }
 
         /// <summary>仅排版：统一 "1/N 物品 [数量|Q]" 行格式，注释/空行/#INSERT 原样保留。</summary>

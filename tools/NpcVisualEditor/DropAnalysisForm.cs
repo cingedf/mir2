@@ -16,6 +16,8 @@ namespace NpcVisualEditor
     public class DropAnalysisForm : Form
     {
         private readonly string _dropsDir;
+        private readonly string _serverDir;
+        private readonly Envir _envir;
         private readonly HashSet<string> _itemNames = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DropAnalyzer.Result> _results = new(StringComparer.OrdinalIgnoreCase);
 
@@ -27,6 +29,8 @@ namespace NpcVisualEditor
 
         public DropAnalysisForm(string serverDir, Envir envir)
         {
+            _serverDir = serverDir;
+            _envir = envir;
             _dropsDir = Path.Combine(serverDir, "Envir", "Drops");
             foreach (var it in envir.ItemInfoList)
                 if (!string.IsNullOrEmpty(it.Name)) _itemNames.Add(it.Name);
@@ -62,7 +66,9 @@ namespace NpcVisualEditor
             btnSim.Click += (s, e) => SimulateCurrent();
             var btnScan = new Button { Text = "全库体检", Location = new Point(x + 790, 4), Width = 90 };
             btnScan.Click += (s, e) => ScanAll();
-            param.Controls.AddRange(new Control[] { btnAnalyze, btnSim, btnScan });
+            var btnTree = new Button { Text = "轮盘分解/全服估算", Location = new Point(x + 890, 4), Width = 150 };
+            btnTree.Click += (s, e) => new DropTreeForm(_serverDir, _envir).Show(this);
+            param.Controls.AddRange(new Control[] { btnAnalyze, btnSim, btnScan, btnTree });
 
             _gridRows = NewGrid(DockStyle.Fill);
             var bottom = new Panel { Dock = DockStyle.Bottom, Height = 200 };

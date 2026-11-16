@@ -90,7 +90,8 @@ namespace NpcVisualEditor
 
             // 引擎内置编辑器（Server.exe 菜单驱动；13 个 Database 表单 + VForm 可视化地图 + DropBuilder）
             Add("引擎内置编辑器", "服务端数据",
-                "Server.exe 启动后从菜单进入：物品/怪物/NPC/任务/地图/技能/商城/配方/ buff/爆率/攻城/龙 etc（12+ 表单）",
+                "Server.exe 菜单进入：物品/怪物/NPC/任务/地图/技能/商城/配方/buff/爆率/攻城/龙 etc（12+ 表单）；" +
+                "各 Database 表单自带 CSV 导入导出按钮（唯一能把 Exports\\*.csv 改动写回 MirDB 的官方往返通道，XLS 可直接用 Excel 打开 CSV）",
                 Path.Combine(_serverDir, "Server.exe"), "", true, false);
             Add("商城迁移工具", "服务端数据", "批量铺货架/迁移商城数据",
                 @"C:\1.40\mir2-angelk727\tools\GameShopMigrate\bin\Release\net8.0\GameShopMigrate.exe", "", true, false);

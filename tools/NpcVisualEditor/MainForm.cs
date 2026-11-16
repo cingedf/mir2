@@ -107,6 +107,10 @@ namespace NpcVisualEditor
                 (s, e) => new PathNavigationForm(_serverDir, _envir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("需求/伤害估算(&J)", null,
                 (s, e) => new DamageCalcForm().Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("对象关系图谱(&G)", null,
+                (s, e) => new ReferenceGraphForm(_serverDir, _envir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("本地化缺失键检测(&L)", null,
+                (s, e) => new LocalizationAuditForm(_serverDir, _clientDir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&N)", null, (s, e) => ShowNpcCommandHelp()));
             var mHelp = new ToolStripMenuItem("帮助(&H)");
             mHelp.DropDownItems.Add(new ToolStripMenuItem("关于(&A)", null,

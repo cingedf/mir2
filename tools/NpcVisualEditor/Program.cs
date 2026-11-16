@@ -205,6 +205,39 @@ namespace NpcVisualEditor
                 }
             }
 
+            // 关系图谱自检：--verify-graph <服务端目录>（只读，构建引用图并统计节点/边）
+            if (args.Length >= 2 && args[0] == "--verify-graph")
+            {
+                string dir = args[1];
+                Environment.CurrentDirectory = dir;
+                try
+                {
+                    if (!File.Exists(Server.MirEnvir.Envir.DatabasePath))
+                    {
+                        Console.WriteLine("GRAPH FAIL: 未找到 Server.MirDB");
+                        return 1;
+                    }
+                    var envir = Server.MirEnvir.Envir.Edit;
+                    if (!envir.LoadDB())
+                    {
+                        Console.WriteLine("GRAPH FAIL: LoadDB returned false");
+                        return 1;
+                    }
+                    var graph = ReferenceGraph.Build(envir, dir);
+                    int textEdges = graph.Edges.Count(e => e.IsText);
+                    bool ok = graph.Nodes.Count > 100 && graph.Edges.Count > 100;
+                    Console.WriteLine(ok
+                        ? $"GRAPH OK: nodes={graph.Nodes.Count} edges={graph.Edges.Count} textEdges={textEdges}"
+                        : $"GRAPH FAIL: nodes={graph.Nodes.Count} edges={graph.Edges.Count}");
+                    return ok ? 0 : 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("GRAPH FAIL: " + ex.Message);
+                    return 1;
+                }
+            }
+
             ApplicationConfiguration.Initialize();
             Application.Run(new LauncherForm());
             return 0;
