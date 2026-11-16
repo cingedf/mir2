@@ -75,6 +75,11 @@ namespace Map_Editor
         private bool Grasping;
         private bool keyDown;
 
+        //新增：左键拖动平移地图状态
+        private bool mapDragging;
+        private Point mapDragStartMouse;
+        private Point mapDragStartMapPoint;
+
         private Layer layer = Layer.None;
 
         public CellInfo[,] M2CellInfo;
@@ -390,7 +395,12 @@ namespace Map_Editor
                 "  • 打开地图(O)：选择客户端 Map 文件夹中的 .Map 文件打开\n" +
                 "  • 保存地图(Ctrl-S)：保存当前地图（放置背面图块或笔刷模式选中时保存会触发图块刷制）\n" +
                 "  • 坐标跳转(J)：在跳转窗口输入 X/Y 坐标，按 Tab 切换输入框，回车跳转\n" +
-                "  • 释放内存：清理未使用的图库资源\n\n" +
+                "  • 释放内存：清理未使用的图库资源\n" +
+                "  • 平移地图：编辑层为“无”时，按住鼠标左键拖动即可平移地图\n" +
+                "    （选择了绘制图层时左键仍是绘制，恢复默认后即可拖动）\n" +
+                "  • 缩放地图：按住 Ctrl + 鼠标滚轮 缩放地图（也可用小键盘 + / -）\n" +
+                "  • 地图文件树：只在“地图”页显示；先在路径框输入或浏览选择 Map 文件夹，\n" +
+                "    点“加载”列出地图，双击即可打开（也可用“打开地图”按钮直接选文件）\n\n" +
                 "【图库页（WemadeMir2 / ShandaMir2 / WemadeMir3 / ShandaMir3）】\n" +
                 "  • 快捷键：F1 / F2 / F3 直接跳到对应图库页\n" +
                 "  • 先在左侧列表选择图库文件，右侧网格即显示图块预览，点击图块可放大查看\n" +
@@ -414,8 +424,8 @@ namespace Map_Editor
                 "  • 菜单保持选中状态时，部分按键会误触发菜单项，按 Esc 取消选中更稳妥\n" +
                 "  • 技巧：按住 Ctrl 可将图块刷在背面图层（适用于黑色背景等场景）\n\n" +
                 "【物件与另存】\n" +
-                "  • 物件页：列出 Data\\Objects 下的 .X 物件文件；在地图上框选后可用\n" +
-                "    “将选区另存为物件(.X)”保存，供以后整组摆放\n" +
+                "  • 物件页：列出 Data\\Objects 下的 .X 物件文件；列表为空时会显示使用指引，\n" +
+                "    在地图上框选后用“将选区另存为物件(.X)”保存，即可在物件页看到并整组摆放\n" +
                 "  • 另存为 Object.X(Ctrl-X)：保存地图或选区为物件文件\n" +
                 "  • 反转Mir3图层(Ctrl-I)：将 Mir3 地图的中间层与前景层互换后另存为 .Mir3，\n" +
                 "    当前地图同时反转。此操作无法撤销！\n\n" +
@@ -444,6 +454,10 @@ namespace Map_Editor
             DXManager.Create(MapPanel);
 
             InitHelpTab();
+
+            //修复：初始为地图页时保持文件树可见（与 tabControl1_SelectedIndexChanged 互斥逻辑一致）
+            //注意：SplitContainer 本身没有 Panel2Visible 属性，正确用法是 splitMain.Panel2Collapsed（收缩隐藏面板）
+            splitMain.Panel2Collapsed = (tabControl1.SelectedTab != tabMap);
 
             //TileCutter
             comboBox_cellSize.SelectedIndex = 0;
@@ -523,6 +537,24 @@ namespace Map_Editor
         {
             //
             if (M2CellInfo == null) return;
+
+            //新增：左键拖动平移地图（无绘制层时）
+            if (mapDragging)
+            {
+                var dp = MapPanel.PointToClient(MousePosition);
+                int cellW = CellWidth * zoomMIN / zoomMAX;
+                int cellH = CellHeight * zoomMIN / zoomMAX;
+                int dxCells = (dp.X - mapDragStartMouse.X) / cellW;
+                int dyCells = (dp.Y - mapDragStartMouse.Y) / cellH;
+                if (dxCells != 0 || dyCells != 0)
+                {
+                    Jump(mapDragStartMapPoint.X - dxCells, mapDragStartMapPoint.Y - dyCells);
+                    cellX = mapPoint.X + (dp.X / cellW);
+                    cellY = mapPoint.Y + (dp.Y / cellH);
+                }
+                return;
+            }
+
             var p = MapPanel.PointToClient(MousePosition);
             cellX = p.X/(CellWidth*zoomMIN/zoomMAX) + mapPoint.X;
             cellY = p.Y/(CellHeight*zoomMIN/zoomMAX) + mapPoint.Y;
@@ -2331,6 +2363,9 @@ namespace Map_Editor
                 binaryWriter.Dispose();
                 file.Dispose();
             }
+
+            //新增：保存/删除物件后刷新空态提示
+            UpdateObjectsEmptyHint();
         }
 
         private void MapPanel_MouseDown(object sender, MouseEventArgs e)
@@ -2338,6 +2373,16 @@ namespace Map_Editor
             //stops the p1 and p2 values resetting when right clicking to get the menu
             if (e.Button == System.Windows.Forms.MouseButtons.Right)
             {
+                return;
+            }
+
+            //新增：无绘制层时按住左键拖动平移地图（有绘制层时保持原绘制行为）
+            if (e.Button == System.Windows.Forms.MouseButtons.Left && layer == Layer.None && M2CellInfo != null)
+            {
+                mapDragging = true;
+                mapDragStartMouse = MapPanel.PointToClient(MousePosition);
+                mapDragStartMapPoint = mapPoint;
+                MapPanel.Cursor = Cursors.SizeAll;
                 return;
             }
 
@@ -2366,6 +2411,13 @@ namespace Map_Editor
 
         private void MapPanel_MouseUp(object sender, MouseEventArgs e)
         {
+            //新增：结束左键拖动平移
+            if (e.Button == System.Windows.Forms.MouseButtons.Left && mapDragging)
+            {
+                mapDragging = false;
+                MapPanel.Cursor = Cursors.Default;
+            }
+
             if (M2CellInfo != null)
             {
                 switch (layer)
@@ -2379,6 +2431,23 @@ namespace Map_Editor
                         Grasping = false;
                         break;
                 }
+            }
+        }
+
+        //新增：Ctrl+鼠标滚轮 缩放地图（替代原小键盘 +/-，小键盘 +/- 仍保留）
+        private void MapPanel_MouseWheel(object sender, MouseEventArgs e)
+        {
+            if (M2CellInfo == null || map == null) return;
+            if ((Control.ModifierKeys & Keys.Control) != Keys.Control) return;
+
+            int steps = Math.Max(1, Math.Abs(e.Delta) / 120);
+            if (e.Delta > 0)
+            {
+                for (int i = 0; i < steps; i++) ZoomIn();
+            }
+            else
+            {
+                for (int i = 0; i < steps; i++) ZoomOut();
             }
         }
 
@@ -2451,6 +2520,37 @@ namespace Map_Editor
             {
                 ObjectslistBox.Items.Add(file.Replace(Libraries.ObjectsPath, "").Replace(".X", ""));
             }
+
+            //新增：物件页空态提示（无 .X 文件时在预览区显示操作指引）
+            UpdateObjectsEmptyHint();
+        }
+
+        //新增：物件页空态提示标签（无 .X 文件时显示，有文件时隐藏）
+        private Label objectsEmptyHint;
+
+        private void UpdateObjectsEmptyHint()
+        {
+            if (objectsEmptyHint == null)
+            {
+                objectsEmptyHint = new Label
+                {
+                    Dock = System.Windows.Forms.DockStyle.Fill,
+                    TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                    BackColor = System.Drawing.Color.FromArgb(30, 30, 33),
+                    ForeColor = System.Drawing.Color.FromArgb(160, 160, 165),
+                    Font = new System.Drawing.Font("Microsoft YaHei", 10.5F),
+                    Text = "物件列表为空\n\n" +
+                           "还没有保存过任何物件组合。\n\n" +
+                           "使用方法：打开地图后，在“编辑层”下拉中选择\n" +
+                           "“抓取Mir2前景”，然后在地图上框选一片区域，\n" +
+                           "再点右键菜单“将选区另存为物件(.X)”保存。\n\n" +
+                           "保存后的物件组合会显示在这里，\n" +
+                           "选中后通过“放置物件”层摆回地图。"
+                };
+                splitContainer2.Panel2.Controls.Add(objectsEmptyHint);
+                objectsEmptyHint.BringToFront();
+            }
+            objectsEmptyHint.Visible = ObjectslistBox.Items.Count == 0;
         }
 
         private CellInfoData[] ReadObjectsFile(string objectFile)
@@ -2613,6 +2713,8 @@ namespace Map_Editor
                 File.Delete(objectFile);
                 ObjectslistBox.Items.Clear();
                 ReadObjectsToListBox();
+                //新增：删除物件后刷新空态提示
+                UpdateObjectsEmptyHint();
             }
         }
 
@@ -4811,6 +4913,8 @@ namespace Map_Editor
             SaveObjectsFile();
             ObjectslistBox.Items.Clear();
             ReadObjectsToListBox();
+            //新增：另存物件后刷新空态提示
+            UpdateObjectsEmptyHint();
         }
 
         private void menuFreeMemory_Click(object sender, EventArgs e)
@@ -5314,6 +5418,8 @@ namespace Map_Editor
         {
             ObjectslistBox.Items.Clear();
             ReadObjectsToListBox();
+            //新增：刷新列表后同步空态提示
+            UpdateObjectsEmptyHint();
         }
 
         private void menuSelectAllCells_Click(object sender, EventArgs e)
@@ -5363,7 +5469,9 @@ namespace Map_Editor
 
         private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
         {
-
+            //修复：地图文件树（TreeViewBox）只在"地图"标签页显示，其他标签页互斥隐藏，不再常驻右侧
+            //注意：SplitContainer 本身没有 Panel2Visible 属性，正确用法是 Panel2Collapsed（收缩隐藏面板）
+            splitMain.Panel2Collapsed = (tabControl1.SelectedTab != tabMap);
         }
 
         private void OpenMapDirectory_Click(object sender, EventArgs e)
