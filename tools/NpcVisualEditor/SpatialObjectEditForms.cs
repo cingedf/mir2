@@ -44,7 +44,11 @@ namespace NpcVisualEditor
             _numRandom = AddNum("随机延迟", r.RandomDelay, ref y);
             _numDirection = AddNum("方向", r.Direction, 255, ref y);
             _numIndex = AddNum("重生组", r.RespawnIndex, int.MaxValue, ref y);
-            _numTicks = AddNum("重生计时(0=不用)", r.RespawnTicks, ref y);
+            // 标签"重生计时(0=不用):"实测宽 124px，从 x=20 延伸到 x=144，会遮住 x=110 的数字框。
+            // 缩短标签，把"0=不用"另置灰色提示（x=238 起，不与数字框重叠）。
+            int ticksY = y;
+            _numTicks = AddNum("重生计时", r.RespawnTicks, ref y);
+            Controls.Add(new Label { Text = "0=不用", Location = new Point(238, ticksY), AutoSize = true, ForeColor = Color.Gray });
 
             _chkSaveTime = new CheckBox { Text = "保存重生时间", Location = new Point(110, y), AutoSize = true, Checked = r.SaveRespawnTime };
             y += 30;

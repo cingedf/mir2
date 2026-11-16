@@ -27,13 +27,14 @@ namespace NpcVisualEditor
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new System.Drawing.Size(640, 220);
 
+            // 控件高度统一 26px：Button 默认高 23px 对 9F 文字(20px)偏紧，边框会挡住文字边缘。
             var lblServer = new Label { Text = "服务端目录:", Location = new System.Drawing.Point(20, 20), AutoSize = true };
-            _cmbServer = new ComboBox { Location = new System.Drawing.Point(110, 16), Width = 440 };
-            var btnBrowseServer = new Button { Text = "浏览...", Location = new System.Drawing.Point(560, 14), Width = 60 };
+            _cmbServer = new ComboBox { Location = new System.Drawing.Point(110, 16), Width = 440, Height = 26 };
+            var btnBrowseServer = new Button { Text = "浏览...", Location = new System.Drawing.Point(560, 14), Width = 64, Height = 28 };
 
             var lblClient = new Label { Text = "客户端目录:", Location = new System.Drawing.Point(20, 56), AutoSize = true };
-            _cmbClient = new ComboBox { Location = new System.Drawing.Point(110, 52), Width = 440 };
-            var btnBrowseClient = new Button { Text = "浏览...", Location = new System.Drawing.Point(560, 50), Width = 60 };
+            _cmbClient = new ComboBox { Location = new System.Drawing.Point(110, 52), Width = 440, Height = 26 };
+            var btnBrowseClient = new Button { Text = "浏览...", Location = new System.Drawing.Point(560, 50), Width = 64, Height = 28 };
             var lblClientHint = new Label { Text = "（用于读取小地图 Client\\Map\\MiniMaps_Export）", Location = new System.Drawing.Point(110, 80), AutoSize = true, ForeColor = System.Drawing.Color.Gray };
 
             _btnEnter = new Button { Text = "进入编辑器", Location = new System.Drawing.Point(200, 115), Width = 110, Height = 32 };
