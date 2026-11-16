@@ -327,6 +327,13 @@ namespace NpcVisualEditor
                     if (fm != null && fm.SafeZones.Count > 0) Shot(new SafeZoneEditForm(fm.SafeZones[0]), "30-SafeZoneEdit");
                     if (fm != null && fm.Movements.Count > 0) Shot(new MovementEditForm(fm.Movements[0], envir), "31-MovementEdit");
                     Shot(new TextInputForm("测试标题", "输入内容", "初始值"), "32-TextInput");
+                    // 弹出式子对话框（补齐渲染核验，避免遗漏）
+                    Shot(new NodeEditForm(new DialogueNodeRef
+                    {
+                        Name = "@main", Lines = new System.Collections.Generic.List<string>
+                        { "#IF", "LEVEL >= 30", "#SAY", "欢迎来到传奇！", "#ACT", "GOTO @next" }
+                    }), "33-NodeEdit");
+                    Shot(new KeyValueInput("新增配置项"), "34-KeyValueInput");
                 }
                 catch (Exception ex) { Console.WriteLine("CAPTURE SETUP FAIL: " + ex.Message); }
                 Console.WriteLine($"CAPTURE DONE: ok={okCount} fail={failCount}");
