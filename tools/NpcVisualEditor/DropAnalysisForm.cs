@@ -82,8 +82,8 @@ namespace NpcVisualEditor
 
             Controls.Add(_gridRows);
             Controls.Add(bottom);
-            Controls.Add(param);
             Controls.Add(left);
+            Controls.Add(param);   // 最后添加=最优先停靠：参数栏横跨全窗体宽度，避免 btnTree 被左侧列表挤压裁切
         }
 
         private void AddParam(Panel p, string label, int x, out NumericUpDown num, int val, int min, int max, int inc = 1)

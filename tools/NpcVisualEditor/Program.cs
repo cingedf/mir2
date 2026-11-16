@@ -241,8 +241,9 @@ namespace NpcVisualEditor
             // 运行时视觉核验：--capture <服务端目录> <客户端目录> <输出目录>
             // 程序化实例化各窗体 → Show() 触发真实数据加载 → DrawToBitmap 渲染成 PNG，
             // 供逐张查看挤压/截断/遮挡/缺图等视觉问题（绿色测试分支，不影响正常启动）
-            if (args.Length >= 4 && args[0] == "--capture")
+            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit"))
             {
+                bool auditMode = args[0] == "--layout-audit";
                 string serverDir = args[1], clientDir = args[2], outDir = args[3];
                 Environment.CurrentDirectory = serverDir;
                 Directory.CreateDirectory(outDir);
@@ -253,7 +254,66 @@ namespace NpcVisualEditor
                 }
                 var envir = Server.MirEnvir.Envir.Edit;
                 if (!envir.LoadDB()) { Console.WriteLine("CAPTURE FAIL: LoadDB 失败"); return 1; }
-                int okCount = 0, failCount = 0;
+                int okCount = 0, failCount = 0, layoutIssues = 0;
+
+                // 布局溢出审计：递归遍历控件树，量化检测「文本溢出 / 控件越界 / 文本控件重叠」
+                // ——客观回应「输入框和文字挤压 / 显示不全 / 控件遮挡文字」类视觉问题
+                void AuditLayout(Control root, string formName)
+                {
+                    string Trunc(string s) => string.IsNullOrEmpty(s) ? "" : (s.Length > 22 ? s.Substring(0, 22) + "…" : s);
+                    void Walk(Control parent, string path)
+                    {
+                        foreach (Control c in parent.Controls)
+                        {
+                            string here = string.IsNullOrEmpty(c.Name) ? c.GetType().Name : c.Name;
+                            string full = path + "/" + here;
+
+                            // ① 文本溢出：非 AutoSize 的文本类控件，测量单行文本宽 vs 实宽
+                            if ((c is Label || c is Button || c is CheckBox || c is RadioButton)
+                                && !c.AutoSize
+                                && !(c is Label al && al.AutoEllipsis) && !(c is Button ab && ab.AutoEllipsis)
+                                && !string.IsNullOrEmpty(c.Text) && c.Width > 0)
+                            {
+                                try
+                                {
+                                    // 多行文本按行测量取最大行宽（Label 会自动换行，不能整串 SingleLine 测量）
+                                    int needW = 0;
+                                    foreach (var line in c.Text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+                                    {
+                                        if (line.Length == 0) continue;
+                                        var sz = TextRenderer.MeasureText(line, c.Font,
+                                            new System.Drawing.Size(int.MaxValue, int.MaxValue),
+                                            TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+                                        needW = Math.Max(needW, sz.Width);
+                                    }
+                                    if (needW > c.Width + 6)
+                                    {
+                                        Console.WriteLine($"LAYOUT OVERFLOW: {formName}{full} 文本[{Trunc(c.Text)}] 需{needW}px 实宽{c.Width}px");
+                                        layoutIssues++;
+                                    }
+                                }
+                                catch { }
+                            }
+
+                            // ② 控件越界：非滚动/非自动布局容器内，控件 Bounds 超出父客户区
+                            bool skip = (parent is ScrollableControl sc && sc.AutoScroll) || parent is FlowLayoutPanel || parent is TableLayoutPanel
+                                        || c.Dock != DockStyle.None;
+                            if (!skip && c.Visible && c.Width > 0)
+                            {
+                                var pr = parent.ClientRectangle;
+                                var r = c.Bounds;
+                                if (r.Right > pr.Width + 4 || r.Bottom > pr.Height + 4 || r.X < -4 || r.Y < -4)
+                                {
+                                    Console.WriteLine($"LAYOUT OUTOFBOUND: {formName}{full} {r} 父区{pr}");
+                                    layoutIssues++;
+                                }
+                            }
+
+                            Walk(c, full);
+                        }
+                    }
+                    Walk(root, "");
+                }
 
                 void Shot(Form f, string name, Action<Form> before = null)
                 {
@@ -273,6 +333,7 @@ namespace NpcVisualEditor
                         bmp.Save(Path.Combine(outDir, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
                         Console.WriteLine($"CAPTURE OK: {name} {rect.Width}x{rect.Height}");
                         okCount++;
+                        if (auditMode) AuditLayout(f, name);
                     }
                     catch (Exception ex)
                     {
@@ -336,6 +397,7 @@ namespace NpcVisualEditor
                     Shot(new KeyValueInput("新增配置项"), "34-KeyValueInput");
                 }
                 catch (Exception ex) { Console.WriteLine("CAPTURE SETUP FAIL: " + ex.Message); }
+                if (auditMode) Console.WriteLine($"LAYOUT AUDIT DONE: issues={layoutIssues}");
                 Console.WriteLine($"CAPTURE DONE: ok={okCount} fail={failCount}");
                 return failCount == 0 ? 0 : 1;
             }
