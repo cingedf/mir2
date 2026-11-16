@@ -85,6 +85,14 @@ namespace NpcVisualEditor
                 (s, e) => new BrowserHostForm(_envir, _serverDir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("客户端配置编辑器(&G)", null,
                 (s, e) => OpenClientConfig()));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("工作版本管理(&V)", null,
+                (s, e) => new WorkspaceManagerForm(_serverDir).ShowDialog(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("掉落表分析器(&D)", null,
+                (s, e) => new DropAnalysisForm(_serverDir, _envir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("脚本检查中心(&K)", null,
+                (s, e) => new ScriptCheckerForm(_serverDir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("变量管理面板(&U)", null,
+                (s, e) => new VariableManagerForm(_serverDir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&H)", null, (s, e) => ShowNpcCommandHelp()));
             var mHelp = new ToolStripMenuItem("帮助(&H)");
             mHelp.DropDownItems.Add(new ToolStripMenuItem("关于(&A)", null,

@@ -66,6 +66,74 @@ namespace NpcVisualEditor
                 }
             }
 
+            // 掉落表解析自检：--verify-drops <服务端目录>（只读解析 Drops 目录全部文件）
+            if (args.Length >= 2 && args[0] == "--verify-drops")
+            {
+                string dir = args[1];
+                try
+                {
+                    string dropDir = System.IO.Path.Combine(dir, "Envir", "Drops");
+                    if (!System.IO.Directory.Exists(dropDir))
+                    {
+                        Console.WriteLine("DROPS FAIL: 未找到 " + dropDir);
+                        return 1;
+                    }
+                    var files = System.IO.Directory.GetFiles(dropDir, "*.txt");
+                    int totalEntries = 0, totalIssues = 0, parsedFiles = 0;
+                    foreach (var f in files)
+                    {
+                        var r = DropAnalyzer.ParseFile(f, null);
+                        parsedFiles++;
+                        totalEntries += DropAnalyzer.Flatten(r.Entries).Count();
+                        totalIssues += r.Issues.Count;
+                    }
+                    bool ok = parsedFiles >= 100 && totalEntries > 0;
+                    Console.WriteLine(ok
+                        ? $"DROPS OK: files={parsedFiles} entries={totalEntries} parseIssues={totalIssues}"
+                        : $"DROPS FAIL: files={parsedFiles} entries={totalEntries}");
+                    return ok ? 0 : 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("DROPS FAIL: " + ex.Message);
+                    return 1;
+                }
+            }
+
+            // 脚本检查自检：--verify-scripts <服务端目录>（只读扫描 NPC 脚本）
+            if (args.Length >= 2 && args[0] == "--verify-scripts")
+            {
+                string dir = args[1];
+                try
+                {
+                    string npcDir = System.IO.Path.Combine(dir, "Envir", "NPCs");
+                    if (!System.IO.Directory.Exists(npcDir))
+                    {
+                        Console.WriteLine("SCRIPTS FAIL: 未找到 " + npcDir);
+                        return 1;
+                    }
+                    var cmds = ScriptChecker.LoadCommands(System.IO.Path.Combine(npcDir, "NPC命令说明.txt"));
+                    var files = System.IO.Directory.GetFiles(npcDir, "*.txt", System.IO.SearchOption.AllDirectories);
+                    int segs = 0, refs = 0, vars = 0, issues = 0;
+                    foreach (var f in files)
+                    {
+                        var r = ScriptChecker.CheckFile(f, cmds);
+                        segs += r.Segments; refs += r.References; vars += r.Variables;
+                        issues += r.Issues.Count;
+                    }
+                    bool ok = files.Length >= 100 && segs > 0 && cmds.Count >= 50;
+                    Console.WriteLine(ok
+                        ? $"SCRIPTS OK: files={files.Length} commands={cmds.Count} segments={segs} refs={refs} vars={vars} issues={issues}"
+                        : $"SCRIPTS FAIL: files={files.Length} commands={cmds.Count} segments={segs}");
+                    return ok ? 0 : 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("SCRIPTS FAIL: " + ex.Message);
+                    return 1;
+                }
+            }
+
             ApplicationConfiguration.Initialize();
             Application.Run(new LauncherForm());
             return 0;

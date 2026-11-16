@@ -30,6 +30,13 @@ namespace NpcVisualEditor
         private float _scaleX = 1f, _scaleY = 1f;
         private int _logicalW, _logicalH;   // 地图逻辑格尺寸（来自对照表）
 
+        // 视图缩放/平移（P0 #2）
+        private const int _pad = 8;
+        private float _zoom = 1f;
+        private Point _pan = Point.Empty;
+        private bool _panning;
+        private Point _panStart;
+
         private Point _dragStart;
         private bool _dragging;
         private Point _moveStart;
@@ -85,6 +92,8 @@ namespace NpcVisualEditor
             {
                 _logicalW = _minimap.Width; _logicalH = _minimap.Height;
             }
+            // 切换地图时重置视图
+            _zoom = 1f; _pan = Point.Empty;
             Invalidate();
         }
 
@@ -116,18 +125,18 @@ namespace NpcVisualEditor
 
         private Rectangle MapRect()
         {
-            int pad = 8;
-            int w = Width - pad * 2, h = Height - pad * 2;
+            int w = Width - _pad * 2, h = Height - _pad * 2;
             if (w <= 0 || h <= 0) return Rectangle.Empty;
             // 底图以逻辑宽高决定纵横比，PNG 拉伸填充该矩形（坐标归一化到格）
-            float ratio = _logicalW > 0 && _logicalH > 0
+            float baseRatio = _logicalW > 0 && _logicalH > 0
                 ? Math.Min((float)w / _logicalW, (float)h / _logicalH)
                 : (_minimap != null ? Math.Min((float)w / _minimap.Width, (float)h / _minimap.Height) : 1f);
-            int rw = _logicalW > 0 ? (int)(_logicalW * ratio) : (_minimap?.Width ?? w);
-            int rh = _logicalH > 0 ? (int)(_logicalH * ratio) : (_minimap?.Height ?? h);
+            float ratio = baseRatio * _zoom;
+            int rw = _logicalW > 0 ? Math.Max(1, (int)(_logicalW * ratio)) : Math.Max(1, (int)((_minimap?.Width ?? w) * _zoom));
+            int rh = _logicalH > 0 ? Math.Max(1, (int)(_logicalH * ratio)) : Math.Max(1, (int)((_minimap?.Height ?? h) * _zoom));
             _scaleX = _logicalW > 0 ? (float)rw / _logicalW : 1f;
             _scaleY = _logicalH > 0 ? (float)rh / _logicalH : 1f;
-            return new Rectangle(pad, pad, rw, rh);
+            return new Rectangle(_pad + _pan.X, _pad + _pan.Y, rw, rh);
         }
 
         private Point MapToClient(Point mapPoint)
@@ -276,10 +285,6 @@ namespace NpcVisualEditor
             if (_dragging && (Mode == CanvasMode.Respawn || Mode == CanvasMode.SafeZone))
             {
                 using var pen = new Pen(Color.Yellow, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
-                g.DrawRectangle(pen, Rectangle.FromLTRB(
-                    Math.Min(_dragStart.X, _dragStart.X), Math.Min(_dragStart.Y, _dragStart.Y),
-                    _dragStart.X, _dragStart.Y));
-                // 使用当前鼠标位置的临时矩形由 OnMouseMove 更新 _dragStart 终点，见 _dragEnd
                 var rc = Rectangle.FromLTRB(Math.Min(_dragStart.X, _dragEnd.X), Math.Min(_dragStart.Y, _dragEnd.Y),
                                             Math.Max(_dragStart.X, _dragEnd.X), Math.Max(_dragStart.Y, _dragEnd.Y));
                 g.DrawRectangle(pen, rc);
@@ -287,9 +292,25 @@ namespace NpcVisualEditor
             if (_movePending)
             {
                 using var pen = new Pen(Color.Cyan, 2);
-                g.DrawLine(pen, _moveStart, _currentMouse);
-                g.FillEllipse(Brushes.Cyan, _moveStart.X - 4, _moveStart.Y - 4, 8, 8);
+                var src = MapToClient(_moveStart);
+                g.DrawLine(pen, src, _currentMouse);
+                g.FillEllipse(Brushes.Cyan, src.X - 4, src.Y - 4, 8, 8);
             }
+
+            // 视口信息覆盖层（P0 #2）
+            DrawViewportInfo(g);
+        }
+
+        private void DrawViewportInfo(Graphics g)
+        {
+            var mp = ClientToMap(_currentMouse);
+            string text = $"缩放 {(int)(_zoom * 100)}%  |  格坐标 {mp.X},{mp.Y}  |  中键拖动平移 / 滚轮缩放";
+            using var f = new Font("Microsoft YaHei UI", 8F);
+            var size = g.MeasureString(text, f);
+            var rect = new Rectangle(8, Height - (int)size.Height - 10, (int)size.Width + 12, (int)size.Height + 6);
+            using var bg = new SolidBrush(Color.FromArgb(170, 0, 0, 0));
+            g.FillRectangle(bg, rect);
+            g.DrawString(text, f, Brushes.White, rect.X + 6, rect.Y + 3);
         }
 
         private Point _dragEnd;
@@ -299,6 +320,15 @@ namespace NpcVisualEditor
         {
             base.OnMouseMove(e);
             _currentMouse = e.Location;
+
+            if (_panning)
+            {
+                _pan.X += e.Location.X - _panStart.X;
+                _pan.Y += e.Location.Y - _panStart.Y;
+                _panStart = e.Location;
+                Invalidate();
+                return;
+            }
 
             if (_dragging)
             {
@@ -329,6 +359,14 @@ namespace NpcVisualEditor
         {
             base.OnMouseDown(e);
             if (_map == null) return;
+
+            if (e.Button == MouseButtons.Middle)
+            {
+                _panning = true;
+                _panStart = e.Location;
+                Capture = true;
+                return;
+            }
 
             if (e.Button == MouseButtons.Left)
             {
@@ -379,6 +417,13 @@ namespace NpcVisualEditor
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
+
+            if (_panning && e.Button == MouseButtons.Middle)
+            {
+                _panning = false;
+                Capture = false;
+                return;
+            }
 
             if (_dragging && e.Button == MouseButtons.Left)
             {
@@ -475,6 +520,23 @@ namespace NpcVisualEditor
             if (menu.Items.Count == 0)
                 menu.Items.Add("在此新建NPC", null, (s, a) => NewNpcRequested?.Invoke(ClientToMap(pt)));
             menu.Show(this, pt);
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            base.OnMouseWheel(e);
+            if (_map == null) return;
+            // 以鼠标当前格坐标为锚点缩放：缩放前后该格保持在屏幕同一位置
+            var anchor = ClientToMap(e.Location);
+            float oldZoom = _zoom;
+            float factor = e.Delta > 0 ? 1.15f : 1f / 1.15f;
+            _zoom = Math.Max(0.3f, Math.Min(12f, _zoom * factor));
+            if (Math.Abs(_zoom - oldZoom) < 0.0001f) return;
+            // 重新计算 pan：使 MapToClient(anchor) 回到 e.Location
+            var r = MapRect();
+            _pan.X += e.Location.X - (r.X + (int)(anchor.X * _scaleX));
+            _pan.Y += e.Location.Y - (r.Y + (int)(anchor.Y * _scaleY));
+            Invalidate();
         }
 
         protected override void Dispose(bool disposing)
