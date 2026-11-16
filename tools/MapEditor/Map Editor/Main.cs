@@ -111,10 +111,16 @@ namespace Map_Editor
         private PictureBox miniMapPictureBox;  //小地图图像区（点击跳转用）
         private Bitmap miniMapBitmap;          //当前渲染的整图缩略
         private bool miniMapResizing;          //边缘拖拽调整大小中
-        private bool miniMapTitleDragging;     //标题栏拖动移动中
+        private bool miniMapTitleDragging;     //面板拖动移动中（原仅标题栏，现任意位置可拖）
+        private bool miniMapPendingDrag;       //按下待拖动（移动超 3px 才真正拖动，避免误伤单击跳转）
+        private bool miniMapDragMoved;         //本次按下是否实际发生了拖动（用于抑制拖动后的误跳转）
+        private MiniMapResizeDir miniMapResizeDir; //当前边缘调整方向
         private Point miniMapDragStartMouse;   //拖动起点（鼠标屏幕坐标）
         private Point miniMapDragStartLoc;     //拖动起点（面板 Location）
         private Size miniMapDragStartSize;     //调整起点（面板 Size）
+
+        //浮动小地图边缘调整方向（四边+四角，Windows 窗口式）
+        private enum MiniMapResizeDir { None, E, W, N, S, NE, NW, SE, SW }
 
         private ListItem shangdaMir2ListItem;
         private ListItem shangdaMir3ListItem;
@@ -5231,6 +5237,7 @@ namespace Map_Editor
 
                 int success = 0, failed = 0;
                 var csvLines = new List<string> { "地图文件名,宽度,高度,小地图文件" };
+                var failDetails = new List<string>();   //失败明细（文件名+原因），完成时展示
 
                 //简单进度窗：Label(当前文件) + ProgressBar
                 using (var progressForm = new Form
@@ -5276,6 +5283,8 @@ namespace Map_Editor
                             try
                             {
                                 MapReader reader = new MapReader(file);
+                                if (reader.MapCells == null)
+                                    throw new Exception("地图解析失败（MapCells 为空）");
 
                                 //参数化渲染：直接传该图的单元格数据与尺寸，不碰任何全局字段
                                 using (Bitmap bmp = RenderMiniMapBitmap(reader.MapCells, reader.Width, reader.Height))
@@ -5288,9 +5297,10 @@ namespace Map_Editor
 
                                 success++;
                             }
-                            catch
+                            catch (Exception ex)
                             {
-                                failed++;   //单张失败不中断整体导出
+                                failed++;   //单张失败不中断整体导出，但记录明细供用户排查
+                                failDetails.Add($"{Path.GetFileName(file)}: {ex.Message}");
                             }
                         }
 
@@ -5305,7 +5315,13 @@ namespace Map_Editor
                     }
                 }
 
-                MessageBox.Show($"批量导出完成。\n成功: {success} 张    失败: {failed} 张\n输出目录: {outDir}", "批量导出小地图");
+                string summary = $"批量导出完成。\n成功: {success} 张    失败: {failed} 张\n输出目录: {outDir}";
+                if (failDetails.Count > 0)
+                {
+                    summary += "\n\n失败明细（前 10 条）：\n" + string.Join("\n", failDetails.Take(10));
+                    if (failDetails.Count > 10) summary += $"\n... 等共 {failDetails.Count} 条";
+                }
+                MessageBox.Show(summary, "批量导出小地图");
             }
         }
 
@@ -6166,7 +6182,7 @@ namespace Map_Editor
             miniMapTitleBar.Controls.Add(titleLabel);
             miniMapTitleBar.Controls.Add(btnMiniMapClose);
 
-            //图像区：显示整图缩略，点击跳转
+            //图像区：显示整图缩略，点击跳转；按下也可拖动面板（移动超 3px 才算拖，单击仍跳转）
             miniMapPictureBox = new PictureBox
             {
                 Dock = DockStyle.Fill,
@@ -6174,6 +6190,9 @@ namespace Map_Editor
                 BackColor = Color.Black
             };
             miniMapPictureBox.MouseClick += MiniMapPictureBox_MouseClick;
+            miniMapPictureBox.MouseDown += MiniMapTitle_MouseDown;
+            miniMapPictureBox.MouseMove += MiniMapTitle_MouseMove;
+            miniMapPictureBox.MouseUp += MiniMapTitle_MouseUp;
 
             miniMapPanel.Controls.Add(miniMapPictureBox);
             miniMapPanel.Controls.Add(miniMapTitleBar);
@@ -6195,7 +6214,7 @@ namespace Map_Editor
             miniMapPanel.Controls.Add(grip);
             grip.BringToFront();
 
-            //标题栏拖动移动
+            //标题栏拖动移动（保留，与面板任意位置拖动等价）
             miniMapTitleBar.MouseDown += MiniMapTitle_MouseDown;
             miniMapTitleBar.MouseMove += MiniMapTitle_MouseMove;
             miniMapTitleBar.MouseUp += MiniMapTitle_MouseUp;
@@ -6203,7 +6222,7 @@ namespace Map_Editor
             titleLabel.MouseMove += MiniMapTitle_MouseMove;
             titleLabel.MouseUp += MiniMapTitle_MouseUp;
 
-            //边缘 12px 左键拖拽调整面板大小（右下角把手同效）
+            //四边+四角 12px 左键拖拽调整面板大小（Windows 窗口式；非边缘处按下=拖动面板）
             miniMapPanel.MouseDown += MiniMapPanel_MouseDown;
             miniMapPanel.MouseMove += MiniMapPanel_MouseMove;
             miniMapPanel.MouseUp += MiniMapPanel_MouseUp;
@@ -6254,6 +6273,8 @@ namespace Map_Editor
         //点击小地图：按比例换算成地图坐标跳转
         private void MiniMapPictureBox_MouseClick(object sender, MouseEventArgs e)
         {
+            //修复：拖动面板后松手会触发 MouseClick——发生过实际拖动则跳过本次点击
+            if (miniMapDragMoved) return;
             if (miniMapBitmap == null || map == null) return;
             //图像按 Zoom 显示，需按实际显示比例换算
             double imgRatio = Math.Min((double)miniMapPictureBox.Width / miniMapBitmap.Width, (double)miniMapPictureBox.Height / miniMapBitmap.Height);
@@ -6266,25 +6287,36 @@ namespace Map_Editor
             int py = (int)((e.Y - offY) / imgRatio);
             if (px < 0 || py < 0 || px >= miniMapBitmap.Width || py >= miniMapBitmap.Height) return;
 
-            //像素→格：渲染时 Back 层每格 12x8 像素再缩 1/8，即原图 96x64 像素/格
-            int cellSize = 96;   //缩略后每格宽（96 = 12*8）
-            int targetX = mapPoint.X + (px - (MapPanel.Width / 2)) / cellSize;
-            int targetY = mapPoint.Y + (py - (MapPanel.Height / 2)) / cellSize;
+            //修复跳转换算：缩略图是整图 1/8 比例直出（渲染 12px/格宽、8px/格高后再缩 1/8），
+            //因此 px 像素 ↔ 格坐标的映射是全图等比，无需叠加视口偏移（旧公式错把点击点当视口相对坐标）
+            int targetX = (int)(px * 8.0 / 12.0);  //缩略图 1.5px/格（宽方向）
+            int targetY = py;                      //缩略图 1px/格（高方向）
             Jump(Math.Max(0, targetX), Math.Max(0, targetY));
         }
 
-        //标题栏拖动移动
+        //面板拖动移动（原仅标题栏；现为统一入口，任意位置按住拖动）
         private void MiniMapTitle_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left) return;
-            miniMapTitleDragging = true;
+            miniMapTitleDragging = false;
+            miniMapPendingDrag = true;              //先挂起，移动超 3px 才真正拖动（避免误伤单击跳转）
+            miniMapDragMoved = false;
             miniMapDragStartMouse = Cursor.Position;
             miniMapDragStartLoc = miniMapPanel.Location;
         }
 
         private void MiniMapTitle_MouseMove(object sender, MouseEventArgs e)
         {
-            if (!miniMapTitleDragging) return;
+            if (!miniMapPendingDrag && !miniMapTitleDragging) return;
+            if (miniMapPendingDrag)
+            {
+                //位移超过 3px 才进入拖动状态
+                if (Math.Abs(Cursor.Position.X - miniMapDragStartMouse.X) < 3 &&
+                    Math.Abs(Cursor.Position.Y - miniMapDragStartMouse.Y) < 3) return;
+                miniMapPendingDrag = false;
+                miniMapTitleDragging = true;
+            }
+            miniMapDragMoved = true;
             miniMapPanel.Location = new Point(
                 miniMapDragStartLoc.X + (Cursor.Position.X - miniMapDragStartMouse.X),
                 miniMapDragStartLoc.Y + (Cursor.Position.Y - miniMapDragStartMouse.Y));
@@ -6293,22 +6325,62 @@ namespace Map_Editor
         private void MiniMapTitle_MouseUp(object sender, MouseEventArgs e)
         {
             miniMapTitleDragging = false;
+            miniMapPendingDrag = false;
         }
 
-        //边缘 8px 命中检测：返回是否处于可调整大小区域（面板边缘 8px 内）
-        private bool MiniMapPanel_OnResizeEdge(Point p)
+        //四边+四角命中检测（Windows 窗口式）：返回调整方向（角优先，12px 命中带）
+        private MiniMapResizeDir MiniMapPanel_OnResizeEdge(Point p)
         {
-            const int edge = 12;    //修复：命中区从 8px 扩到 12px，更容易抓到
-            return p.X >= miniMapPanel.Width - edge || p.Y >= miniMapPanel.Height - edge;
+            const int edge = 12;
+            int w = miniMapPanel.Width, h = miniMapPanel.Height;
+            bool right = p.X >= w - edge;
+            bool left = p.X <= edge;
+            bool bottom = p.Y >= h - edge;
+            bool top = p.Y <= edge;
+            if (right && bottom) return MiniMapResizeDir.SE;
+            if (left && bottom) return MiniMapResizeDir.SW;
+            if (right && top) return MiniMapResizeDir.NE;
+            if (left && top) return MiniMapResizeDir.NW;
+            if (right) return MiniMapResizeDir.E;
+            if (left) return MiniMapResizeDir.W;
+            if (bottom) return MiniMapResizeDir.S;
+            if (top) return MiniMapResizeDir.N;
+            return MiniMapResizeDir.None;
         }
 
-        //边缘 12px/右下角把手 左键拖拽调整面板大小（用户强调：可按左键拖动自由改变面板大小）
+        //按方向返回对应光标（Windows 窗口边缘风格）
+        private Cursor MiniMapResizeCursor(MiniMapResizeDir dir)
+        {
+            switch (dir)
+            {
+                case MiniMapResizeDir.NW:
+                case MiniMapResizeDir.SE: return Cursors.SizeNWSE;
+                case MiniMapResizeDir.NE:
+                case MiniMapResizeDir.SW: return Cursors.SizeNESW;
+                case MiniMapResizeDir.E:
+                case MiniMapResizeDir.W: return Cursors.SizeWE;
+                case MiniMapResizeDir.N:
+                case MiniMapResizeDir.S: return Cursors.SizeNS;
+                default: return Cursors.Default;
+            }
+        }
+
+        //四边/四角 左键拖拽调整面板大小（Windows 窗口式：左/上边拖动时同步移动 Location 保持对边固定）
         //修复：原拖拽公式用 e.X（面板内坐标，随 Size 变化漂移）导致拖不动；改为记录起点鼠标屏幕坐标，按位移增量计算
         private void MiniMapPanel_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Left || !MiniMapPanel_OnResizeEdge(e.Location)) return;
+            if (e.Button != MouseButtons.Left) return;
+            MiniMapResizeDir dir = MiniMapPanel_OnResizeEdge(e.Location);
+            if (dir == MiniMapResizeDir.None)
+            {
+                //非边缘：进入"任意位置拖动面板"流程（与标题栏共用逻辑）
+                MiniMapTitle_MouseDown(sender, e);
+                return;
+            }
             miniMapResizing = true;
+            miniMapResizeDir = dir;
             miniMapDragStartSize = miniMapPanel.Size;
+            miniMapDragStartLoc = miniMapPanel.Location;
             miniMapDragStartMouse = Cursor.Position;    //记录起点鼠标屏幕坐标
         }
 
@@ -6316,23 +6388,47 @@ namespace Map_Editor
         {
             if (miniMapResizing)
             {
-                //按鼠标位移增量计算新尺寸（与拖动方向一致，不再漂移）
+                //按鼠标位移增量计算新尺寸/位置（四边+四角各自方向；最小 120x100）
                 int dx = Cursor.Position.X - miniMapDragStartMouse.X;
                 int dy = Cursor.Position.Y - miniMapDragStartMouse.Y;
-                int w = Math.Max(120, miniMapDragStartSize.Width + dx);
-                int h = Math.Max(100, miniMapDragStartSize.Height + dy);
+                int startW = miniMapDragStartSize.Width, startH = miniMapDragStartSize.Height;
+                int newX = miniMapDragStartLoc.X, newY = miniMapDragStartLoc.Y;
+                int w = startW, h = startH;
+                var dir = miniMapResizeDir;
+                bool west = dir == MiniMapResizeDir.W || dir == MiniMapResizeDir.NW || dir == MiniMapResizeDir.SW;
+                bool east = dir == MiniMapResizeDir.E || dir == MiniMapResizeDir.NE || dir == MiniMapResizeDir.SE;
+                bool north = dir == MiniMapResizeDir.N || dir == MiniMapResizeDir.NW || dir == MiniMapResizeDir.NE;
+                bool south = dir == MiniMapResizeDir.S || dir == MiniMapResizeDir.SW || dir == MiniMapResizeDir.SE;
+                if (east) w = Math.Max(120, startW + dx);
+                if (south) h = Math.Max(100, startH + dy);
+                if (west)
+                {
+                    w = Math.Max(120, startW - dx);
+                    newX = miniMapDragStartLoc.X + (startW - w);   //保持右边缘固定
+                }
+                if (north)
+                {
+                    h = Math.Max(100, startH - dy);
+                    newY = miniMapDragStartLoc.Y + (startH - h);   //保留下边缘固定
+                }
+                miniMapPanel.Location = new Point(newX, newY);
                 miniMapPanel.Size = new Size(w, h);
+                return;
             }
-            else
+            if (miniMapTitleDragging || miniMapPendingDrag)
             {
-                //悬停在边缘时给出可调整光标
-                miniMapPanel.Cursor = MiniMapPanel_OnResizeEdge(e.Location) ? Cursors.SizeNWSE : Cursors.Default;
+                MiniMapTitle_MouseMove(sender, e);
+                return;
             }
+            //悬停在边缘时给出对应方向光标（Windows 风格）
+            miniMapPanel.Cursor = MiniMapResizeCursor(MiniMapPanel_OnResizeEdge(e.Location));
         }
 
         private void MiniMapPanel_MouseUp(object sender, MouseEventArgs e)
         {
             miniMapResizing = false;
+            //非边缘按下时的拖动收尾（与标题栏共用）
+            if (miniMapPendingDrag || miniMapTitleDragging) MiniMapTitle_MouseUp(sender, e);
         }
 
         private enum Layer
