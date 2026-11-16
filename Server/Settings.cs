@@ -42,7 +42,9 @@ namespace Server
         public static string VersionPath = Path.Combine(".", "Mir2.Exe");
         public static bool CheckVersion = true;
         public static List<byte[]> VersionHashes;
-        public static string GMPassword = "@9396399";
+        // 20261116 安全审计P0修复：GM 提权口令不再硬编码在源码中（原 @9396399 公开于仓库），
+        // 改为必须由 Configs\Setup.ini [General] GMPassword 配置；缺省置空=禁用聊天提权，杜绝任何知道源码的人提权
+        public static string GMPassword = string.Empty;
         public static bool Multithreaded = true;
         public static int ThreadLimit = 2;
         public static bool TestServer = false;

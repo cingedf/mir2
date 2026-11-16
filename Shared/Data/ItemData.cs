@@ -1479,7 +1479,9 @@ public class ChatItem
 
     public string RegexInternalName
     {
-        get { return $"<{Title.Replace("(", "\\(").Replace(")", "\\)")}>"; }
+        // 20261116 安全审计P0修复：Title 由客户端全控，仅转义括号时正则元字符（.*+ 等）直接注入，
+        // 恶意标题可致回溯爆炸把主循环线程永久挂死；Regex.Escape 全量转义后按字面匹配（行为等价且安全）
+        get { return $"<{Regex.Escape(Title ?? string.Empty)}>"; }
     }
 
     public string InternalName

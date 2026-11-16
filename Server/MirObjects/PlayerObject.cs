@@ -4487,7 +4487,8 @@ namespace Server.MirObjects
             foreach (var chatItem in chatItems)
             {
                 // GetOrAdd 复用缓存实例，避免每条带物品链接的聊天消息都新建 Regex
-                Regex r = ChatItemRegexCache.GetOrAdd(chatItem.RegexInternalName, name => new Regex(name, RegexOptions.IgnoreCase));
+                // 20261116 安全审计P0修复：加 MatchTimeout 100ms，正则超时抛异常走熔断断连，防止主循环线程永久挂死
+                Regex r = ChatItemRegexCache.GetOrAdd(chatItem.RegexInternalName, name => new Regex(name, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100)));
 
                 text = r.Replace(text, chatItem.InternalName, 1);
 
@@ -10116,7 +10117,8 @@ namespace Server.MirObjects
 
         public void ChangeHero(int index)
         {
-            if (Info.Heroes.Length <= index) return;
+            // 20261116 安全审计P0修复：index 由客户端包传入，负数下标会 IndexOutOfRange 刷满熔断致全服停机
+            if (index < 0 || Info.Heroes.Length <= index) return;
             bool respawn = Info.HeroSpawned;
 
             if (Hero != null)
@@ -14279,24 +14281,27 @@ namespace Server.MirObjects
                 if (Product.iStock && Product.Stock != 0)
                 {
                     Info.GSpurchases.TryGetValue(Product.Info.Index, out purchased);
+                    // 20261116 安全审计P0修复：写键原用 Product.GIndex（独立流水号，≠Info.Index），
+                    // 与读键 Info.Index 不一致导致限量库存校验恒真可无限扫空；统一用 Info.Index。
+                    // 存量存档中的旧键（GIndex 值）成孤儿数据只会少计不会多计，无需迁移。
                     if (purchased == 0)
                     {
-                        Info.GSpurchases[Product.GIndex] = Quantity;
+                        Info.GSpurchases[Product.Info.Index] = Quantity;
                     }
                     else
                     {
-                        Info.GSpurchases[Product.GIndex] += Quantity;
+                        Info.GSpurchases[Product.Info.Index] += Quantity;
                     }
                 }
 
                 Envir.GameshopLog.TryGetValue(Product.Info.Index, out purchased);
                 if (purchased == 0)
                 {
-                    Envir.GameshopLog[Product.GIndex] = Quantity;
+                    Envir.GameshopLog[Product.Info.Index] = Quantity;
                 }
                 else
                 {
-                    Envir.GameshopLog[Product.GIndex] += Quantity;
+                    Envir.GameshopLog[Product.Info.Index] += Quantity;
                 }
 
                 if (Product.Stock != 0) GameShopStock(Product);

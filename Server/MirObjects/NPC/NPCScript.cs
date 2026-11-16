@@ -1281,6 +1281,13 @@ namespace Server.MirObjects
                 break;
             }
 
+            // 20261116 安全审计P0修复：客户端传入不存在配方 UniqueID 时 recipe 为 null，直接解引用 NRE 刷熔断可致全服停机
+            if (recipe == null)
+            {
+                player.Enqueue(p);
+                return;
+            }
+
             UserItem goods = recipe.Item;
 
             if (goods == null || count == 0 || count > goods.Info.StackSize)
@@ -1308,7 +1315,7 @@ namespace Server.MirObjects
 
                     if (usedSlots.Contains(slot)) continue;
 
-                    if (slot < 0 || slot > player.Info.Inventory.Length) continue;
+                    if (slot < 0 || slot >= player.Info.Inventory.Length) continue; // 20261116 安全审计P0修复：off-by-one，slot==Length 穿透会 Inventory[slot] 越界
 
                     UserItem item = player.Info.Inventory[slot];
 
@@ -1346,7 +1353,7 @@ namespace Server.MirObjects
 
                     if (usedSlots.Contains(slot)) continue;
 
-                    if (slot < 0 || slot > player.Info.Inventory.Length) continue;
+                    if (slot < 0 || slot >= player.Info.Inventory.Length) continue; // 20261116 安全审计P0修复：off-by-one，slot==Length 穿透会 Inventory[slot] 越界
 
                     UserItem item = player.Info.Inventory[slot];
 
@@ -1409,7 +1416,7 @@ namespace Server.MirObjects
 
                     if (usedSlots2.Contains(slot)) continue;
 
-                    if (slot < 0 || slot > player.Info.Inventory.Length) continue;
+                    if (slot < 0 || slot >= player.Info.Inventory.Length) continue; // 20261116 安全审计P0修复：off-by-one，slot==Length 穿透会 Inventory[slot] 越界
 
                     UserItem item = player.Info.Inventory[slot];
 
@@ -1434,7 +1441,7 @@ namespace Server.MirObjects
 
                     if (usedSlots2.Contains(slot)) continue;
 
-                    if (slot < 0 || slot > player.Info.Inventory.Length) continue;
+                    if (slot < 0 || slot >= player.Info.Inventory.Length) continue; // 20261116 安全审计P0修复：off-by-one，slot==Length 穿透会 Inventory[slot] 越界
 
                     UserItem item = player.Info.Inventory[slot];
 
