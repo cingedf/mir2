@@ -367,7 +367,8 @@ namespace Server.MirObjects
             {
                 return false;
             }
-            Ranks[RankIndex].Options = Enabled == "true" ? Ranks[RankIndex].Options |= (GuildRankOptions)(1 << Option) : Ranks[RankIndex].Options ^= (GuildRankOptions)(1 << Option);
+            // 20261117 审计修复F2：关闭权限原用 ^=（XOR），该 bit 未开时反而授予权限；改用 &=~ 正确清除（Enable 分支 |= 保留）
+            Ranks[RankIndex].Options = Enabled == "true" ? Ranks[RankIndex].Options |= (GuildRankOptions)(1 << Option) : Ranks[RankIndex].Options &= ~(GuildRankOptions)(1 << Option);
 
             List<GuildRank> NewRankList = new List<GuildRank>
             {

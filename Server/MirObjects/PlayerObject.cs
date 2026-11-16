@@ -10454,6 +10454,14 @@ namespace Server.MirObjects
                 PendingGuildInvite = null;
                 return;
             }
+            // 20261117 审计修复F1：邀请发出时查过对方无行会，但接受时刻未复查——玩家收邀请后自建/加入他会再点接受旧邀请
+            // 会导致同时进入两个行会名册=幽灵双籍；接受时复查已有行会则清理邀请并拒绝
+            if (MyGuild != null || MyGuildRank != null || Info.GuildIndex != -1)
+            {
+                PendingGuildInvite = null;
+                ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.AlreadyInGuild), ChatType.System);
+                return;
+            }
             if (!PendingGuildInvite.HasRoom())
             {
                 ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.GuildInviteFull), PendingGuildInvite.Name), ChatType.System);
@@ -13483,7 +13491,8 @@ namespace Server.MirObjects
             }
 
             CharacterInfo lover = Envir.GetCharacterInfo(Info.Married);
-            PlayerObject player = Envir.GetPlayer(lover.Name);
+            // 20261117 审计修复：配偶删档后 lover=null，直接取 lover.Name 抛 NRE；置 player=null 仅跳过对方在线通知
+            PlayerObject player = lover == null ? null : Envir.GetPlayer(lover.Name);
 
             Info.Married = 0;
             Info.MarriedDate = Envir.Now;
@@ -13496,10 +13505,14 @@ namespace Server.MirObjects
 
             GetRelationship(false);
 
-            lover.Married = 0;
-            lover.MarriedDate = Envir.Now;
-            if (lover.Equipment[(int)EquipmentSlot.左戒指] != null)
-                lover.Equipment[(int)EquipmentSlot.左戒指].WeddingRing = -1;
+            // 20261117 审计修复：lover 删档为 null 时跳过对方字段清零（自己侧解除在上面已照常执行）
+            if (lover != null)
+            {
+                lover.Married = 0;
+                lover.MarriedDate = Envir.Now;
+                if (lover.Equipment[(int)EquipmentSlot.左戒指] != null)
+                    lover.Equipment[(int)EquipmentSlot.左戒指].WeddingRing = -1;
+            }
 
             if (player != null)
             {
@@ -13908,6 +13921,13 @@ namespace Server.MirObjects
             {
                 CharacterInfo Lover = Envir.GetCharacterInfo(Info.Married);
 
+                // 20261117 审计修复F6：配偶删档后 GetCharacterInfo 返回 null，直接取 Lover.Name 抛 NRE（登录/脚本中断）
+                if (Lover == null)
+                {
+                    Enqueue(new S.LoverUpdate { Name = "", Date = Info.MarriedDate, MapName = "", MarriedDays = 0 });
+                    return;
+                }
+
                 PlayerObject player = Envir.GetPlayer(Lover.Name);
 
                 if (player == null)
@@ -13955,7 +13975,9 @@ namespace Server.MirObjects
             }
 
             CharacterInfo partner = Envir.GetCharacterInfo(Info.Mentor);
-            PlayerObject partnerP = Envir.GetPlayer(partner.Name);
+            // 20261117 审计修复F8：师父删档后 GetCharacterInfo 返回 null，直接取 partner.Name 抛 NRE；
+            // 置 partnerP=null 后仅跳过经验转移，冷却/自己侧清理逻辑照常执行（下方 partner.MentorExp 在 partnerP!=null 分支内，安全）
+            PlayerObject partnerP = partner == null ? null : Envir.GetPlayer(partner.Name);
 
             if (force)
             {
@@ -14107,12 +14129,14 @@ namespace Server.MirObjects
                 return;
             }
 
-            PlayerObject student = Envir.GetPlayer(MentorRequest.Info.Name);
+            // 20261117 审计修复F9：先存名字再清请求——student 为 null（对方刚下线）时下方仍在用 Name，原代码 student.Name 抛 NRE
+            string requestName = MentorRequest.Info.Name;
+            PlayerObject student = Envir.GetPlayer(requestName);
             MentorRequest = null;
 
             if (student == null)
             {
-                ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerNoLongerOnline), student.Name), ChatType.System);
+                ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerNoLongerOnline), requestName), ChatType.System);
                 return;
             }
             else
@@ -14156,6 +14180,13 @@ namespace Server.MirObjects
             else
             {
                 CharacterInfo mentor = Envir.GetCharacterInfo(Info.Mentor);
+
+                // 20261117 审计修复F7：师父删档后 GetCharacterInfo 返回 null，直接取 mentor.Name 抛 NRE
+                if (mentor == null)
+                {
+                    Enqueue(new S.MentorUpdate { Name = "", Level = 0, Online = false, MenteeEXP = 0 });
+                    return;
+                }
 
                 PlayerObject player = Envir.GetPlayer(mentor.Name);
 
