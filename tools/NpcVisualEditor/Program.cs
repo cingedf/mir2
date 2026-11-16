@@ -238,6 +238,101 @@ namespace NpcVisualEditor
                 }
             }
 
+            // 运行时视觉核验：--capture <服务端目录> <客户端目录> <输出目录>
+            // 程序化实例化各窗体 → Show() 触发真实数据加载 → DrawToBitmap 渲染成 PNG，
+            // 供逐张查看挤压/截断/遮挡/缺图等视觉问题（绿色测试分支，不影响正常启动）
+            if (args.Length >= 4 && args[0] == "--capture")
+            {
+                string serverDir = args[1], clientDir = args[2], outDir = args[3];
+                Environment.CurrentDirectory = serverDir;
+                Directory.CreateDirectory(outDir);
+                if (!File.Exists(Server.MirEnvir.Envir.DatabasePath))
+                {
+                    Console.WriteLine("CAPTURE FAIL: 未找到 Server.MirDB");
+                    return 1;
+                }
+                var envir = Server.MirEnvir.Envir.Edit;
+                if (!envir.LoadDB()) { Console.WriteLine("CAPTURE FAIL: LoadDB 失败"); return 1; }
+                int okCount = 0, failCount = 0;
+
+                void Shot(Form f, string name, Action<Form> before = null)
+                {
+                    try
+                    {
+                        f.StartPosition = FormStartPosition.Manual;
+                        f.Location = new System.Drawing.Point(0, 0);
+                        f.Show();
+                        Application.DoEvents();
+                        before?.Invoke(f);
+                        Application.DoEvents();
+                        System.Threading.Thread.Sleep(120);
+                        Application.DoEvents();
+                        var rect = new System.Drawing.Rectangle(0, 0, Math.Max(1, f.Width), Math.Max(1, f.Height));
+                        using var bmp = new System.Drawing.Bitmap(rect.Width, rect.Height);
+                        f.DrawToBitmap(bmp, rect);
+                        bmp.Save(Path.Combine(outDir, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
+                        Console.WriteLine($"CAPTURE OK: {name} {rect.Width}x{rect.Height}");
+                        okCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"CAPTURE FAIL: {name} {ex.GetType().Name}: {ex.Message}");
+                        failCount++;
+                    }
+                    finally { try { f.Close(); } catch { } try { f.Dispose(); } catch { } }
+                }
+
+                try
+                {
+                    var npc = envir.NPCInfoList.FirstOrDefault();
+                    string npcScript = npc != null ? Path.Combine(serverDir, "Envir", "NPCs", npc.FileName + ".txt") : "";
+                    string npcDir = Path.Combine(serverDir, "Envir", "NPCs");
+                    string flowScript = Directory.Exists(npcDir)
+                        ? Directory.GetFiles(npcDir, "*.txt", SearchOption.AllDirectories)
+                            .FirstOrDefault(p => { try { return File.ReadAllText(p).Contains("[@"); } catch { return false; } }) ?? npcScript
+                        : npcScript;
+
+                    Shot(new LauncherForm(), "01-Launcher");
+                    Shot(new MainForm(envir, serverDir, clientDir), "02-Main");
+                    if (npc != null) Shot(new NpcEditForm(npc, envir, serverDir, false), "03-NpcEdit");
+                    if (File.Exists(npcScript)) Shot(new ConversationForm(npc, npcScript, () => { }), "04-Conversation");
+                    if (File.Exists(flowScript)) Shot(new DialogueFlowForm(flowScript, "预览NPC"), "05-DialogueFlow");
+                    Shot(new WorkspaceManagerForm(serverDir), "06-WorkspaceManager");
+                    Shot(new VariableTraceForm(serverDir), "07-VariableTrace");
+                    Shot(new BrowserHostForm(envir, serverDir), "08-BrowserHost");
+                    Shot(new ClientConfigForm(clientDir), "09-ClientConfig");
+                    Shot(new VariableManagerForm(serverDir), "10-VariableManager");
+                    var hubHost = new Form { Text = "工具中心（预览）", Size = new System.Drawing.Size(1000, 700) };
+                    hubHost.Controls.Add(new ToolHubForm(serverDir, clientDir) { Dock = DockStyle.Fill });
+                    Shot(hubHost, "11-ToolHub");
+                    Shot(new MapDropViewForm(serverDir, envir), "12-MapDropView");
+                    Shot(new ImagePickerForm(serverDir, "Items", -1), "13-ImagePicker");
+                    Shot(new TemplateForm(serverDir, envir.MapInfoList), "14-Template");
+                    Shot(new DropTreeForm(serverDir, envir), "15-DropTree");
+                    Shot(new DropFormatForm(serverDir), "16-DropFormat");
+                    Shot(new LocalizationAuditForm(serverDir, clientDir), "17-LocalizationAudit");
+                    Shot(new ScriptCheckerForm(serverDir), "18-ScriptChecker");
+                    Shot(new DropAnalysisForm(serverDir, envir), "19-DropAnalysis");
+                    Shot(new SaveForm(serverDir), "20-Save");
+                    Shot(new ReferenceGraphForm(serverDir, envir), "21-ReferenceGraph");
+                    Shot(new MapRelationForm(envir), "22-MapRelation");
+                    Shot(new CustomCommandForm(serverDir), "23-CustomCommand");
+                    Shot(new DamageCalcForm(), "24-DamageCalc");
+                    Shot(new PathNavigationForm(serverDir, envir), "25-PathNavigation");
+                    Shot(new CommandWizardForm(serverDir), "26-CommandWizard");
+                    Shot(new EffectBuffForm(serverDir), "27-EffectBuff");
+                    Shot(new QuestFlowForm(envir.QuestInfoList, serverDir), "28-QuestFlow");
+                    var fm = envir.MapInfoList.FirstOrDefault();
+                    if (fm != null && fm.Respawns.Count > 0) Shot(new RespawnEditForm(fm.Respawns[0], envir), "29-RespawnEdit");
+                    if (fm != null && fm.SafeZones.Count > 0) Shot(new SafeZoneEditForm(fm.SafeZones[0]), "30-SafeZoneEdit");
+                    if (fm != null && fm.Movements.Count > 0) Shot(new MovementEditForm(fm.Movements[0], envir), "31-MovementEdit");
+                    Shot(new TextInputForm("测试标题", "输入内容", "初始值"), "32-TextInput");
+                }
+                catch (Exception ex) { Console.WriteLine("CAPTURE SETUP FAIL: " + ex.Message); }
+                Console.WriteLine($"CAPTURE DONE: ok={okCount} fail={failCount}");
+                return failCount == 0 ? 0 : 1;
+            }
+
             ApplicationConfiguration.Initialize();
             Application.Run(new LauncherForm());
             return 0;

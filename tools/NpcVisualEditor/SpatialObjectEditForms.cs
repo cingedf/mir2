@@ -46,7 +46,7 @@ namespace NpcVisualEditor
             _numIndex = AddNum("重生组", r.RespawnIndex, int.MaxValue, ref y);
             _numTicks = AddNum("重生计时(0=不用)", r.RespawnTicks, ref y);
 
-            _chkSaveTime = new CheckBox { Text = "保存重生时间 (SaveRespawnTime)", Location = new Point(110, y), AutoSize = true, Checked = r.SaveRespawnTime };
+            _chkSaveTime = new CheckBox { Text = "保存重生时间", Location = new Point(110, y), AutoSize = true, Checked = r.SaveRespawnTime };
             y += 30;
             Controls.Add(_chkSaveTime);
 
@@ -114,10 +114,10 @@ namespace NpcVisualEditor
             Controls.Add(new Label { Text = "中心 Y:", Location = new Point(20, y), AutoSize = true });
             var yy = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = 10000, Value = Math.Min(10000, Math.Max(0, sz.Location.Y)) };
             y += 30;
-            Controls.Add(new Label { Text = "半径 Size:", Location = new Point(20, y), AutoSize = true });
+            Controls.Add(new Label { Text = "半径:", Location = new Point(20, y), AutoSize = true });
             var size = new NumericUpDown { Location = new Point(110, y - 3), Width = 150, Maximum = ushort.MaxValue, Value = Math.Min((decimal)ushort.MaxValue, Math.Max(0m, sz.Size)) };
             y += 30;
-            var start = new CheckBox { Text = "作为复活起始点 (StartPoint)", Location = new Point(20, y), AutoSize = true, Checked = sz.StartPoint };
+            var start = new CheckBox { Text = "作为复活起始点", Location = new Point(20, y), AutoSize = true, Checked = sz.StartPoint };
             y += 30;
 
             var ok = new Button { Text = "确定", Location = new Point(70, y), Width = 80, DialogResult = DialogResult.OK };
@@ -156,13 +156,13 @@ namespace NpcVisualEditor
             Controls.Add(cmbMap);
             y += 32;
 
-            var sx = AddCoord("入口 Source X", m.Source.X, ref y);
-            var sy = AddCoord("入口 Source Y", m.Source.Y, ref y);
-            var dx = AddCoord("出口 Dest X", m.Destination.X, ref y);
-            var dy = AddCoord("出口 Dest Y", m.Destination.Y, ref y);
+            var sx = AddCoord("入口 X", m.Source.X, ref y);
+            var sy = AddCoord("入口 Y", m.Source.Y, ref y);
+            var dx = AddCoord("出口 X", m.Destination.X, ref y);
+            var dy = AddCoord("出口 Y", m.Destination.Y, ref y);
 
-            var hole = new CheckBox { Text = "需要镐 (NeedHole)", Location = new Point(20, y), AutoSize = true };
-            var move = new CheckBox { Text = "需要移动 (NeedMove)", Location = new Point(160, y), AutoSize = true };
+            var hole = new CheckBox { Text = "需要镐", Location = new Point(20, y), AutoSize = true };
+            var move = new CheckBox { Text = "需要移动", Location = new Point(160, y), AutoSize = true };
             y += 26;
             var big = new CheckBox { Text = "大地图显示", Location = new Point(20, y), AutoSize = true, Checked = m.ShowOnBigMap };
             y += 30;
