@@ -26,16 +26,41 @@ namespace Map_Editor
 
         public static readonly ListItem[] ListItems = new ListItem[400];
 
+        /// <summary>图库列表显示名汉化：中文语义 + 保留英文原名子串（多处逻辑用 IndexOf("SmTiles")/"Tiles30"/"smtiles" 等比较，原名必须原样保留）</summary>
+        private static string LibName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+            // Mapstate 路径前缀转中文语义（wood\Tilesc → 木纹 Tilesc）
+            string cn = null;
+            if (name.StartsWith("wood\\") || name.EndsWith("wood")) cn = "木纹 ";
+            else if (name.StartsWith("sand\\") || name.EndsWith("sand")) cn = "沙地 ";
+            else if (name.StartsWith("snow\\") || name.EndsWith("snow")) cn = "雪地 ";
+            else if (name.StartsWith("forest\\") || name.EndsWith("forest")) cn = "森林 ";
+            string core = cn == null ? name : name.Replace("wood\\", "").Replace("sand\\", "").Replace("snow\\", "").Replace("forest\\", "").Replace("wood", "").Replace("sand", "").Replace("snow", "").Replace("forest", "");
+            // 库名主体转中文
+            core = core
+                .Replace("Tilesc", "地面 Tilesc").Replace("Tiles30c", "大图块 Tiles30c").Replace("Tiles5c", "图块5 Tiles5c")
+                .Replace("Smtilesc", "小图块 Smtilesc").Replace("smObjectsc", "小物件 smObjectsc")
+                .Replace("Housesc", "房屋 Housesc").Replace("Cliffsc", "悬崖 Cliffsc").Replace("Dungeonsc", "地牢 Dungeonsc")
+                .Replace("Innersc", "室内 Innersc").Replace("Furnituresc", "家具 Furnituresc").Replace("Wallsc", "墙 Wallsc")
+                .Replace("Animationsc", "动画 Animationsc").Replace("Object1c", "物件1 Object1c").Replace("Object2c", "物件2 Object2c")
+                .Replace("AniTiles1", "动画图块 AniTiles1")
+                .Replace("Tiles30", "大图块 Tiles30").Replace("Tiles5", "图块5 Tiles5")
+                .Replace("Smtiles", "小图块 Smtiles").Replace("SmTiles", "小图块 SmTiles")
+                .Replace("Tiles", "地面 Tiles").Replace("Objects", "物件 Objects");
+            return (cn ?? "") + core;
+        }
+
         static Libraries()
         {
             //wemade mir2 (allowed from 0-99)
             //MapLibs[99]=new MLibrary(@".\Objects\MyImage");
             MapLibs[0] = new MLibrary(@".\Data\Map\WemadeMir2\Tiles");
-            ListItems[0] = new ListItem("Tiles", 0);
+            ListItems[0] = new ListItem(LibName("Tiles"), 0);
             MapLibs[1] = new MLibrary(@".\Data\Map\WemadeMir2\Smtiles");
-            ListItems[1] = new ListItem("Smtiles", 1);
+            ListItems[1] = new ListItem(LibName("Smtiles"), 1);
             MapLibs[2] = new MLibrary(@".\Data\Map\WemadeMir2\Objects");
-            ListItems[2] = new ListItem("Objects", 2);
+            ListItems[2] = new ListItem(LibName("Objects"), 2);
             MapLibs[90] = new MLibrary(@".\Data\Map\WemadeMir2\Objects_32bit");
 
             for (int i = 2; i < 29; i++) //与客户端 MirGraphics/MLibrary.cs 对齐：加载 Objects2~Objects28
@@ -43,45 +68,45 @@ namespace Map_Editor
                 if (File.Exists(@".\Data\Map\WemadeMir2\Objects" + i + ".lib"))
                 {
                     MapLibs[i + 1] = new MLibrary(@".\Data\Map\WemadeMir2\Objects" + i);
-                    ListItems[i + 1] = new ListItem("Objects" + i, i + 1);
+                    ListItems[i + 1] = new ListItem(LibName("Objects" + i), i + 1);
                 }
             }
 
             //shanda mir2 (allowed from 100-199)
             MapLibs[100] = new MLibrary(@".\Data\Map\ShandaMir2\Tiles");
-            ListItems[100] = new ListItem("Tiles", 100);
+            ListItems[100] = new ListItem(LibName("Tiles"), 100);
             for (int i = 1; i < 10; i++)
             {
                 if (File.Exists(@".\Data\Map\ShandaMir2\Tiles" + (i + 1) + ".lib"))
                 {
                     MapLibs[100 + i] = new MLibrary(@".\Data\Map\ShandaMir2\Tiles" + (i + 1));
-                    ListItems[100 + i] = new ListItem("Tiles" + (i + 1), 100 + i);
+                    ListItems[100 + i] = new ListItem(LibName("Tiles" + (i + 1)), 100 + i);
                 }
 
             }
             MapLibs[110] = new MLibrary(@".\Data\Map\ShandaMir2\SmTiles");
-            ListItems[110] = new ListItem("SmTiles", 110);
+            ListItems[110] = new ListItem(LibName("SmTiles"), 110);
             for (int i = 1; i < 10; i++)
             {
                 if (File.Exists(@".\Data\Map\ShandaMir2\SmTiles" + (i + 1) + ".lib"))
                 {
                     MapLibs[110 + i] = new MLibrary(@".\Data\Map\ShandaMir2\SmTiles" + (i + 1));
-                    ListItems[110 + i] = new ListItem("SmTiles" + (i + 1), 110 + i);
+                    ListItems[110 + i] = new ListItem(LibName("SmTiles" + (i + 1)), 110 + i);
                 }
             }
             MapLibs[120] = new MLibrary(@".\Data\Map\ShandaMir2\Objects");
-            ListItems[120] = new ListItem("Objects", 120);
+            ListItems[120] = new ListItem(LibName("Objects"), 120);
             for (int i = 1; i < 79; i++)
             {
                 if (File.Exists(@".\Data\Map\ShandaMir2\Objects" + (i + 1) + ".lib"))
                 {
                     MapLibs[120 + i] = new MLibrary(@".\Data\Map\ShandaMir2\Objects" + (i + 1));
-                    ListItems[120 + i] = new ListItem("Objects" + (i + 1), 120 + i);
+                    ListItems[120 + i] = new ListItem(LibName("Objects" + (i + 1)), 120 + i);
                 }
 
             }
             MapLibs[199] = new MLibrary(@".\Data\Map\ShandaMir2\AniTiles1");
-            ListItems[199] = new ListItem("AniTiles1", 199);
+            ListItems[199] = new ListItem(LibName("AniTiles1"), 199);
             //wemade mir3 (allowed from 200-299)
             string[] Mapstate = { "", "wood\\", "sand\\", "snow\\", "forest\\" };
             for (int i = 0; i < Mapstate.Length; i++)
@@ -89,85 +114,85 @@ namespace Map_Editor
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Tilesc" + ".lib"))
                 {
                     MapLibs[200 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Tilesc");
-                    ListItems[200 + (i * 15)] = new ListItem(Mapstate[i] + "Tilesc", 200 + (i * 15));
+                    ListItems[200 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Tilesc"), 200 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Tiles30c" + ".lib"))
                 {
                     MapLibs[201 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Tiles30c");
-                    ListItems[201 + (i * 15)] = new ListItem(Mapstate[i] + "Tiles30c", 201 + (i * 15));
+                    ListItems[201 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Tiles30c"), 201 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Tiles5c" + ".lib"))
                 {
                     MapLibs[202 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Tiles5c");
-                    ListItems[202 + (i * 15)] = new ListItem(Mapstate[i] + "Tiles5c", 202 + (i * 15));
+                    ListItems[202 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Tiles5c"), 202 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Smtilesc" + ".lib"))
                 {
                     MapLibs[203 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Smtilesc");
-                    ListItems[203 + (i * 15)] = new ListItem(Mapstate[i] + "Smtilesc", 203 + (i * 15));
+                    ListItems[203 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Smtilesc"), 203 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Housesc" + ".lib"))
                 {
                     MapLibs[204 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Housesc");
-                    ListItems[204 + (i * 15)] = new ListItem(Mapstate[i] + "Housesc", 204 + (i * 15));
+                    ListItems[204 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Housesc"), 204 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Cliffsc" + ".lib"))
                 {
                     MapLibs[205 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Cliffsc");
-                    ListItems[205 + (i * 15)] = new ListItem(Mapstate[i] + "Cliffsc", 205 + (i * 15));
+                    ListItems[205 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Cliffsc"), 205 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Dungeonsc" + ".lib"))
                 {
                     MapLibs[206 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Dungeonsc");
-                    ListItems[206 + (i * 15)] = new ListItem(Mapstate[i] + "Dungeonsc", 206 + (i * 15));
+                    ListItems[206 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Dungeonsc"), 206 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Innersc" + ".lib"))
                 {
                     MapLibs[207 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Innersc");
-                    ListItems[207 + (i * 15)] = new ListItem(Mapstate[i] + "Innersc", 207 + (i * 15));
+                    ListItems[207 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Innersc"), 207 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Furnituresc" + ".lib"))
                 {
                     MapLibs[208 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Furnituresc");
-                    ListItems[208 + (i * 15)] = new ListItem(Mapstate[i] + "Furnituresc", 208 + (i * 15));
+                    ListItems[208 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Furnituresc"), 208 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Wallsc" + ".lib"))
                 {
                     MapLibs[209 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Wallsc");
-                    ListItems[209 + (i * 15)] = new ListItem(Mapstate[i] + "Wallsc", 209 + (i * 15));
+                    ListItems[209 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Wallsc"), 209 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "smObjectsc" + ".lib"))
                 {
                     MapLibs[210 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "smObjectsc");
-                    ListItems[210 + (i * 15)] = new ListItem(Mapstate[i] + "smObjectsc", 210 + (i * 15));
+                    ListItems[210 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "smObjectsc"), 210 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Animationsc" + ".lib"))
                 {
                     MapLibs[211 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Animationsc");
-                    ListItems[211 + (i * 15)] = new ListItem(Mapstate[i] + "Animationsc", 211 + (i * 15));
+                    ListItems[211 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Animationsc"), 211 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Object1c" + ".lib"))
                 {
                     MapLibs[212 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Object1c");
-                    ListItems[212 + (i * 15)] = new ListItem(Mapstate[i] + "Object1c", 212 + (i * 15));
+                    ListItems[212 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Object1c"), 212 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Object2c" + ".lib"))
                 {
                     MapLibs[213 + (i * 15)] = new MLibrary(@".\Data\Map\WemadeMir3\" + Mapstate[i] + "Object2c");
-                    ListItems[213 + (i * 15)] = new ListItem(Mapstate[i] + "Object2c", 213 + (i * 15));
+                    ListItems[213 + (i * 15)] = new ListItem(LibName(Mapstate[i] + "Object2c"), 213 + (i * 15));
                 }
 
             }
@@ -180,88 +205,88 @@ namespace Map_Editor
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Tilesc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[300 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Tilesc" + Mapstate[i]);
-                    ListItems[300 + (i * 15)] = new ListItem("Tilesc" + Mapstate[i], 300 + (i * 15));
+                    ListItems[300 + (i * 15)] = new ListItem(LibName("Tilesc" + Mapstate[i]), 300 + (i * 15));
                 }
 
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Tiles30c" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[301 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Tiles30c" + Mapstate[i]);
-                    ListItems[301 + (i * 15)] = new ListItem("Tiles30c" + Mapstate[i], 301 + (i * 15));
+                    ListItems[301 + (i * 15)] = new ListItem(LibName("Tiles30c" + Mapstate[i]), 301 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Tiles5c" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[302 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Tiles5c" + Mapstate[i]);
-                    ListItems[302 + (i * 15)] = new ListItem("Tiles5c" + Mapstate[i], 302 + (i * 15));
+                    ListItems[302 + (i * 15)] = new ListItem(LibName("Tiles5c" + Mapstate[i]), 302 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Smtilesc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[303 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Smtilesc" + Mapstate[i]);
-                    ListItems[303 + (i * 15)] = new ListItem("Smtilesc" + Mapstate[i], 303 + (i * 15));
+                    ListItems[303 + (i * 15)] = new ListItem(LibName("Smtilesc" + Mapstate[i]), 303 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Housesc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[304 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Housesc" + Mapstate[i]);
-                    ListItems[304 + (i * 15)] = new ListItem("Housesc" + Mapstate[i], 304 + (i * 15));
+                    ListItems[304 + (i * 15)] = new ListItem(LibName("Housesc" + Mapstate[i]), 304 + (i * 15));
                 }
 
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Cliffsc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[305 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Cliffsc" + Mapstate[i]);
-                    ListItems[305 + (i * 15)] = new ListItem("Cliffsc" + Mapstate[i], 305 + (i * 15));
+                    ListItems[305 + (i * 15)] = new ListItem(LibName("Cliffsc" + Mapstate[i]), 305 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Dungeonsc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[306 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Dungeonsc" + Mapstate[i]);
-                    ListItems[306 + (i * 15)] = new ListItem("Dungeonsc" + Mapstate[i], 306 + (i * 15));
+                    ListItems[306 + (i * 15)] = new ListItem(LibName("Dungeonsc" + Mapstate[i]), 306 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Innersc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[307 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Innersc" + Mapstate[i]);
-                    ListItems[307 + (i * 15)] = new ListItem("Innersc" + Mapstate[i], 307 + (i * 15));
+                    ListItems[307 + (i * 15)] = new ListItem(LibName("Innersc" + Mapstate[i]), 307 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Furnituresc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[308 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Furnituresc" + Mapstate[i]);
-                    ListItems[308 + (i * 15)] = new ListItem("Furnituresc" + Mapstate[i], 308 + (i * 15));
+                    ListItems[308 + (i * 15)] = new ListItem(LibName("Furnituresc" + Mapstate[i]), 308 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Wallsc" + Mapstate[i] + ".lib"))
                 {
 
                     MapLibs[309 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Wallsc" + Mapstate[i]);
-                    ListItems[309 + (i * 15)] = new ListItem("Wallsc" + Mapstate[i], 309 + (i * 15));
+                    ListItems[309 + (i * 15)] = new ListItem(LibName("Wallsc" + Mapstate[i]), 309 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "smObjectsc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[310 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "smObjectsc" + Mapstate[i]);
-                    ListItems[310 + (i * 15)] = new ListItem("smObjectsc" + Mapstate[i], 310 + (i * 15));
+                    ListItems[310 + (i * 15)] = new ListItem(LibName("smObjectsc" + Mapstate[i]), 310 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Animationsc" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[311 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Animationsc" + Mapstate[i]);
-                    ListItems[311 + (i * 15)] = new ListItem("Animationsc" + Mapstate[i], 311 + (i * 15));
+                    ListItems[311 + (i * 15)] = new ListItem(LibName("Animationsc" + Mapstate[i]), 311 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Object1c" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[312 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Object1c" + Mapstate[i]);
-                    ListItems[312 + (i * 15)] = new ListItem("Object1c" + Mapstate[i], 312 + (i * 15));
+                    ListItems[312 + (i * 15)] = new ListItem(LibName("Object1c" + Mapstate[i]), 312 + (i * 15));
                 }
 
                 if (File.Exists(@".\Data\Map\ShandaMir3\" + "Object2c" + Mapstate[i] + ".lib"))
                 {
                     MapLibs[313 + (i * 15)] = new MLibrary(@".\Data\Map\ShandaMir3\" + "Object2c" + Mapstate[i]);
-                    ListItems[313 + (i * 15)] = new ListItem("Object2c" + Mapstate[i], 313 + (i * 15));
+                    ListItems[313 + (i * 15)] = new ListItem(LibName("Object2c" + Mapstate[i]), 313 + (i * 15));
                 }
             }
 

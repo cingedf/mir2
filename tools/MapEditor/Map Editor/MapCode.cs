@@ -49,6 +49,9 @@ namespace Map_Editor
     {
         public int Width, Height;
         public CellInfo[,] MapCells;
+        //新增：地图格式编号（initiate() 按文件头识别后赋值，供"打开地图自动联动素材页"使用）
+        //0=传统 / 1=Wemade2010 / 2,3=盛大2012 / 4=反外挂 / 5=WemadeMir3 / 6=ShandaMir3 / 7=3-4Heroes / 100=C#自定义
+        public byte MapFormat;
         private string FileName;
         private byte[] Bytes;
         
@@ -80,6 +83,7 @@ namespace Map_Editor
             //c# custom map format
             if ((Bytes[2] == 0x43) && (Bytes[3] == 0x23))
             {
+                MapFormat = 100; //新增：记录格式
                 LoadMapType100();
                 return;
             }
@@ -87,24 +91,28 @@ namespace Map_Editor
             //wemade mir3 maps have no title they just start with blank bytes
             if (Bytes[0] == 0)
             {
+                MapFormat = 5; //新增：记录格式
                 LoadMapType5();
                 return;
             }
             //shanda mir3 maps start with title: (C) SNDA, MIR3.
             if ((Bytes[0] == 0x0F) && (Bytes[5] == 0x53) && (Bytes[14] == 0x33))
             {
+                MapFormat = 6; //新增：记录格式
                 LoadMapType6();
                 return;
             }
             //wemades antihack map (laby maps) title start with: Mir2 AntiHack
             if ((Bytes[0] == 0x15) && (Bytes[4] == 0x32) && (Bytes[6] == 0x41) && (Bytes[19] == 0x31))
             {
+                MapFormat = 4; //新增：记录格式
                 LoadMapType4();
                 return;
             }
             //wemades 2010 map format i guess title starts with: Map 2010 Ver 1.0
             if ((Bytes[0] == 0x10) && (Bytes[2] == 0x61) && (Bytes[7] == 0x31) && (Bytes[14] == 0x31))
             {
+                MapFormat = 1; //新增：记录格式
                 LoadMapType1();
                 return;
             }
@@ -115,11 +123,13 @@ namespace Map_Editor
                 int H = Bytes[2] + (Bytes[3] << 8);
                 if (Bytes.Length > (52 + (W*H*14)))
                 {
+                    MapFormat = 3; //新增：记录格式
                     LoadMapType3();
                     return;
                 }
                 else
                 {
+                    MapFormat = 2; //新增：记录格式
                     LoadMapType2();
                     return;
                 }
@@ -128,10 +138,12 @@ namespace Map_Editor
             //3/4 heroes map format (myth/lifcos i guess)
             if ((Bytes[0] == 0x0D) && (Bytes[1] == 0x4C) && (Bytes[7] == 0x20) && (Bytes[11] == 0x6D))
             {
+                MapFormat = 7; //新增：记录格式
                 LoadMapType7();
                 return;
             }
             //if it's none of the above load the default old school format
+            MapFormat = 0; //新增：记录格式
             LoadMapType0();
 
         }

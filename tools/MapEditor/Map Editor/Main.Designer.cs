@@ -88,6 +88,7 @@
             btnSetAnimation = new System.Windows.Forms.ToolStripMenuItem();
             btnSetLight = new System.Windows.Forms.ToolStripMenuItem();
             menu_DeleteSelectedCellData = new System.Windows.Forms.ToolStripMenuItem();
+            menu_LocateCellMaterial = new System.Windows.Forms.ToolStripMenuItem();
             hScrollBar = new System.Windows.Forms.HScrollBar();
             tabWemadeMir2 = new System.Windows.Forms.TabPage();
             labWemadeMir2OffSetY = new System.Windows.Forms.Label();
@@ -169,6 +170,7 @@
             menuFreeMemory = new System.Windows.Forms.ToolStripMenuItem();
             menuJump = new System.Windows.Forms.ToolStripMenuItem();
             menuInvertMir3Layer = new System.Windows.Forms.ToolStripMenuItem();
+            menuBatchExportMiniMaps = new System.Windows.Forms.ToolStripMenuItem();
             toolStripMenuItem9 = new System.Windows.Forms.ToolStripMenuItem();
             menuZoomIn = new System.Windows.Forms.ToolStripMenuItem();
             menuZoomOut = new System.Windows.Forms.ToolStripMenuItem();
@@ -756,7 +758,7 @@
             // contextMenuStrip1
             // 
             contextMenuStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
-            contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { 撤销ToolStripMenuItem, 返回ToolStripMenuItem, toolStripSeparator2, menu_SaveObject, btnSetDoor, btnSetAnimation, btnSetLight, menu_DeleteSelectedCellData });
+            contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { 撤销ToolStripMenuItem, 返回ToolStripMenuItem, toolStripSeparator2, menu_SaveObject, btnSetDoor, btnSetAnimation, btnSetLight, menu_DeleteSelectedCellData, menu_LocateCellMaterial });
             contextMenuStrip1.Name = "contextMenuStrip1";
             contextMenuStrip1.Size = new System.Drawing.Size(338, 164);
             // 
@@ -814,6 +816,13 @@
             menu_DeleteSelectedCellData.Size = new System.Drawing.Size(337, 22);
             menu_DeleteSelectedCellData.Text = "删除所选单元格数据";
             menu_DeleteSelectedCellData.Click += menu_DeleteSelectedCellData_Click;
+            // 
+            // menu_LocateCellMaterial
+            // 
+            menu_LocateCellMaterial.Name = "menu_LocateCellMaterial";
+            menu_LocateCellMaterial.Size = new System.Drawing.Size(337, 22);
+            menu_LocateCellMaterial.Text = "定位此格素材到图库";
+            menu_LocateCellMaterial.Click += menu_LocateCellMaterial_Click;
             // 
             // hScrollBar
             // 
@@ -1887,7 +1896,7 @@
             // 
             // toolsToolStripMenuItem
             // 
-            toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { menuFreeMemory, menuJump, menuInvertMir3Layer });
+            toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { menuFreeMemory, menuJump, menuInvertMir3Layer, menuBatchExportMiniMaps });
             toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
             toolsToolStripMenuItem.Text = "工具";
@@ -1913,6 +1922,13 @@
             menuInvertMir3Layer.Size = new System.Drawing.Size(202, 22);
             menuInvertMir3Layer.Text = "翻转 Mir3 图层";
             menuInvertMir3Layer.Click += menuInvertMir3Layer_Click;
+            // 
+            // menuBatchExportMiniMaps（新增：批量导出小地图 PNG + 编号对照表）
+            // 
+            menuBatchExportMiniMaps.Name = "menuBatchExportMiniMaps";
+            menuBatchExportMiniMaps.Size = new System.Drawing.Size(202, 22);
+            menuBatchExportMiniMaps.Text = "批量导出小地图";
+            menuBatchExportMiniMaps.Click += menuBatchExportMiniMaps_Click;
             // 
             // toolStripMenuItem9
             // 
@@ -2220,6 +2236,7 @@
         private System.Windows.Forms.VScrollBar vScrollBar;
         private System.Windows.Forms.HScrollBar hScrollBar;
         private System.Windows.Forms.ToolStripMenuItem menu_DeleteSelectedCellData;
+        private System.Windows.Forms.ToolStripMenuItem menu_LocateCellMaterial;
         private System.Windows.Forms.ToolStripMenuItem menu_SaveObject;
         private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.SplitContainer splitContainer2;
@@ -2228,6 +2245,7 @@
         private System.Windows.Forms.ToolStripMenuItem menuJump;
         private System.Windows.Forms.ToolStripButton btnNew;
         private System.Windows.Forms.ToolStripMenuItem menuInvertMir3Layer;
+        private System.Windows.Forms.ToolStripMenuItem menuBatchExportMiniMaps;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem menuAbout;
         private System.Windows.Forms.ToolStripButton btnMiniMap;

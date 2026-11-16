@@ -100,6 +100,22 @@ namespace Map_Editor
         private ListItem selectListItem;
         private int selectTilesIndex = -1;
 
+        //新增：最近使用素材（最多 8 个，去重前插；元素=(库索引,图编号)）
+        private readonly List<Point> recentMaterials = new List<Point>();
+        private ToolStripDropDownButton btnRecentMaterials;
+        private bool suppressRecentRecord;
+
+        //新增：浮动小地图面板（标题栏拖动移动；边缘 8px 左键拖拽调大小；点击内容区跳转）
+        private Panel miniMapPanel;            //浮动面板容器（悬浮于 MapPanel 内）
+        private Panel miniMapTitleBar;         //标题栏（拖动移动用）
+        private PictureBox miniMapPictureBox;  //小地图图像区（点击跳转用）
+        private Bitmap miniMapBitmap;          //当前渲染的整图缩略
+        private bool miniMapResizing;          //边缘拖拽调整大小中
+        private bool miniMapTitleDragging;     //标题栏拖动移动中
+        private Point miniMapDragStartMouse;   //拖动起点（鼠标屏幕坐标）
+        private Point miniMapDragStartLoc;     //拖动起点（面板 Location）
+        private Size miniMapDragStartSize;     //调整起点（面板 Size）
+
         private ListItem shangdaMir2ListItem;
         private ListItem shangdaMir3ListItem;
 
@@ -433,6 +449,19 @@ namespace Map_Editor
                 "  • 载入图片后按图块尺寸(48x32 / 96x64)切分，可用“#”切换网格，\n" +
                 "    选好后“保存图库”导出为 .lib\n" +
                 "  • 载入图片处也可用于快速载入参考图\n\n" +
+                "【新功能说明】\n" +
+                "  • 打开地图自动联动：按地图格式自动切换到对应图库标签页\n" +
+                "    （Wemade 系地图→2D经典页、盛大→盛大2页、Mir3→对应3D页），\n" +
+                "    并自动选中第一个图库（地面图块）\n" +
+                "  • 定位此格素材到图库（右键菜单）：把当前格子当前编辑层的素材\n" +
+                "    自动跳转到图库页并选中该图，方便查看与微调\n" +
+                "  • 最近素材（工具条下拉）：自动记录最近使用的 8 个素材（带缩略图），\n" +
+                "    点击即恢复为当前绘制素材\n" +
+                "  • 浮动小地图：打开地图后右上角显示整图缩略，点击缩略图跳转对应位置；\n" +
+                "    拖标题栏移动，拖右/下边缘调整大小，✕ 关闭（打开新图重新显示）\n" +
+                "  • 批量导出小地图（隐藏菜单栏→工具）：选择地图目录后把每张 .map 的\n" +
+                "    小地图导出为 PNG，并生成「地图文件名→小地图文件」对照表 CSV，\n" +
+                "    供服务器配置 MapInfo 小地图编号时参考\n\n" +
                 "【其他】\n" +
                 "  • 关于(Ctrl-A)：版本与作者信息\n" +
                 "  • 地图信息按钮：查看当前地图的图库引用状态（可用/文件缺失/无效索引）并支持重映射";
@@ -454,6 +483,19 @@ namespace Map_Editor
             DXManager.Create(MapPanel);
 
             InitHelpTab();
+
+            //新增：工具条创建"最近素材"下拉按钮（放在图层下拉后的分隔线前），点击恢复为当前素材
+            btnRecentMaterials = new ToolStripDropDownButton
+            {
+                Text = "最近素材",
+                ToolTipText = "最近使用的 8 个素材，点击恢复为当前绘制素材",
+                ImageScaling = ToolStripItemImageScaling.None,
+                Enabled = false,
+                AutoSize = true
+            };
+            btnRecentMaterials.Font = new Font("Microsoft YaHei", 9F);
+            toolStrip1.Items.Insert(toolStrip1.Items.IndexOf(toolStripSeparator5), new ToolStripSeparator());
+            toolStrip1.Items.Insert(toolStrip1.Items.IndexOf(toolStripSeparator5), btnRecentMaterials);
 
             //修复：初始为地图页时保持文件树可见（与 tabControl1_SelectedIndexChanged 互斥逻辑一致）
             //注意：SplitContainer 本身没有 Panel2Visible 属性，正确用法是 splitMain.Panel2Collapsed（收缩隐藏面板）
@@ -2033,6 +2075,107 @@ namespace Map_Editor
                     CreateMir3BigTiles();
                     AddCellInfoPoints(bigTilePoints.ToArray());
                     break;
+            }
+
+            //新增：绘制类层操作成功后记录当前素材到"最近使用"
+            if (layer == Layer.BackImage || layer == Layer.MiddleImage || layer == Layer.FrontImage)
+            {
+                RecordRecentMaterial(selectListItem.Value, selectImageIndex);
+            }
+        }
+
+        //新增：记录最近使用的素材（去重前插，限长 8），并刷新工具条按钮缩略图
+        private void RecordRecentMaterial(int libIndex, int imageIndex)
+        {
+            if (suppressRecentRecord || libIndex < 0 || imageIndex < 0) return;
+            if (libIndex >= Libraries.MapLibs.Length || Libraries.MapLibs[libIndex] == null) return;
+            if (imageIndex >= Libraries.MapLibs[libIndex].Images.Count) return;
+
+            recentMaterials.RemoveAll(p => p.X == libIndex && p.Y == imageIndex);
+            recentMaterials.Insert(0, new Point(libIndex, imageIndex));
+            if (recentMaterials.Count > 8)
+            {
+                recentMaterials.RemoveRange(8, recentMaterials.Count - 8);
+            }
+            UpdateRecentMaterialButtons();
+        }
+
+        //新增：重建"最近素材"下拉按钮的菜单项（64x64 缩略图+库/编号文字）
+        private void UpdateRecentMaterialButtons()
+        {
+            if (btnRecentMaterials == null) return;
+            btnRecentMaterials.DropDownItems.Clear();
+            foreach (var p in recentMaterials)
+            {
+                var lib = Libraries.MapLibs[p.X];
+                var image = lib.GetMImage(p.Y);
+                if (image == null) continue;
+                if (image.Preview == null) image.CreatePreview();
+                if (image.Preview == null) continue;
+
+                var item = new ToolStripMenuItem(Libraries.ListItems[p.X] != null ? Libraries.ListItems[p.X].Text : "库" + p.X)
+                {
+                    Image = image.Preview,
+                    ImageScaling = ToolStripItemImageScaling.None,
+                    Tag = p
+                };
+                item.Click += RecentMaterialItem_Click;
+                btnRecentMaterials.DropDownItems.Add(item);
+            }
+            btnRecentMaterials.Enabled = recentMaterials.Count > 0;
+        }
+
+        //新增：点击"最近素材"菜单项→恢复该素材为当前绘制素材
+        private void RecentMaterialItem_Click(object sender, EventArgs e)
+        {
+            var item = (ToolStripMenuItem)sender;
+            var p = (Point)item.Tag;
+            ApplyMaterial(p.X, p.Y);
+        }
+
+        //新增：把 (库索引,图编号) 应用为当前素材：切到对应图库页并选中，复用既有选择链
+        private void ApplyMaterial(int libIndex, int imageIndex)
+        {
+            TabPage targetTab;
+            ListBox targetListBox;
+            ListView targetListView;
+            if (libIndex < 100)
+            {
+                targetTab = tabWemadeMir2; targetListBox = WemadeMir2LibListBox; targetListView = WemadeMir2LibListView;
+            }
+            else if (libIndex < 200)
+            {
+                targetTab = tabShandaMir2; targetListBox = ShandaMir2LibListBox; targetListView = ShandaMir2LibListView;
+            }
+            else if (libIndex < 300)
+            {
+                targetTab = tabWemadeMir3; targetListBox = WemadeMir3LibListBox; targetListView = WemadeMir3LibListView;
+            }
+            else
+            {
+                targetTab = tabShandaMir3; targetListBox = ShandaMir3LibListBox; targetListView = ShandaMir3LibListView;
+            }
+
+            for (int i = 0; i < targetListBox.Items.Count; i++)
+            {
+                if (((ListItem)targetListBox.Items[i]).Value == libIndex)
+                {
+                    suppressRecentRecord = true;//切库会连带重选图片，避免把恢复动作又记进"最近"
+                    try
+                    {
+                        tabControl1.SelectedTab = targetTab;
+                        targetListBox.SelectedIndex = i;
+                        imageIndex = Math.Min(imageIndex, Libraries.MapLibs[libIndex].Images.Count - 1);
+                        targetListView.SelectedIndices.Clear();
+                        targetListView.SelectedIndices.Add(imageIndex);
+                        targetListView.EnsureVisible(imageIndex);
+                    }
+                    finally
+                    {
+                        suppressRecentRecord = false;
+                    }
+                    return;
+                }
             }
         }
 
@@ -4783,7 +4926,47 @@ namespace Map_Editor
                 SetMapSize(map.Width, map.Height);
                 mapFileName = openFileDialog.FileName;
                 setScrollBar();
+                SyncMaterialTabToMapFormat(); //新增：按地图格式自动切换对应图库页并选中地面图块库
+                RefreshMiniMapPanel();        //新增：打开地图后刷新浮动小地图面板
             }
+        }
+
+        /// <summary>
+        /// 新增（A 功能）：打开地图后按格式自动联动素材页——
+        /// 盛大2012 格式切盛大2 页、Mir3 格式切对应 Mir3 页，其余（传统/Wemade2010/反外挂/3-4Heroes/自定义）切 WemadeMir2 页；
+        /// 并在该页图库列表选中第一项（各段首项均为地面图块库 Tiles），触发既有选中链刷新编号列表。
+        /// </summary>
+        private void SyncMaterialTabToMapFormat()
+        {
+            if (map == null) return;
+
+            TabPage targetTab;
+            ListBox targetListBox;
+            switch (map.MapFormat)
+            {
+                case 2:
+                case 3:
+                    targetTab = tabShandaMir2;
+                    targetListBox = ShandaMir2LibListBox;
+                    break;
+                case 5:
+                    targetTab = tabWemadeMir3;
+                    targetListBox = WemadeMir3LibListBox;
+                    break;
+                case 6:
+                    targetTab = tabShandaMir3;
+                    targetListBox = ShandaMir3LibListBox;
+                    break;
+                default: //0/1/4/7/100 均属 WemadeMir2 体系
+                    targetTab = tabWemadeMir2;
+                    targetListBox = WemadeMir2LibListBox;
+                    break;
+            }
+
+            if (tabControl1.SelectedTab != targetTab)
+                tabControl1.SelectedTab = targetTab;
+            if (targetListBox.Items.Count > 0)
+                targetListBox.SelectedIndex = 0; //首项即 Tiles（地面图块），触发 SelectedIndexChanged 链
         }
 
         private void menuSave_Click(object sender, EventArgs e)
@@ -4812,6 +4995,7 @@ namespace Map_Editor
             {
                 EnlargeZoom();
                 SetMapSize(mapWidth, mapHeight);
+                RefreshMiniMapPanel(); //新增：缩放后刷新浮动小地图面板
             }
 
         }
@@ -4827,6 +5011,7 @@ namespace Map_Editor
             {
                 NarrowZoom();
                 SetMapSize(mapWidth, mapHeight);
+                RefreshMiniMapPanel(); //新增：缩放后刷新浮动小地图面板
             }
         }
 
@@ -4891,6 +5076,79 @@ namespace Map_Editor
             }
         }
 
+        //新增：定位此格素材到图库——按当前编辑层读取选中格的库索引/图编号，跳转到对应图库页并选中该项
+        private void menu_LocateCellMaterial_Click(object sender, EventArgs e)
+        {
+            if (M2CellInfo == null) return;
+
+            var cell = M2CellInfo[cellX, cellY];
+            int libIndex, imageIndex;
+            switch (layer)
+            {
+                case Layer.MiddleImage:
+                    libIndex = cell.MiddleIndex;
+                    imageIndex = cell.MiddleImage - 1;
+                    break;
+                case Layer.FrontImage:
+                    libIndex = cell.FrontIndex;
+                    imageIndex = (cell.FrontImage & 0x7FFF) - 1;
+                    break;
+                default://背景层与未指定层（无绘制层/限制层/抓取层等）默认定位背景素材
+                    libIndex = cell.BackIndex;
+                    imageIndex = (cell.BackImage & 0x1FFFF) - 1;
+                    break;
+            }
+
+            if (imageIndex < 0 || libIndex < 0 || libIndex >= Libraries.MapLibs.Length || Libraries.MapLibs[libIndex] == null)
+            {
+                MessageBox.Show(this, "此格该层没有素材，无法定位。", "定位素材");
+                return;
+            }
+
+            TabPage targetTab;
+            ListBox targetListBox;
+            ListView targetListView;
+            if (libIndex < 100)
+            {
+                targetTab = tabWemadeMir2; targetListBox = WemadeMir2LibListBox; targetListView = WemadeMir2LibListView;
+            }
+            else if (libIndex < 200)
+            {
+                targetTab = tabShandaMir2; targetListBox = ShandaMir2LibListBox; targetListView = ShandaMir2LibListView;
+            }
+            else if (libIndex < 300)
+            {
+                targetTab = tabWemadeMir3; targetListBox = WemadeMir3LibListBox; targetListView = WemadeMir3LibListView;
+            }
+            else
+            {
+                targetTab = tabShandaMir3; targetListBox = ShandaMir3LibListBox; targetListView = ShandaMir3LibListView;
+            }
+
+            //在目标页左侧列表中定位对应库（ListItem.Value 即库索引），选中会触发既有 SelectedIndexChanged 链
+            int targetLibItem = -1;
+            for (int i = 0; i < targetListBox.Items.Count; i++)
+            {
+                if (((ListItem)targetListBox.Items[i]).Value == libIndex)
+                {
+                    targetLibItem = i;
+                    break;
+                }
+            }
+            if (targetLibItem < 0)
+            {
+                MessageBox.Show(this, "该库未在列表中加载，无法定位。", "定位素材");
+                return;
+            }
+
+            tabControl1.SelectedTab = targetTab;
+            targetListBox.SelectedIndex = targetLibItem;
+            imageIndex = Math.Min(imageIndex, Libraries.MapLibs[libIndex].Images.Count - 1);
+            targetListView.SelectedIndices.Clear();
+            targetListView.SelectedIndices.Add(imageIndex);
+            targetListView.EnsureVisible(imageIndex);
+        }
+
         private void menu_SaveObject_Click(object sender, EventArgs e)
         {
             if (M2CellInfo == null) return;
@@ -4933,8 +5191,90 @@ namespace Map_Editor
             }
         }
 
-        private void menuInvertMir3Layer_Click(object sender, EventArgs e)
+        //新增：批量导出小地图——选择地图目录，循环渲染每张 .map 的小地图 PNG 到输出目录，并生成「地图文件名 → 小地图文件」对照表 CSV（阶段1：只导 PNG+对照表，不写 MMap.Lib）
+        private void menuBatchExportMiniMaps_Click(object sender, EventArgs e)
         {
+            if (M2CellInfo == null)
+            {
+                MessageBox.Show("请先打开一张地图（用于确认图库已加载），再批量导出。", "批量导出小地图");
+                return;
+            }
+
+            using (var folderDialog = new FolderBrowserDialog())
+            {
+                folderDialog.Description = "选择要批量导出小地图的地图目录（Map 文件夹）。";
+                if (folderDialog.ShowDialog() != DialogResult.OK)
+                    return;
+
+                string mapDir = folderDialog.SelectedPath;
+                string outDir = Path.Combine(mapDir, "MiniMaps_Export");
+                Directory.CreateDirectory(outDir);
+
+                string[] mapFiles = Directory.GetFiles(mapDir, "*.map", SearchOption.TopDirectoryOnly);
+                if (mapFiles.Length == 0)
+                {
+                    MessageBox.Show("该目录下没有找到 .map 文件。", "批量导出小地图");
+                    return;
+                }
+
+                //保留当前打开的地图，导完后恢复现场
+                MapReader currentMap = map;
+                CellInfo[,] currentCells = M2CellInfo;
+                Size currentSetSize = new Size(mapWidth, mapHeight);
+
+                int success = 0, failed = 0;
+                var csvLines = new List<string> { "地图文件名,宽度,高度,小地图文件" };
+
+                this.Cursor = Cursors.WaitCursor;
+                try
+                {
+                    foreach (string file in mapFiles)
+                    {
+                        try
+                        {
+                            MapReader reader = new MapReader(file);
+                            this.map = reader;
+                            this.M2CellInfo = reader.MapCells;
+                            int oldW = mapWidth, oldH = mapHeight;
+                            this.mapWidth = reader.Width;
+                            this.mapHeight = reader.Height;
+
+                            using (Bitmap bmp = RenderMiniMapBitmap())
+                            {
+                                string name = Path.GetFileNameWithoutExtension(file);
+                                string outFile = Path.Combine(outDir, name + "_MiniMap.png");
+                                bmp.Save(outFile, System.Drawing.Imaging.ImageFormat.Png);
+                                csvLines.Add($"{Path.GetFileName(file)},{reader.Width},{reader.Height},{name}_MiniMap.png");
+                            }
+
+                            this.mapWidth = oldW;
+                            this.mapHeight = oldH;
+                            success++;
+                        }
+                        catch
+                        {
+                            failed++;   //单张失败不中断整体导出
+                        }
+                    }
+
+                    File.WriteAllLines(Path.Combine(outDir, "对照表.csv"), csvLines, System.Text.Encoding.UTF8);
+                }
+                finally
+                {
+                    //恢复现场：继续编辑原来打开的地图
+                    this.map = currentMap;
+                    this.M2CellInfo = currentCells;
+                    this.mapWidth = currentSetSize.Width;
+                    this.mapHeight = currentSetSize.Height;
+                    RefreshMiniMapPanel();
+                    this.Cursor = Cursors.Default;
+                }
+
+                MessageBox.Show($"批量导出完成。\n成功: {success} 张    失败: {failed} 张\n输出目录: {outDir}", "批量导出小地图");
+            }
+        }
+
+        private void menuInvertMir3Layer_Click(object sender, EventArgs e)        {
             InvertMir3Layer();
         }
 
@@ -5561,6 +5901,8 @@ namespace Map_Editor
             this.mapPoint = new Point(0, 0);
             this.SetMapSize(this.map.Width, this.map.Height);
             this.mapFileName = path;
+            SyncMaterialTabToMapFormat(); //新增：按地图格式自动切换对应图库页并选中地面图块库
+            RefreshMiniMapPanel();        //新增：打开地图后刷新浮动小地图面板
         }
 
         private void TreeBrowser_KeyPress(object sender, KeyPressEventArgs e)
@@ -5583,6 +5925,59 @@ namespace Map_Editor
 
         //Akaras: This should create the correct size MiniMap to use in game... just photoshop it to add caves and doorway icons if needed
         public void createMiniMap()
+        {
+            Bitmap miniBitmap = RenderMiniMapBitmap();
+
+            string SimpleFileName = Path.GetDirectoryName(mapFileName) + @"\" + Path.GetFileNameWithoutExtension(mapFileName);
+            //MessageBox.Show(SimpleFileName);
+            miniBitmap.Save(SimpleFileName + "_MiniMap.png", ImageFormat.Png);
+            MessageBox.Show("已保存... " + SimpleFileName + "_MiniMap.png"); //TODO: this shows even if failed to save
+
+
+            //Akaras: Removed this as it was not popular as it is probably easier to photoshop the main MiniMap to 1/2 size and add borders
+            //kept the code here if anyone finds a use for it :)
+            //BigMap
+
+            //miniBitmap = new Bitmap(miniBitmap, miniBitmap.Width / 2, miniBitmap.Height / 2);
+            //using (Graphics g = Graphics.FromImage(miniBitmap))
+            //{
+            //    Rectangle temprect = new Rectangle(0, 0, 40, 40);
+            //    g.DrawImage(BigMapTL, temprect);
+            //    temprect = new Rectangle(miniBitmap.Width - 40, 0, 40, 40);
+            //    g.DrawImage(BigMapTR, temprect);
+            //    temprect = new Rectangle(0, miniBitmap.Height - 40, 40, 40);
+            //    g.DrawImage(BigMapBL, temprect);
+            //    temprect = new Rectangle(miniBitmap.Width - 40, miniBitmap.Height - 40, 40, 40);
+            //    g.DrawImage(BigMapBR, temprect);
+
+            //    // colour the side lines
+            //    Color tcol1 = Color.FromArgb(255, 225, 212, 186);
+            //    Color tcol2 = Color.FromArgb(255, 165, 133, 70);
+            //    for (int i = 38; i < miniBitmap.Width - 38; i++)
+            //    {
+            //        miniBitmap.SetPixel(i, 0, tcol1); //top first colour
+            //        miniBitmap.SetPixel(i, 1, tcol2); //top second colour
+            //        miniBitmap.SetPixel(i, miniBitmap.Height - 1, tcol1); //Bottom first colour
+            //        miniBitmap.SetPixel(i, miniBitmap.Height - 2, tcol2); //Bottom second colour
+            //    }
+            //    for (int i = 38; i < miniBitmap.Height - 38; i++)
+            //    {
+            //        miniBitmap.SetPixel(0, i, tcol1); //Left first colour
+            //        miniBitmap.SetPixel(1, i, tcol2); //Left second colour
+            //        miniBitmap.SetPixel(miniBitmap.Width - 1, i, tcol1); //Right first colour
+            //        miniBitmap.SetPixel(miniBitmap.Width - 2, i, tcol2); //Right second colour
+            //    }
+            //}
+
+            //SimpleFileName = Path.GetDirectoryName(SelectedMapName) + @"\" + Path.GetFileNameWithoutExtension(SelectedMapName);
+            //MessageBox.Show("Saved... " + SimpleFileName);
+            //miniBitmap.Save(SimpleFileName + "_BigMap.png", ImageFormat.Png);
+            //miniBitmap.Dispose();
+
+        }
+
+        //新增：渲染整张地图的小地图位图（提取自 createMiniMap，供导出 PNG 与浮动小地图面板共用；返回已缩到 1/8 的位图）
+        private Bitmap RenderMiniMapBitmap()
         {
             Bitmap miniBitmap = new Bitmap(mapWidth * 12, mapHeight * 8, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
@@ -5680,52 +6075,198 @@ namespace Map_Editor
 
             miniBitmap = new Bitmap(miniBitmap, (miniBitmap.Width / 8), (miniBitmap.Height / 8));
 
-            string SimpleFileName = Path.GetDirectoryName(mapFileName) + @"\" + Path.GetFileNameWithoutExtension(mapFileName);
-            //MessageBox.Show(SimpleFileName);
-            miniBitmap.Save(SimpleFileName + "_MiniMap.png", ImageFormat.Png);
-            MessageBox.Show("已保存... " + SimpleFileName + "_MiniMap.png"); //TODO: this shows even if failed to save
+            return miniBitmap;
+        }
 
+        //新增：初始化浮动小地图面板（悬浮于 MapPanel 内；标题栏可拖动移动，边缘 8px 左键拖拽调大小，点击图像区跳转）
+        private void InitMiniMapPanel()
+        {
+            if (miniMapPanel != null) return;
 
-            //Akaras: Removed this as it was not popular as it is probably easier to photoshop the main MiniMap to 1/2 size and add borders
-            //kept the code here if anyone finds a use for it :)
-            //BigMap
+            miniMapPanel = new Panel
+            {
+                BackColor = Color.FromArgb(200, 24, 24, 28),   //半透明深底，与编辑区区分
+                BorderStyle = BorderStyle.FixedSingle,
+                Size = new Size(260, 220),
+                Visible = false
+            };
 
-            //miniBitmap = new Bitmap(miniBitmap, miniBitmap.Width / 2, miniBitmap.Height / 2);
-            //using (Graphics g = Graphics.FromImage(miniBitmap))
-            //{
-            //    Rectangle temprect = new Rectangle(0, 0, 40, 40);
-            //    g.DrawImage(BigMapTL, temprect);
-            //    temprect = new Rectangle(miniBitmap.Width - 40, 0, 40, 40);
-            //    g.DrawImage(BigMapTR, temprect);
-            //    temprect = new Rectangle(0, miniBitmap.Height - 40, 40, 40);
-            //    g.DrawImage(BigMapBL, temprect);
-            //    temprect = new Rectangle(miniBitmap.Width - 40, miniBitmap.Height - 40, 40, 40);
-            //    g.DrawImage(BigMapBR, temprect);
+            //标题栏：拖动移动 + 关闭按钮
+            miniMapTitleBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 24,
+                BackColor = Color.FromArgb(230, 45, 45, 52),
+                Cursor = Cursors.SizeAll
+            };
+            var titleLabel = new Label
+            {
+                Text = "小地图总览（点击跳转，边缘拖拽调大小）",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.Gainsboro,
+                Font = new Font("Microsoft YaHei", 8.25F),
+                BackColor = Color.Transparent
+            };
+            var btnMiniMapClose = new Label
+            {
+                Text = "✕",
+                Dock = DockStyle.Right,
+                Width = 26,
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = Color.Gainsboro,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+            btnMiniMapClose.Click += (s, e) => miniMapPanel.Visible = false;
+            miniMapTitleBar.Controls.Add(titleLabel);
+            miniMapTitleBar.Controls.Add(btnMiniMapClose);
 
-            //    // colour the side lines
-            //    Color tcol1 = Color.FromArgb(255, 225, 212, 186);
-            //    Color tcol2 = Color.FromArgb(255, 165, 133, 70);
-            //    for (int i = 38; i < miniBitmap.Width - 38; i++)
-            //    {
-            //        miniBitmap.SetPixel(i, 0, tcol1); //top first colour
-            //        miniBitmap.SetPixel(i, 1, tcol2); //top second colour
-            //        miniBitmap.SetPixel(i, miniBitmap.Height - 1, tcol1); //Bottom first colour
-            //        miniBitmap.SetPixel(i, miniBitmap.Height - 2, tcol2); //Bottom second colour
-            //    }
-            //    for (int i = 38; i < miniBitmap.Height - 38; i++)
-            //    {
-            //        miniBitmap.SetPixel(0, i, tcol1); //Left first colour
-            //        miniBitmap.SetPixel(1, i, tcol2); //Left second colour
-            //        miniBitmap.SetPixel(miniBitmap.Width - 1, i, tcol1); //Right first colour
-            //        miniBitmap.SetPixel(miniBitmap.Width - 2, i, tcol2); //Right second colour
-            //    }
-            //}
+            //图像区：显示整图缩略，点击跳转
+            miniMapPictureBox = new PictureBox
+            {
+                Dock = DockStyle.Fill,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                BackColor = Color.Black
+            };
+            miniMapPictureBox.MouseClick += MiniMapPictureBox_MouseClick;
 
-            //SimpleFileName = Path.GetDirectoryName(SelectedMapName) + @"\" + Path.GetFileNameWithoutExtension(SelectedMapName);
-            //MessageBox.Show("Saved... " + SimpleFileName);
-            //miniBitmap.Save(SimpleFileName + "_BigMap.png", ImageFormat.Png);
-            //miniBitmap.Dispose();
+            miniMapPanel.Controls.Add(miniMapPictureBox);
+            miniMapPanel.Controls.Add(miniMapTitleBar);
 
+            //标题栏拖动移动
+            miniMapTitleBar.MouseDown += MiniMapTitle_MouseDown;
+            miniMapTitleBar.MouseMove += MiniMapTitle_MouseMove;
+            miniMapTitleBar.MouseUp += MiniMapTitle_MouseUp;
+            titleLabel.MouseDown += MiniMapTitle_MouseDown;
+            titleLabel.MouseMove += MiniMapTitle_MouseMove;
+            titleLabel.MouseUp += MiniMapTitle_MouseUp;
+
+            //边缘 8px 左键拖拽调整面板大小
+            miniMapPanel.MouseDown += MiniMapPanel_MouseDown;
+            miniMapPanel.MouseMove += MiniMapPanel_MouseMove;
+            miniMapPanel.MouseUp += MiniMapPanel_MouseUp;
+
+            MapPanel.Controls.Add(miniMapPanel);
+            miniMapPanel.BringToFront();
+        }
+
+        //刷新浮动小地图：重新渲染整图缩略并显示（开图/缩放后调用；无地图时隐藏面板）
+        private void RefreshMiniMapPanel()
+        {
+            if (M2CellInfo == null || map == null)
+            {
+                if (miniMapPanel != null) miniMapPanel.Visible = false;
+                return;
+            }
+
+            if (miniMapPanel == null) InitMiniMapPanel();
+
+            try
+            {
+                var bmp = RenderMiniMapBitmap();
+                miniMapBitmap?.Dispose();
+                miniMapBitmap = bmp;
+                miniMapPictureBox.Image = miniMapBitmap;
+
+                if (!miniMapPanel.Visible)
+                {
+                    //默认大小：min(整图等比缩略, 260x200)，小图不放大
+                    int w = Math.Min(miniMapBitmap.Width, 260);
+                    int h = Math.Min(miniMapBitmap.Height, 200);
+                    double scale = Math.Min((double)w / miniMapBitmap.Width, (double)h / miniMapBitmap.Height);
+                    w = Math.Max(120, (int)(miniMapBitmap.Width * scale));
+                    h = Math.Max(100, (int)(miniMapBitmap.Height * scale));
+                    miniMapPanel.Size = new Size(w, h + miniMapTitleBar.Height);
+                    //默认位置：地图区右上角（留边 12px）
+                    miniMapPanel.Location = new Point(Math.Max(0, MapPanel.Width - miniMapPanel.Width - 12), 12);
+                    miniMapPanel.Visible = true;
+                    miniMapPanel.BringToFront();
+                }
+            }
+            catch
+            {
+                //渲染失败静默（不影响编辑主流程）
+            }
+        }
+
+        //点击小地图：按比例换算成地图坐标跳转
+        private void MiniMapPictureBox_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (miniMapBitmap == null || map == null) return;
+            //图像按 Zoom 显示，需按实际显示比例换算
+            double imgRatio = Math.Min((double)miniMapPictureBox.Width / miniMapBitmap.Width, (double)miniMapPictureBox.Height / miniMapBitmap.Height);
+            int dispW = (int)(miniMapBitmap.Width * imgRatio);
+            int dispH = (int)(miniMapBitmap.Height * imgRatio);
+            int offX = (miniMapPictureBox.Width - dispW) / 2;
+            int offY = (miniMapPictureBox.Height - dispH) / 2;
+
+            int px = (int)((e.X - offX) / imgRatio);
+            int py = (int)((e.Y - offY) / imgRatio);
+            if (px < 0 || py < 0 || px >= miniMapBitmap.Width || py >= miniMapBitmap.Height) return;
+
+            //像素→格：渲染时 Back 层每格 12x8 像素再缩 1/8，即原图 96x64 像素/格
+            int cellSize = 96;   //缩略后每格宽（96 = 12*8）
+            int targetX = mapPoint.X + (px - (MapPanel.Width / 2)) / cellSize;
+            int targetY = mapPoint.Y + (py - (MapPanel.Height / 2)) / cellSize;
+            Jump(Math.Max(0, targetX), Math.Max(0, targetY));
+        }
+
+        //标题栏拖动移动
+        private void MiniMapTitle_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left) return;
+            miniMapTitleDragging = true;
+            miniMapDragStartMouse = Cursor.Position;
+            miniMapDragStartLoc = miniMapPanel.Location;
+        }
+
+        private void MiniMapTitle_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!miniMapTitleDragging) return;
+            miniMapPanel.Location = new Point(
+                miniMapDragStartLoc.X + (Cursor.Position.X - miniMapDragStartMouse.X),
+                miniMapDragStartLoc.Y + (Cursor.Position.Y - miniMapDragStartMouse.Y));
+        }
+
+        private void MiniMapTitle_MouseUp(object sender, MouseEventArgs e)
+        {
+            miniMapTitleDragging = false;
+        }
+
+        //边缘 8px 命中检测：返回是否处于可调整大小区域（面板边缘 8px 内）
+        private bool MiniMapPanel_OnResizeEdge(Point p)
+        {
+            const int edge = 8;
+            return p.X >= miniMapPanel.Width - edge || p.Y >= miniMapPanel.Height - edge;
+        }
+
+        //边缘 8px 左键拖拽调整面板大小（用户强调：可按左键拖动自由改变面板大小）
+        private void MiniMapPanel_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || !MiniMapPanel_OnResizeEdge(e.Location)) return;
+            miniMapResizing = true;
+            miniMapDragStartSize = miniMapPanel.Size;
+        }
+
+        private void MiniMapPanel_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (miniMapResizing)
+            {
+                int w = Math.Max(120, miniMapDragStartSize.Width + (e.X - miniMapDragStartSize.Width));
+                int h = Math.Max(100, miniMapDragStartSize.Height + (e.Y - miniMapDragStartSize.Height));
+                miniMapPanel.Size = new Size(w, h);
+            }
+            else
+            {
+                //悬停在边缘时给出可调整光标
+                miniMapPanel.Cursor = MiniMapPanel_OnResizeEdge(e.Location) ? Cursors.SizeNWSE : Cursors.Default;
+            }
+        }
+
+        private void MiniMapPanel_MouseUp(object sender, MouseEventArgs e)
+        {
+            miniMapResizing = false;
         }
 
         private enum Layer
