@@ -99,7 +99,13 @@ namespace NpcVisualEditor
                 (s, e) => new MapDropViewForm(_serverDir, _envir).Show(this)));
             mCreate.DropDownItems.Add(new ToolStripMenuItem("地图关系图(&E)", null,
                 (s, e) => new MapRelationForm(_envir).Show(this)));
-            mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&H)", null, (s, e) => ShowNpcCommandHelp()));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("爆率格式化(&F)", null,
+                (s, e) => new DropFormatForm(_serverDir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("自定义命令(&C)", null,
+                (s, e) => new CustomCommandForm(_serverDir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("路径导航(&P)", null,
+                (s, e) => new PathNavigationForm(_serverDir, _envir).Show(this)));
+            mCreate.DropDownItems.Add(new ToolStripMenuItem("NPC命令说明(&N)", null, (s, e) => ShowNpcCommandHelp()));
             var mHelp = new ToolStripMenuItem("帮助(&H)");
             mHelp.DropDownItems.Add(new ToolStripMenuItem("关于(&A)", null,
                 (s, e) => { _tabs.SelectedIndex = _tabs.TabPages.Count - 1; }));

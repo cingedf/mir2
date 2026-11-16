@@ -108,7 +108,8 @@ namespace NpcVisualEditor
         {
             var sel = _list.SelectedItem;
             if (sel == null) return;
-            _props.SelectedObject = sel;
+            // #8 stdmode 动态字段名：物品按 ItemType 暴露属性子集 + 中文名；怪物保持原样
+            _props.SelectedObject = sel is ItemInfo itemSel ? (object)new ItemInfoViewWrapper(itemSel) : sel;
 
             int imageId = sel switch
             {
