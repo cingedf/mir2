@@ -88,6 +88,13 @@ namespace Client
                     ? new Size(Settings.NativeWidth, Settings.NativeHeight)
                     : new Size(Settings.ScreenWidth, Settings.ScreenHeight);
 
+                // 20261116 全屏跑偏修复：全屏启动时窗体 Location 归零，防止继承设计器坐标跑偏出屏
+                if (Settings.FullScreen)
+                {
+                    StartPosition = FormStartPosition.Manual;
+                    Location = new Point(0, 0);
+                }
+
                 LoadMouseCursors();
                 SetMouseCursor(MouseCursor.Default);
 
@@ -593,6 +600,11 @@ namespace Client
                 ? new Size(Settings.NativeWidth, Settings.NativeHeight)   //全屏=铺满物理屏，D3D 拉伸后缓冲
                 : new Size(Settings.ScreenWidth, Settings.ScreenHeight);  //窗口=逻辑分辨率
 
+            // 20261116 全屏跑偏修复：切全屏时窗体从原窗口居中位置向右下长大，右/底超出屏幕
+            //（用户看到「登录窗口跑到右下角、左上角露桌面」）；切全屏必须把 Location 归零对齐屏幕左上角
+            if (Settings.FullScreen)
+                Program.Form.Location = new Point(0, 0);
+
             DXManager.ResetDevice();
 
             if (MirScene.ActiveScene == GameScene.Scene)
@@ -669,6 +681,10 @@ namespace Client
             Program.Form.ClientSize = Settings.FullScreen
                 ? new Size(Settings.NativeWidth, Settings.NativeHeight)
                 : new Size(width, height);
+
+            // 20261116 全屏跑偏修复：同 ToggleFullScreen，全屏时窗体 Location 归零对齐屏幕左上角
+            if (Settings.FullScreen)
+                Program.Form.Location = new Point(0, 0);
 
             DXManager.Device.Clear(ClearFlags.Target, Color.Black, 0, 0);
             DXManager.Device.Present();
