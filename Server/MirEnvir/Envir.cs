@@ -2591,6 +2591,9 @@ namespace Server.MirEnvir
                     account.BanReason = GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.TooManyWrongLoginAttempts);
                     account.ExpiryDate = Now.AddMinutes(2);
 
+                    // 20261116 审计修复：错密同步拉黑来源 IP（防换账号绕过账号封禁继续撞库）
+                    UpdateIPBlock(c.IPAddress, TimeSpan.FromSeconds(Settings.IPBlockSeconds));
+
                     c.Enqueue(new ServerPackets.LoginBanned
                     {
                         Reason = account.BanReason,

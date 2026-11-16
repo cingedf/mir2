@@ -1208,10 +1208,9 @@ namespace Server.MirObjects
 
             if (goods == null || count == 0 || count > goods.Info.StackSize) return;
 
+            int purchaseCount = count; // 20261116 审计修复P2：不回写共享 Goods 模板 Count（多玩家共享，回写会污染后续玩家的堆叠显示）
             if ((isBuyBack || isUsed) && count > goods.Count)
                 count = goods.Count;
-            else
-                goods.Count = count;
 
             uint cost = goods.Price();
             cost = (uint)(cost * PriceRate(player));
@@ -1224,7 +1223,7 @@ namespace Server.MirObjects
             else if (cost > player.Account.Gold) return;
 
             UserItem item = (isBuyBack || isUsed) ? goods : Envir.CreateFreshItem(goods.Info);
-            item.Count = goods.Count;
+            item.Count = (isBuyBack || isUsed) ? goods.Count : (ushort)purchaseCount;
 
             if (!player.CanGainItem(item)) return;
 

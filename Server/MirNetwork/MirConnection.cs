@@ -2626,6 +2626,9 @@ namespace Server.MirNetwork
             if (Stage != GameStage.Game)
                 return;
 
+            // 20261116 审计修复：包传 mode 直转枚举无域校验，恶意值可注入非法 PetMode 状态（对齐 ChangeAMode 先例）
+            if (!Enum.IsDefined(typeof(PetMode), p.Mode)) return;
+
             Player.PMode = p.Mode;
 
             Enqueue(new S.ChangePMode
@@ -3567,7 +3570,8 @@ namespace Server.MirNetwork
             if (Stage != GameStage.Game)
                 return;
 
-            Player.NPCData["NPCInputStr"] = p.Value;
+            // 20261116 审计修复：玩家输入直存脚本变量无长度限制，超长串可撑爆存档/NPC 脚本处理；截断 100 字符
+            Player.NPCData["NPCInputStr"] = p.Value?.Length > 100 ? p.Value.Substring(0, 100) : p.Value;
 
             if (p.NPCID == Envir.DefaultNPC.LoadedObjectID &&
                 Player.NPCObjectID == Envir.DefaultNPC.LoadedObjectID)

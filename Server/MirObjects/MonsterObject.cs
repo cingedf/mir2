@@ -1308,10 +1308,12 @@ namespace Server.MirObjects
                 return true;
             }
 
-            uint count = gold / Settings.MaxDropGold == 0 ? 1 : gold / Settings.MaxDropGold + 1;
+            // 20261116 审计修复P2：原三目优先级使整倍数金额末堆=gold%Max=0 产生 0 金币垃圾堆；整除时不再多掉一堆
+            uint count = gold / Settings.MaxDropGold + (gold % Settings.MaxDropGold == 0 ? 0u : 1u);
             for (int i = 0; i < count; i++)
             {
-                ItemObject ob = new ItemObject(this, i != count - 1 ? Settings.MaxDropGold : gold % Settings.MaxDropGold)
+                uint stackGold = i != count - 1 ? Settings.MaxDropGold : gold - (uint)(count - 1) * Settings.MaxDropGold;
+                ItemObject ob = new ItemObject(this, stackGold)
                 {
                     Owner = EXPOwner,
                     OwnerTime = Envir.Time + Settings.Minute,

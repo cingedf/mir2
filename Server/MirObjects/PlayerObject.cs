@@ -36,6 +36,7 @@ namespace Server.MirObjects
 
         public long LastRecallTime, LastTeleportTime, LastProbeTime;
         public long NextMailTime;
+        public long NextStuntluckyTime; //20261116 审计修复：绝技幸运重掷冷却
         public long MenteeEXP;
         public bool WarZone = false;
 
@@ -4494,6 +4495,10 @@ namespace Server.MirObjects
             {
                 // GetOrAdd 复用缓存实例，避免每条带物品链接的聊天消息都新建 Regex
                 // 20261116 安全审计P0修复：加 MatchTimeout 100ms，正则超时抛异常走熔断断连，防止主循环线程永久挂死
+                // 20261116 审计修复P2：缓存键=玩家可控 Title，恶意刷不同标题可无限膨胀缓存；超上限清空（合法会话内条目有限，重建成本可接受）
+                if (ChatItemRegexCache.Count > 200)
+                    ChatItemRegexCache.Clear();
+
                 Regex r = ChatItemRegexCache.GetOrAdd(chatItem.RegexInternalName, name => new Regex(name, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100)));
 
                 text = r.Replace(text, chatItem.InternalName, 1);
@@ -8267,6 +8272,13 @@ namespace Server.MirObjects
         public void Opendoor(byte Doorindex)
         {
             //todo: add check for sw doors
+            // 20261116 审计修复：客户端可传任意 doorIndex 远程开全图任意门，加距离校验（门在视野内才可开）
+            Door door = CurrentMap.GetDoor(Doorindex);
+            if (door == null) return;
+
+            if (!Functions.InRange(door.Location, CurrentLocation, Globals.DataRange))
+                return;
+
             if (CurrentMap.OpenDoor(Doorindex))
             {
                 Enqueue(new S.Opendoor() { DoorIndex = Doorindex });
@@ -12348,6 +12360,14 @@ namespace Server.MirObjects
                 return;
             }
 
+            // 20261116 审计修复P2：金币溢出检查必须前置到物品/金币任何变更之前——
+            // 原逻辑收金币时静默截断超限部分（寄件方已全额扣款=金币蒸发）；若在领取物品后再拒绝会造成物品重复领取
+            if (mail.Gold > 0 && mail.Gold + Account.Gold >= uint.MaxValue)
+            {
+                ReceiveChat("金币超出携带上限，请先消费部分金币后再领取邮件", ChatType.System);
+                return;
+            }
+
             if (mail.Items.Count > 0)
             {
                 if (!CanGainItems(mail.Items.ToArray()))
@@ -12364,12 +12384,7 @@ namespace Server.MirObjects
 
             if (mail.Gold > 0)
             {
-                uint gold = mail.Gold;
-
-                if (gold + Account.Gold >= uint.MaxValue)
-                    gold = uint.MaxValue - Account.Gold;
-
-                GainGold(gold);
+                GainGold(mail.Gold);
             }
 
             mail.Items = new List<UserItem>();
@@ -15142,6 +15157,12 @@ namespace Server.MirObjects
 
         public void GetStuntlucky()
         {
+            // 20261116 审计修复：客户端可无限主动重掷直至摇出幸运模式，加冷却防止刷概率
+            if (Envir.Time < NextStuntluckyTime)
+                return;
+
+            NextStuntluckyTime = Envir.Time + 60000; //1 分钟冷却
+
             int lotteryNumber = Envir.Random.Next(1, 11);
 
             if (lotteryNumber % 2 != 0)

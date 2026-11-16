@@ -668,8 +668,13 @@ namespace Server.MirObjects
 
             if (CreatureRules.MousePickupEnabled && mousemode)
             {
-                FillTargetList(atLocation);
-                DoTargetList = true;
+                // 20261116 审计修复：atLocation 由客户端直传（IntelligentCreaturePickup 包 Point 直读），
+                // 无校验时可指定远处坐标=宠物隔空拾取；约束拾取点必须在宠物身边（SemiAutoPickupRange 同款范围）
+                if (Functions.InRange(atLocation, CurrentLocation, CreatureRules.SemiAutoPickupRange))
+                {
+                    FillTargetList(atLocation);
+                    DoTargetList = true;
+                }
                 return;
             }
 

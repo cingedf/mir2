@@ -13,7 +13,10 @@ namespace ClientPackets
 
         protected override void ReadPacket(BinaryReader reader)
         {
-            VersionHash = reader.ReadBytes(reader.ReadInt32());
+            // 20261116 安全审计：count 由客户端全控，恶意超大值→ReadBytes 一次性分配 OOM；钳制到业务上限（写侧哈希 16B 级）
+            int count = reader.ReadInt32();
+            if (count < 0 || count > 64) count = 0;
+            VersionHash = reader.ReadBytes(count);
         }
         protected override void WritePacket(BinaryWriter writer)
         {
@@ -303,7 +306,9 @@ namespace ClientPackets
         {
             Message = reader.ReadString();
 
+            // 20261116 安全审计：count 由客户端全控，恶意超大值→循环分配 OOM/超时；钳制到业务上限（聊天引用物品≤10）
             int count = reader.ReadInt32();
+            if (count < 0 || count > 10) count = 0;
 
             for (int i = 0; i < count; i++)
                 LinkedItems.Add(new ChatItem(reader));
@@ -926,7 +931,11 @@ namespace ClientPackets
             UniqueID = reader.ReadUInt64();
             Count = reader.ReadUInt16();
 
-            Slots = new int[reader.ReadInt32()];
+            // 20261116 安全审计：count 由客户端全控，恶意超大值→new int[] 一次性分配 OOM；钳制到业务上限（背包槽位数≤256）
+            int slotCount = reader.ReadInt32();
+            if (slotCount < 0 || slotCount > 256) slotCount = 0;
+
+            Slots = new int[slotCount];
             for (int i = 0; i < Slots.Length; i++)
             {
                 Slots[i] = reader.ReadInt32();
@@ -1729,7 +1738,9 @@ namespace ClientPackets
 
         protected override void ReadPacket(BinaryReader reader)
         {
+            // 20261116 安全审计：count 由客户端全控，恶意超大值→循环 List 膨胀 OOM；钳制到业务上限（公告行数≤200）
             int LineCount = reader.ReadInt32();
+            if (LineCount < 0 || LineCount > 200) LineCount = 0;
             for (int i = 0; i < LineCount; i++)
                 notice.Add(reader.ReadString());
         }
@@ -2487,7 +2498,10 @@ namespace ClientPackets
 
         protected override void ReadPacket(BinaryReader reader)
         {
-            Image = reader.ReadBytes(reader.ReadInt32());
+            // 20261116 安全审计：count 由客户端全控，恶意超大值→ReadBytes 一次性分配 OOM；钳制到业务上限（分块截图单块≤128KB）
+            int count = reader.ReadInt32();
+            if (count < 0 || count > 131072) count = 0;
+            Image = reader.ReadBytes(count);
             ImageSize = reader.ReadInt32();
             ImageChunk = reader.ReadInt32();
         }

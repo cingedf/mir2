@@ -75,6 +75,15 @@ namespace Server.MirEnvir
             return false;
         }
 
+        // 20261116 审计修复：供 Opendoor 距离校验按索引取门（找不到返回 null）
+        public Door GetDoor(byte DoorIndex)
+        {
+            for (int i = 0; i < Doors.Count; i++)
+                if (Doors[i].index == DoorIndex)
+                    return Doors[i];
+            return null;
+        }
+
         public int GetAllMonstersObjectsCount()
         {
             int mobCount = 0;

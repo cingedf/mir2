@@ -56,6 +56,13 @@ namespace Server.MirObjects
 
             if (Caster != null && Caster.Node == null) Caster = null;
 
+            // 20261116 审计修复P2：仅玩家可施放持续性法术；Caster 被清理/非玩家（防御）时提前消散，防下游 (HumanObject)Caster 硬强转 InvalidCastException
+            if (Caster != null && !(Caster is HumanObject))
+            {
+                Despawn();
+                return;
+            }
+
             if (Envir.Time > ExpireTime || ((Spell == Spell.FireWall || Spell == Spell.Portal || Spell == Spell.ExplosiveTrap || Spell == Spell.Reincarnation || Spell == Spell.HealingCircle && Caster == null || Spell == Spell.HealingcircleRare) && Caster == null) || (Spell == Spell.TrapHexagon && Target != null) || (Spell == Spell.Trap && Target != null))
             {
                 if (Spell == Spell.TrapHexagon && Target != null || Spell == Spell.Trap && Target != null)
@@ -129,7 +136,7 @@ namespace Server.MirObjects
                     return;
                 }
             }
-            if (Spell == Spell.Reincarnation && !((HumanObject)Caster).ActiveReincarnation)
+            if (Spell == Spell.Reincarnation && Caster == null) // 20261116 审计修复P2：Caster 可能已被置 null（Node 清理），判空防硬强转 NRE
             {
                 CurrentMap.RemoveObject(this);
                 Despawn();
@@ -151,18 +158,24 @@ namespace Server.MirObjects
             if (Envir.Time < TickTime) return;
             TickTime = Envir.Time + TickSpeed;
 
+            // 20261116 审计修复P2：GetCell 可能返回 null（越界/无效格），判空前置防 NRE；迭代中集合可变，快照后遍历
             Cell cell = CurrentMap.GetCell(CurrentLocation);
-            for (int i = 0; i < cell.Objects.Count; i++)
-                if (cell != null)
-                {
-                    ProcessSpell(cell.Objects[i]);
-                }
+            if (cell == null || cell.Objects == null) return;
+            MapObject[] snapshot = cell.Objects.ToArray();
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                ProcessSpell(snapshot[i]);
+            }
 
             if ((Spell == Spell.MapLava) || (Spell == Spell.MapLightning)) Value = 0;
         }
         public void ProcessSpell(MapObject ob)
         {
             if (Envir.Time < StartTime) return;
+            // 20261116 审计修复P2：需攻击判定的法术统一要求 Caster 为玩家（上游已保证非空）；
+            // as 判空替代硬强转，Caster 异常缺失时跳过本次 tick 防InvalidCastException/NRE
+            HumanObject caster = Caster as HumanObject;
+            if (caster == null && Spell != Spell.Healing && Spell != Spell.HealingcircleRare && Spell != Spell.MapLava && Spell != Spell.MapLightning) return;
             switch (Spell)
             {
                 case Spell.FireWall:
