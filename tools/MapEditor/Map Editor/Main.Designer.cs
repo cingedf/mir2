@@ -1308,6 +1308,7 @@
             tabShandaMir3.Size = new System.Drawing.Size(1721, 974);
             tabShandaMir3.TabIndex = 7;
             tabShandaMir3.Text = "ShandaMir3(盛大3)";
+            tabShandaMir3.ToolTipText = "(F4)";   //修复 P3-⑨：与其他图库页一致补齐快捷键提示
             tabShandaMir3.UseVisualStyleBackColor = true;
             // 
             // splitShandaMir3（左右可拖分割：左侧图库列表 / 右侧编号缩略图+预览）

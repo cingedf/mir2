@@ -105,7 +105,7 @@ namespace Map_Editor
         private ToolStripDropDownButton btnRecentMaterials;
         private bool suppressRecentRecord;
 
-        //新增：浮动小地图面板（标题栏拖动移动；边缘 8px 左键拖拽调大小；点击内容区跳转）
+        //新增：浮动小地图面板（任意位置左键拖动移动；四边+四角 12px 左键拖拽调大小；点击内容区跳转）
         private Panel miniMapPanel;            //浮动面板容器（悬浮于 MapPanel 内）
         private Panel miniMapTitleBar;         //标题栏（拖动移动用）
         private PictureBox miniMapPictureBox;  //小地图图像区（点击跳转用）
@@ -151,7 +151,12 @@ namespace Map_Editor
             SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
 
             Application.Idle += Application_Idle;
-            
+
+            //修复 P1-4：MapPanel 是普通 Panel 不可聚焦，WM_MOUSEWHEEL 只发给焦点控件，Ctrl+滚轮常收不到。
+            //注册全局消息过滤器：仅当按住 Ctrl 且鼠标位于地图区内时，把滚轮转发为地图缩放（其余情况原样分发，不影响列表/树滚动）。
+            wheelFilter = new MapWheelMessageFilter(this);
+            Application.AddMessageFilter(wheelFilter);
+
             //Tilecutter
             pictureBox_Grid.Parent = pictureBox_Image;
             pictureBox_Highlight.Parent = pictureBox_Grid;
@@ -466,7 +471,7 @@ namespace Map_Editor
                 "  • 最近素材（工具条下拉）：自动记录最近使用的 8 个素材（带缩略图），\n" +
                 "    点击即恢复为当前绘制素材\n" +
                 "  • 浮动小地图：打开地图后右上角显示整图缩略，点击缩略图跳转对应位置；\n" +
-                "    拖标题栏移动，拖右/下边缘调整大小，✕ 关闭（打开新图重新显示）\n" +
+                "    在面板任意处按住左键可移动，拖四边/四角可调整大小，✕ 关闭（打开新图重新显示）\n" +
                 "  • 批量导出小地图（隐藏菜单栏→工具）：选择地图目录后把每张 .map 的\n" +
                 "    小地图导出为 PNG，并生成「地图文件名→小地图文件」对照表 CSV，\n" +
                 "    供服务器配置 MapInfo 小地图编号时参考\n\n" +
@@ -667,6 +672,17 @@ namespace Map_Editor
 
         private void MapPanel_Resize(object sender, EventArgs e)
         {
+            //修复 P3-⑥：MapPanel 缩小时把浮动小地图面板拉回可视区，避免被裁到屏幕外无法拖回
+            if (miniMapPanel != null && miniMapPanel.Visible)
+            {
+                int maxX = Math.Max(0, MapPanel.ClientSize.Width - miniMapPanel.Width);
+                int maxY = Math.Max(0, MapPanel.ClientSize.Height - miniMapPanel.Height);
+                int nx = Math.Min(Math.Max(0, miniMapPanel.Left), maxX);
+                int ny = Math.Min(Math.Max(0, miniMapPanel.Top), maxY);
+                if (nx != miniMapPanel.Left || ny != miniMapPanel.Top)
+                    miniMapPanel.Location = new Point(nx, ny);
+            }
+
             if (DXManager.Device == null)
                 return;
 
@@ -2194,7 +2210,13 @@ namespace Map_Editor
                     {
                         tabControl1.SelectedTab = targetTab;
                         targetListBox.SelectedIndex = i;
-                        imageIndex = Math.Min(imageIndex, Libraries.MapLibs[libIndex].Images.Count - 1);
+                        int imgCount = Libraries.MapLibs[libIndex].Images.Count;
+                        if (imageIndex < 0 || imgCount <= 0)
+                        {
+                            MessageBox.Show("该库尚未加载任何图片，无法定位素材。", "定位素材");
+                            return;
+                        }
+                        imageIndex = Math.Min(imageIndex, imgCount - 1);
                         targetListView.SelectedIndices.Clear();
                         targetListView.SelectedIndices.Add(imageIndex);
                         targetListView.EnsureVisible(imageIndex);
@@ -2621,6 +2643,46 @@ namespace Map_Editor
             {
                 for (int i = 0; i < steps; i++) ZoomOut();
             }
+        }
+
+        //修复 P1-4：全局滚轮消息过滤器（MapPanel 不可聚焦，滚轮只发给焦点控件，导致 MapPanel.MouseWheel 收不到 Ctrl+滚轮）
+        private MapWheelMessageFilter wheelFilter;
+
+        private sealed class MapWheelMessageFilter : IMessageFilter
+        {
+            private const int WM_MOUSEWHEEL = 0x020A;
+            private readonly Main owner;
+            public MapWheelMessageFilter(Main main) { owner = main; }
+
+            public bool PreFilterMessage(ref Message m)
+            {
+                if (m.Msg != WM_MOUSEWHEEL) return false;
+                return owner.TryHandleMapWheel(m);
+            }
+        }
+
+        private bool TryHandleMapWheel(Message m)
+        {
+            if ((Control.ModifierKeys & Keys.Control) != Keys.Control) return false;   //仅 Ctrl+滚轮
+            if (M2CellInfo == null || map == null) return false;
+
+            //鼠标在浮动小地图面板上时交给面板自身，不缩放地图
+            if (miniMapPanel != null && miniMapPanel.Visible &&
+                miniMapPanel.ClientRectangle.Contains(miniMapPanel.PointToClient(Cursor.Position)))
+                return false;
+
+            Point local = MapPanel.PointToClient(Cursor.Position);
+            if (local.X < 0 || local.Y < 0 || local.X >= MapPanel.Width || local.Y >= MapPanel.Height)
+                return false;   //鼠标不在地图区，原样分发（列表/树正常滚动）
+
+            int delta = unchecked((short)((int)m.WParam >> 16));   //HIWORD(WParam)=滚轮增量
+            int steps = Math.Max(1, Math.Abs(delta) / 120);
+            for (int i = 0; i < steps; i++)
+            {
+                if (delta > 0) ZoomIn();
+                else ZoomOut();
+            }
+            return true;    //已处理，阻止焦点控件继续收到该滚轮消息
         }
 
         private void GraspingData()
@@ -3347,6 +3409,11 @@ namespace Map_Editor
 
         private void Main_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (wheelFilter != null)
+            {
+                Application.RemoveMessageFilter(wheelFilter);   //修复 P1-4：移除滚轮消息过滤器
+                wheelFilter = null;
+            }
             Dispose();
         }
 
@@ -5172,7 +5239,13 @@ namespace Map_Editor
 
             tabControl1.SelectedTab = targetTab;
             targetListBox.SelectedIndex = targetLibItem;
-            imageIndex = Math.Min(imageIndex, Libraries.MapLibs[libIndex].Images.Count - 1);
+            int imgCount = Libraries.MapLibs[libIndex].Images.Count;
+            if (imageIndex < 0 || imgCount <= 0)
+            {
+                MessageBox.Show(this, "该库尚未加载任何图片，无法定位。", "定位素材");
+                return;
+            }
+            imageIndex = Math.Min(imageIndex, imgCount - 1);
             targetListView.SelectedIndices.Clear();
             targetListView.SelectedIndices.Add(imageIndex);
             targetListView.EnsureVisible(imageIndex);
@@ -5223,8 +5296,14 @@ namespace Map_Editor
         //新增：批量导出小地图——选择地图目录，循环渲染每张 .map 的小地图 PNG 到输出目录，并生成「地图文件名 → 小地图文件」对照表 CSV（阶段1：只导 PNG+对照表，不写 MMap.Lib）
         //修复：RenderMiniMapBitmap 参数化后完全独立于当前打开的地图（不碰全局字段，未打开地图也能导出）
         //性能优化③：导出过程用独立进度窗实时反馈（当前张数/总数 + 当前文件名），界面不再"假死"
+        private bool batchExporting;   //修复 P1-5：批量导出重入守卫（DoEvents 期间可能被再次点击）
+
         private void menuBatchExportMiniMaps_Click(object sender, EventArgs e)
         {
+            if (batchExporting) return;   //导出中忽略重复点击，避免嵌套第二轮写坏同一 CSV
+            batchExporting = true;
+            try
+            {
             if (!Libraries.Loaded)
             {
                 MessageBox.Show("图库尚未加载完成，请稍后再试。", "批量导出小地图");
@@ -5317,7 +5396,15 @@ namespace Map_Editor
                             }
                         }
 
-                        File.WriteAllLines(Path.Combine(outDir, "对照表.csv"), csvLines, System.Text.Encoding.UTF8);
+                        try
+                        {
+                            File.WriteAllLines(Path.Combine(outDir, "对照表.csv"), csvLines, System.Text.Encoding.UTF8);
+                        }
+                        catch (Exception ex)
+                        {
+                            failed++;
+                            failDetails.Add($"对照表.csv 写入失败: {ex.Message}");
+                        }
                         progressBar.Value = mapFiles.Length;
                     }
                     finally
@@ -5335,6 +5422,11 @@ namespace Map_Editor
                     if (failDetails.Count > 10) summary += $"\n... 等共 {failDetails.Count} 条";
                 }
                 MessageBox.Show(summary, "批量导出小地图");
+            }
+            }
+            finally
+            {
+                batchExporting = false;   //修复 P1-5：无论正常结束/提前返回/异常，均解除重入守卫
             }
         }
 
@@ -5990,12 +6082,29 @@ namespace Map_Editor
         //Akaras: This should create the correct size MiniMap to use in game... just photoshop it to add caves and doorway icons if needed
         public void createMiniMap()
         {
+            if (M2CellInfo == null || map == null || string.IsNullOrEmpty(mapFileName))
+            {
+                MessageBox.Show("请先打开一张地图，再导出小地图。", "导出小地图");
+                return;
+            }
+
             Bitmap miniBitmap = RenderMiniMapBitmap(M2CellInfo, mapWidth, mapHeight);
 
             string SimpleFileName = Path.GetDirectoryName(mapFileName) + @"\" + Path.GetFileNameWithoutExtension(mapFileName);
             //MessageBox.Show(SimpleFileName);
-            miniBitmap.Save(SimpleFileName + "_MiniMap.png", ImageFormat.Png);
-            MessageBox.Show("已保存... " + SimpleFileName + "_MiniMap.png"); //TODO: this shows even if failed to save
+            try
+            {
+                miniBitmap.Save(SimpleFileName + "_MiniMap.png", ImageFormat.Png);
+                MessageBox.Show("已保存... " + SimpleFileName + "_MiniMap.png");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("小地图保存失败：" + ex.Message, "导出小地图");
+            }
+            finally
+            {
+                miniBitmap.Dispose();
+            }
 
 
             //Akaras: Removed this as it was not popular as it is probably easier to photoshop the main MiniMap to 1/2 size and add borders
@@ -6151,7 +6260,7 @@ namespace Map_Editor
             return miniBitmap;
         }
 
-        //新增：初始化浮动小地图面板（悬浮于 MapPanel 内；标题栏可拖动移动，边缘 8px 左键拖拽调大小，点击图像区跳转）
+        //新增：初始化浮动小地图面板（悬浮于 MapPanel 内；任意位置左键拖动移动，四边+四角 12px 左键拖拽调大小，点击图像区跳转）
         private void InitMiniMapPanel()
         {
             if (miniMapPanel != null) return;
@@ -6221,7 +6330,8 @@ namespace Map_Editor
                 BackColor = Color.Transparent,
                 Cursor = Cursors.SizeNWSE
             };
-            grip.MouseDown += MiniMapPanel_MouseDown;
+            //右下角把手专用 MouseDown：grip 的 e.Location 是把手本地坐标(~15,15)，不能用它做面板边缘判定，否则永远返回 None 而走拖动分支
+            grip.MouseDown += MiniMapGrip_MouseDown;
             grip.MouseMove += MiniMapPanel_MouseMove;
             grip.MouseUp += MiniMapPanel_MouseUp;
             miniMapPanel.Controls.Add(grip);
@@ -6286,9 +6396,10 @@ namespace Map_Editor
         //点击小地图：按比例换算成地图坐标跳转
         private void MiniMapPictureBox_MouseClick(object sender, MouseEventArgs e)
         {
+            if (e.Button != MouseButtons.Left) return;   //修复 P3-⑤：仅左键跳转，右键留给地图区右键菜单
             //修复：拖动面板后松手会触发 MouseClick——发生过实际拖动则跳过本次点击
             if (miniMapDragMoved) return;
-            if (miniMapBitmap == null || map == null) return;
+            if (miniMapBitmap == null || map == null || miniMapBitmap.Width <= 0 || miniMapBitmap.Height <= 0) return;
             //图像按 Zoom 显示，需按实际显示比例换算
             double imgRatio = Math.Min((double)miniMapPictureBox.Width / miniMapBitmap.Width, (double)miniMapPictureBox.Height / miniMapBitmap.Height);
             int dispW = (int)(miniMapBitmap.Width * imgRatio);
@@ -6376,6 +6487,18 @@ namespace Map_Editor
                 case MiniMapResizeDir.S: return Cursors.SizeNS;
                 default: return Cursors.Default;
             }
+        }
+
+        //右下角把手专用：直接以 SE（右下角）方向进入 resize，记录起点尺寸/位置/鼠标屏幕坐标
+        private void MiniMapGrip_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left) return;
+            miniMapResizing = true;
+            miniMapResizeDir = MiniMapResizeDir.SE;
+            miniMapDragStartSize = miniMapPanel.Size;
+            miniMapDragStartLoc = miniMapPanel.Location;
+            miniMapDragStartMouse = Cursor.Position;
+            ((Control)sender).Capture = true;   //捕获鼠标，保证拖出把手区域仍收到 MouseMove
         }
 
         //四边/四角 左键拖拽调整面板大小（Windows 窗口式：左/上边拖动时同步移动 Location 保持对边固定）

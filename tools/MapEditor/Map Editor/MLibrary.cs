@@ -30,25 +30,47 @@ namespace Map_Editor
         private static string LibName(string name)
         {
             if (string.IsNullOrEmpty(name)) return name;
-            // Mapstate 路径前缀转中文语义（wood\Tilesc → 木纹 Tilesc）
+            // Mapstate 路径前缀转中文语义（wood\Tilesc → 木纹 Tilesc；盛大3 段为后缀形态 Tilescwood）
             string cn = null;
-            if (name.StartsWith("wood\\") || name.EndsWith("wood")) cn = "木纹 ";
-            else if (name.StartsWith("sand\\") || name.EndsWith("sand")) cn = "沙地 ";
-            else if (name.StartsWith("snow\\") || name.EndsWith("snow")) cn = "雪地 ";
-            else if (name.StartsWith("forest\\") || name.EndsWith("forest")) cn = "森林 ";
-            string core = cn == null ? name : name.Replace("wood\\", "").Replace("sand\\", "").Replace("snow\\", "").Replace("forest\\", "").Replace("wood", "").Replace("sand", "").Replace("snow", "").Replace("forest", "");
-            // 库名主体转中文
-            core = core
-                .Replace("Tilesc", "地面 Tilesc").Replace("Tiles30c", "大图块 Tiles30c").Replace("Tiles5c", "图块5 Tiles5c")
-                .Replace("Smtilesc", "小图块 Smtilesc").Replace("smObjectsc", "小物件 smObjectsc")
-                .Replace("Housesc", "房屋 Housesc").Replace("Cliffsc", "悬崖 Cliffsc").Replace("Dungeonsc", "地牢 Dungeonsc")
-                .Replace("Innersc", "室内 Innersc").Replace("Furnituresc", "家具 Furnituresc").Replace("Wallsc", "墙 Wallsc")
-                .Replace("Animationsc", "动画 Animationsc").Replace("Object1c", "物件1 Object1c").Replace("Object2c", "物件2 Object2c")
-                .Replace("AniTiles1", "动画图块 AniTiles1")
-                .Replace("Tiles30", "大图块 Tiles30").Replace("Tiles5", "图块5 Tiles5")
-                .Replace("Smtiles", "小图块 Smtiles").Replace("SmTiles", "小图块 SmTiles")
-                .Replace("Tiles", "地面 Tiles").Replace("Objects", "物件 Objects");
-            return (cn ?? "") + core;
+            string core = name;
+            if (name.StartsWith("wood\\")) { cn = "木纹 "; core = name.Substring(5); }
+            else if (name.StartsWith("sand\\")) { cn = "沙地 "; core = name.Substring(5); }
+            else if (name.StartsWith("snow\\")) { cn = "雪地 "; core = name.Substring(5); }
+            else if (name.StartsWith("forest\\")) { cn = "森林 "; core = name.Substring(7); }
+            else if (name.EndsWith("wood")) { cn = "木纹 "; core = name.Substring(0, name.Length - 4); }
+            else if (name.EndsWith("sand")) { cn = "沙地 "; core = name.Substring(0, name.Length - 4); }
+            else if (name.EndsWith("snow")) { cn = "雪地 "; core = name.Substring(0, name.Length - 4); }
+            else if (name.EndsWith("forest")) { cn = "森林 "; core = name.Substring(0, name.Length - 6); }
+            // 库名主体转中文：单次精确映射（不用 Replace 链——替换串含搜索词会被后续 Replace 二次命中导致前缀叠加）
+            string mapped;
+            switch (core)
+            {
+                case "Tiles30c": mapped = "大图块 Tiles30c"; break;
+                case "Tiles5c": mapped = "图块5 Tiles5c"; break;
+                case "Tilesc": mapped = "地面 Tilesc"; break;
+                case "Smtilesc": mapped = "小图块 Smtilesc"; break;
+                case "smObjectsc": mapped = "小物件 smObjectsc"; break;
+                case "Housesc": mapped = "房屋 Housesc"; break;
+                case "Cliffsc": mapped = "悬崖 Cliffsc"; break;
+                case "Dungeonsc": mapped = "地牢 Dungeonsc"; break;
+                case "Innersc": mapped = "室内 Innersc"; break;
+                case "Furnituresc": mapped = "家具 Furnituresc"; break;
+                case "Wallsc": mapped = "墙 Wallsc"; break;
+                case "Animationsc": mapped = "动画 Animationsc"; break;
+                case "Object1c": mapped = "物件1 Object1c"; break;
+                case "Object2c": mapped = "物件2 Object2c"; break;
+                case "AniTiles1": mapped = "动画图块 AniTiles1"; break;
+                case "Tiles30": mapped = "大图块 Tiles30"; break;
+                case "Tiles5": mapped = "图块5 Tiles5"; break;
+                case "Smtiles": mapped = "小图块 Smtiles"; break;
+                case "SmTiles": mapped = "小图块 SmTiles"; break;
+                case "Tiles": mapped = "地面 Tiles"; break;
+                case "Objects": mapped = "物件 Objects"; break;
+                default:
+                    // 循环拼接名（如 Objects2~28、Tiles2~9 等）由调用处自行构造中英混排，这里原样返回
+                    return name;
+            }
+            return (cn ?? "") + mapped;
         }
 
         static Libraries()
@@ -68,7 +90,7 @@ namespace Map_Editor
                 if (File.Exists(@".\Data\Map\WemadeMir2\Objects" + i + ".lib"))
                 {
                     MapLibs[i + 1] = new MLibrary(@".\Data\Map\WemadeMir2\Objects" + i);
-                    ListItems[i + 1] = new ListItem(LibName("Objects" + i), i + 1);
+                    ListItems[i + 1] = new ListItem("物件" + i + " Objects" + i, i + 1);
                 }
             }
 
@@ -80,7 +102,7 @@ namespace Map_Editor
                 if (File.Exists(@".\Data\Map\ShandaMir2\Tiles" + (i + 1) + ".lib"))
                 {
                     MapLibs[100 + i] = new MLibrary(@".\Data\Map\ShandaMir2\Tiles" + (i + 1));
-                    ListItems[100 + i] = new ListItem(LibName("Tiles" + (i + 1)), 100 + i);
+                    ListItems[100 + i] = new ListItem("地面" + (i + 1) + " Tiles" + (i + 1), 100 + i);
                 }
 
             }
@@ -91,7 +113,7 @@ namespace Map_Editor
                 if (File.Exists(@".\Data\Map\ShandaMir2\SmTiles" + (i + 1) + ".lib"))
                 {
                     MapLibs[110 + i] = new MLibrary(@".\Data\Map\ShandaMir2\SmTiles" + (i + 1));
-                    ListItems[110 + i] = new ListItem(LibName("SmTiles" + (i + 1)), 110 + i);
+                    ListItems[110 + i] = new ListItem("小图块" + (i + 1) + " SmTiles" + (i + 1), 110 + i);
                 }
             }
             MapLibs[120] = new MLibrary(@".\Data\Map\ShandaMir2\Objects");
@@ -101,7 +123,7 @@ namespace Map_Editor
                 if (File.Exists(@".\Data\Map\ShandaMir2\Objects" + (i + 1) + ".lib"))
                 {
                     MapLibs[120 + i] = new MLibrary(@".\Data\Map\ShandaMir2\Objects" + (i + 1));
-                    ListItems[120 + i] = new ListItem(LibName("Objects" + (i + 1)), 120 + i);
+                    ListItems[120 + i] = new ListItem("物件" + (i + 1) + " Objects" + (i + 1), 120 + i);
                 }
 
             }

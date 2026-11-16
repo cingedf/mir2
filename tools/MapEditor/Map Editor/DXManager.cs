@@ -500,9 +500,16 @@ namespace Map_Editor
 
             Parameters.BackBufferWidth = clientSize.Width;
             Parameters.BackBufferHeight = clientSize.Height;
-            Device.Reset(Parameters);
-
-            LoadTextures();
+            try
+            {
+                Device.Reset(Parameters);
+                LoadTextures();
+                DeviceLost = false;   //修复 P2-1：重置成功才清除丢失标志
+            }
+            catch (Direct3D9Exception)
+            {
+                DeviceLost = true;    //修复 P2-1：Reset 仍失败则保持丢失状态，由 Render 循环下次重试，避免异常穿出崩溃
+            }
         }
 
         /// <summary>
