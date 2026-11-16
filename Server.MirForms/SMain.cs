@@ -279,34 +279,6 @@ namespace Server
             form.ShowDialog();
         }
 
-        private void itemInfoToolStripMenuItem_Click_1(object sender, EventArgs e)
-        {
-            ItemInfoForm form = new ItemInfoForm();
-
-            form.ShowDialog();
-        }
-
-        private void monsterInfoToolStripMenuItem_Click_1(object sender, EventArgs e)
-        {
-            MonsterInfoForm form = new MonsterInfoForm();
-
-            form.ShowDialog();
-        }
-
-        private void nPCInfoToolStripMenuItem_Click_1(object sender, EventArgs e)
-        {
-            NPCInfoForm form = new NPCInfoForm();
-
-            form.ShowDialog();
-        }
-
-        private void questInfoToolStripMenuItem_Click_1(object sender, EventArgs e)
-        {
-            QuestInfoForm form = new QuestInfoForm();
-
-            form.ShowDialog();
-        }
-
         private void dragonSystemToolStripMenuItem_Click(object sender, EventArgs e)
         {
             DragonInfoForm form = new DragonInfoForm();
