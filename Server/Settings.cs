@@ -1466,6 +1466,9 @@ namespace Server
                 return;
             }
 
+            // 20261117 审计修复：AwakeMaterials 是静态列表，每次 Load 先 Clear 防止重复加载累加膨胀
+            Awake.AwakeMaterials.Clear();
+
             InIReader reader = new InIReader(Path.Combine(ConfigPath, "AwakeningSystem.ini"));
             Awake.AwakeSuccessRate = reader.ReadByte("Attribute", "SuccessRate", Awake.AwakeSuccessRate);
             Awake.AwakeHitRate = reader.ReadByte("Attribute", "HitRate", Awake.AwakeHitRate);
@@ -1547,7 +1550,7 @@ namespace Server
                         reader.Write("Materials_BaseValue", ((AwakeType)(i + 1)).ToString() + "_" + ((ItemGrade)(j + 1)).ToString() + "_Material2", value[1][j]);
                     }
 
-                    Awake.AwakeMaterials.Add(value);
+                    // 20261117 审计修复：删除此处的 Add —— Save 时重复 Add 导致静态列表每次保存翻倍膨胀
                 }
             }
 
@@ -1571,6 +1574,9 @@ namespace Server
             FishingSuccessMultiplier = reader.ReadInt32("Rates", "SuccessMultiplier", FishingSuccessMultiplier);
             FishingDelay = reader.ReadInt64("Rates", "Delay", FishingDelay);
             FishingMobSpawnChance = reader.ReadInt32("Rates", "MonsterSpawnChance", FishingMobSpawnChance);
+            // 20261117 审计修复：来源 ini 钳制——次数≥1（防除零）、刷怪率 0-100（防 Random.Next 负数异常）
+            FishingAttempts = Math.Max(1, FishingAttempts);
+            FishingMobSpawnChance = Math.Max(0, Math.Min(100, FishingMobSpawnChance));
             FishingMonster = reader.ReadString("Game", "Monster", FishingMonster);
         }
         public static void SaveFishing()

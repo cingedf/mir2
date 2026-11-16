@@ -11608,7 +11608,9 @@ namespace Server.MirObjects
                             Report.ItemChanged(dropItem, dropItem.Count, 2);
                         }
 
-                        if (Envir.Random.Next(100 - Settings.FishingMobSpawnChance) == 0)
+                        // 20261117 审计修复：刷怪率由 ini 全控，>100 时 Random.Next(负数) 抛异常中断钓鱼流程；运行时钳制 0-100
+                        int fishMobChance = Math.Max(0, Math.Min(100, Settings.FishingMobSpawnChance));
+                        if (Envir.Random.Next(Math.Max(1, 100 - fishMobChance)) == 0)
                         {
                             MonsterObject mob = MonsterObject.GetMonster(Envir.GetMonsterInfo(Settings.FishingMonster));
 
@@ -11699,7 +11701,8 @@ namespace Server.MirObjects
         }
         Packet GetFishInfo()
         {
-            FishingProgress = _fishCounter > 0 ? (int)(((decimal)_fishCounter / FishingProgressMax) * 100) : 0;
+            // 20261117 审计修复：FishingAttempts 可配置为 0，_fishCounter>0 时除零抛异常；加分母判零
+            FishingProgress = _fishCounter > 0 && FishingProgressMax > 0 ? (int)(((decimal)_fishCounter / FishingProgressMax) * 100) : 0;
 
             return new S.FishingUpdate
             {

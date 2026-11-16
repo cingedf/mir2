@@ -303,6 +303,8 @@ namespace Server.MirObjects
 
         private List<string> ParseInsert(List<string> lines)
         {
+            // 20261117 审计修复：#INSERT 自引用（文件指向自身）时 AddRange 无限扩张死循环；用归一路径去重，重复/自引用直接跳过
+            HashSet<string> processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             List<string> newLines = new List<string>();
 
             for (int i = 0; i < lines.Count; i++)
@@ -315,8 +317,14 @@ namespace Server.MirObjects
 
                 string path = Path.Combine(Settings.EnvirPath, split[1].Substring(1, split[1].Length - 2));
 
+                if (!processed.Add(Path.GetFullPath(path))) continue;
+
                 if (!File.Exists(path))
+                {
                     MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.InsertScriptNotFound), path));
+                    newLines.Clear(); // 防沿用上轮残留内容重复插入
+                    continue;
+                }
                 else
                     newLines = File.ReadAllLines(path).ToList();
 
@@ -330,13 +338,21 @@ namespace Server.MirObjects
 
         private List<string> ParseInclude(List<string> lines)
         {
+            // 20261117 审计修复：#INCLUDE 自引用时 InsertRange 无限插入死循环；归一路径去重 + split 长度校验防越界
+            HashSet<string> processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             for (int i = 0; i < lines.Count; i++)
             {
                 if (!lines[i].ToUpper().StartsWith("#INCLUDE")) continue;
 
                 string[] split = lines[i].Split(' ');
 
+                if (split.Length < 3) continue;
+
                 string path = Path.Combine(Settings.EnvirPath, split[1].Substring(1, split[1].Length - 2));
+
+                if (!processed.Add(Path.GetFullPath(path))) continue;
+
                 string page = ("[" + split[2] + "]").ToUpper();
 
                 bool start = false, finish = false;

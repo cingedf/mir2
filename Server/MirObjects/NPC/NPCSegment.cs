@@ -3212,7 +3212,10 @@ namespace Server.MirObjects
 
                     if (player.NPCData.TryGetValue("NPCInputStr", out object _npcInputStr))
                     {
-                        param[j] = param[j].Replace("%INPUTSTR", (string)_npcInputStr);
+                        // 20261117 审计修复：玩家输入直填脚本动作参数，清理换行/制表/空字符防注入破坏脚本参数结构
+                        //（上批已对 NPCInputStr 截断 100 字符，此处再清控制字符；合法文本输入保留）
+                        string safeInput = Regex.Replace((string)_npcInputStr ?? string.Empty, @"[\r\n\t\0]", string.Empty);
+                        param[j] = param[j].Replace("%INPUTSTR", safeInput);
                     }
                 }
 
@@ -5405,7 +5408,8 @@ namespace Server.MirObjects
                 case "+": return left + right;
                 case "-": return left - right;
                 case "*": return left * right;
-                case "/": return left / right;
+                // 20261117 审计修复：CALC 脚本除零抛异常中断脚本执行；right=0 返回 0（脚本容错）
+                case "/": return right == 0 ? 0 : left / right;
                 default: throw new ArgumentException("无效的-和运算符: {0}", op); //待修改
             }
         }
