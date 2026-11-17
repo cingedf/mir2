@@ -362,13 +362,14 @@ namespace NpcVisualEditor
                 return dragFails == 0 ? 0 : 1;
             }
 
-            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact" || args[0] == "--probe-buttons" || args[0] == "--probe-input" || args[0] == "--probe-splitter"))
+            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact" || args[0] == "--probe-buttons" || args[0] == "--probe-input" || args[0] == "--probe-splitter" || args[0] == "--probe-overlap"))
             {
                 bool auditMode = args[0] == "--layout-audit";
                 bool interactMode = args[0] == "--probe-interact";
                 bool buttonMode = args[0] == "--probe-buttons";
                 bool inputMode = args[0] == "--probe-input";
                 bool splitterMode = args[0] == "--probe-splitter";
+                bool overlapMode = args[0] == "--probe-overlap";
                 string serverDir = args[1], clientDir = args[2], outDir = args[3];
                 Environment.CurrentDirectory = serverDir;
                 Directory.CreateDirectory(outDir);
@@ -379,7 +380,7 @@ namespace NpcVisualEditor
                 }
                 var envir = Server.MirEnvir.Envir.Edit;
                 if (!envir.LoadDB()) { Console.WriteLine("CAPTURE FAIL: LoadDB 失败"); return 1; }
-                int okCount = 0, failCount = 0, layoutIssues = 0, interactionFails = 0, buttonFails = 0, inputFails = 0, splitterFails = 0;
+                int okCount = 0, failCount = 0, layoutIssues = 0, interactionFails = 0, buttonFails = 0, inputFails = 0, splitterFails = 0, overlapFails = 0;
 
                 // 布局溢出审计：递归遍历控件树，量化检测「文本溢出 / 控件越界 / 文本控件重叠」
                 // ——客观回应「输入框和文字挤压 / 显示不全 / 控件遮挡文字」类视觉问题
@@ -436,6 +437,77 @@ namespace NpcVisualEditor
 
                             Walk(c, full);
                         }
+                    }
+                    Walk(root, "");
+                }
+
+                // 控件遮挡文字探针：检测同一父容器内「上层控件的绘制区域盖住下层文本控件的文字」。
+                // WinForms Controls 集合索引越小 z-order 越高（越靠前绘制在上层）；
+                // 若索引较大的文本控件 T 的文字区域，被索引较小（更上层）的兄弟控件 C 的 Bounds 覆盖，则 T 文字被遮挡。
+                // 只检测绝对定位控件（Dock/Flow/Table 容器内重叠属设计使然），避免误报。
+                void CheckOverlaps(Control root, string formName)
+                {
+                    string Trunc(string s) => string.IsNullOrEmpty(s) ? "" : (s.Length > 16 ? s.Substring(0, 16) + "…" : s);
+                    bool IsTextCtrl(Control c) => c is Label || c is Button || c is CheckBox || c is RadioButton || c is LinkLabel
+                        || c is TextBox || c is ComboBox || c is NumericUpDown || c is RichTextBox || c is MaskedTextBox;
+                    // 估算文本控件内文字的绘制矩形（按 TextAlign 对齐到控件内边距）
+                    System.Drawing.Rectangle TextRect(Control c)
+                    {
+                        var sz = TextRenderer.MeasureText(c.Text, c.Font,
+                            new System.Drawing.Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+                        bool isInput = c is TextBox || c is ComboBox || c is NumericUpDown || c is RichTextBox || c is MaskedTextBox;
+                        int pad = isInput ? 6 : 3;
+                        int w = Math.Min(sz.Width, Math.Max(1, c.ClientSize.Width - pad * 2));
+                        int h = Math.Min(sz.Height, c.ClientSize.Height);
+                        int x, y;
+                        var align = ContentAlignment.MiddleCenter;
+                        if (c is Label la) align = la.TextAlign;
+                        if (c is Button) align = ((Button)c).TextAlign;
+                        if (c is CheckBox) align = ((CheckBox)c).TextAlign;
+                        if (c is RadioButton) align = ((RadioButton)c).TextAlign;
+                        // 水平对齐
+                        if ((align & (ContentAlignment.TopRight | ContentAlignment.MiddleRight | ContentAlignment.BottomRight)) != 0) x = c.ClientSize.Width - w - pad;
+                        else if ((align & (ContentAlignment.TopCenter | ContentAlignment.MiddleCenter | ContentAlignment.BottomCenter)) != 0) x = (c.ClientSize.Width - w) / 2;
+                        else x = pad;
+                        // 垂直对齐
+                        if ((align & (ContentAlignment.BottomLeft | ContentAlignment.BottomCenter | ContentAlignment.BottomRight)) != 0) y = c.ClientSize.Height - h;
+                        else if ((align & (ContentAlignment.MiddleLeft | ContentAlignment.MiddleCenter | ContentAlignment.MiddleRight)) != 0) y = (c.ClientSize.Height - h) / 2;
+                        else y = 3;
+                        return new System.Drawing.Rectangle(x, y, Math.Max(1, w), Math.Max(1, h));
+                    }
+
+                    void Walk(Control parent, string path)
+                    {
+                        bool layoutContainer = parent is FlowLayoutPanel || parent is TableLayoutPanel;
+                        var coll = parent.Controls;
+                        // 只检测非自动布局容器内的绝对定位控件
+                        if (!layoutContainer)
+                        {
+                            for (int i = 0; i < coll.Count; i++)
+                            {
+                                var t = coll[i];
+                                if (!IsTextCtrl(t) || !t.Visible || string.IsNullOrEmpty(t.Text) || t.Dock != DockStyle.None) continue;
+                                var tr = TextRect(t);
+                                // 转换到父容器坐标
+                                tr.Offset(t.Location);
+                                // 覆盖者：z-order 更高（索引更小，更上层）的兄弟控件
+                                for (int j = 0; j < i; j++)
+                                {
+                                    var cover = coll[j];
+                                    if (!cover.Visible || cover.Width <= 0 || cover.Height <= 0) continue;
+                                    // 容器类（承载子控件的背景/分组）其边界覆盖兄弟文字属正常布局，排除
+                                    if (cover is Panel || cover is GroupBox || cover is TabControl || cover is SplitContainer) continue;
+                                    var cr = cover.Bounds;
+                                    var inter = System.Drawing.Rectangle.Intersect(tr, cr);
+                                    if (inter.Width > 4 && inter.Height > 4)
+                                    {
+                                        Console.WriteLine($"OVERLAP: {formName}{path}/{t.GetType().Name}[{Trunc(t.Text)}] 文字区{tr} 被上层 {cover.GetType().Name}[{Trunc(cover.Text)}] {cr} 覆盖 {inter}");
+                                        overlapFails++;
+                                    }
+                                }
+                            }
+                        }
+                        foreach (Control c in coll) Walk(c, path + (string.IsNullOrEmpty(c.Name) ? c.GetType().Name : c.Name) + "/");
                     }
                     Walk(root, "");
                 }
@@ -638,6 +710,7 @@ namespace NpcVisualEditor
                         else if (buttonMode) { ClickSafeButtons(f, name); }
                         else if (inputMode) { InputForm(f, name); }
                         else if (splitterMode) { CheckSplitters(f, name); }
+                        else if (overlapMode) { CheckOverlaps(f, name); }
                         else
                         {
                             var rect = new System.Drawing.Rectangle(0, 0, Math.Max(1, f.Width), Math.Max(1, f.Height));
@@ -731,6 +804,31 @@ namespace NpcVisualEditor
                 {
                     Console.WriteLine($"SPLITTER DONE: forms={okCount} fails={splitterFails}");
                     return splitterFails == 0 ? 0 : 1;
+                }
+                if (overlapMode)
+                {
+                    // 探针自检：构造一个"上层 Button 盖住下层 Label 文字"的已知遮挡窗体，
+                    // 验证探针确实能检出（排除探针恒返回 0 的假阴性）。
+                    var testForm = new Form { Size = new System.Drawing.Size(320, 200) };
+                    var victim = new Label { Text = "被遮挡的文字标签内容", AutoSize = false, Location = new System.Drawing.Point(10, 10), Size = new System.Drawing.Size(200, 30) };
+                    var cover = new Button { Text = "覆盖者按钮", Location = new System.Drawing.Point(20, 12), Size = new System.Drawing.Size(140, 26) };
+                    // Controls[0] z-order 最高（绘制在最上层）：先加 cover 使其盖住后加的 victim
+                    testForm.Controls.Add(cover);
+                    testForm.Controls.Add(victim);
+                    // 关键：探针只检测 Visible 控件，未 Show 的窗体其子控件 Visible=false 会被跳过。
+                    // 真实窗体在 Shot 中都 Show() 过；自检必须同样 Show() 才有相同的 Visible/句柄前提。
+                    testForm.Show();
+                    Application.DoEvents();
+                    int beforeSelfTest = overlapFails;
+                    CheckOverlaps(testForm, "自检-已知遮挡");
+                    bool selfTestOk = overlapFails > beforeSelfTest;
+                    Console.WriteLine($"OVERLAP SELFTEST: {(selfTestOk ? "PASS 已检出已知遮挡" : "FAIL 漏检（探针无效）")} 检出数={overlapFails - beforeSelfTest}");
+                    // 自检检出的那条是验证探针有效的期望结果，不计入真实窗体缺陷数
+                    overlapFails = beforeSelfTest;
+                    testForm.Dispose();
+                    Console.WriteLine($"OVERLAP DONE: forms={okCount} fails={overlapFails}");
+                    // 自检失败也要返回非 0，提醒探针本身不可信
+                    return (overlapFails == 0 && selfTestOk) ? 0 : 1;
                 }
                 Console.WriteLine($"CAPTURE DONE: ok={okCount} fail={failCount}");
                 return failCount == 0 ? 0 : 1;
