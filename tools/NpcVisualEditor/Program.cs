@@ -289,6 +289,79 @@ namespace NpcVisualEditor
             // 运行时视觉核验：--capture <服务端目录> <客户端目录> <输出目录>
             // 程序化实例化各窗体 → Show() 触发真实数据加载 → DrawToBitmap 渲染成 PNG，
             // 供逐张查看挤压/截断/遮挡/缺图等视觉问题（绿色测试分支，不影响正常启动）
+            // 画布鼠标拖放探针：--probe-drag <服务端目录> <客户端目录>（独立分支，复用引擎加载）
+            if (args.Length >= 3 && args[0] == "--probe-drag")
+            {
+                string dragServer = args[1], dragClient = args[2];
+                Environment.CurrentDirectory = dragServer;
+                if (!File.Exists(Server.MirEnvir.Envir.DatabasePath))
+                {
+                    Console.WriteLine("DRAG FAIL: 未找到 Server.MirDB");
+                    return 1;
+                }
+                var dragEnvir = Server.MirEnvir.Envir.Edit;
+                if (!dragEnvir.LoadDB()) { Console.WriteLine("DRAG FAIL: LoadDB 失败"); return 1; }
+
+                int dragCases = 0, dragFails = 0;
+                var dragMap = dragEnvir.MapInfoList.FirstOrDefault(m => m.Respawns.Count > 0 || m.SafeZones.Count > 0 || m.Movements.Count > 0)
+                              ?? dragEnvir.MapInfoList.FirstOrDefault();
+                if (dragMap == null) { Console.WriteLine("DRAG FAIL: 无地图数据"); return 1; }
+                var dragNpcs = dragEnvir.NPCInfoList.Where(n => n.MapIndex == dragMap.Index).ToList();
+
+                // 反射调用 protected 鼠标处理器，构造独立 MapCanvas（owner=null、不订阅任何回调 → 纯内存无副作用）
+                var canvas = new MapCanvas(dragClient, null) { Size = new System.Drawing.Size(900, 700) };
+                canvas.CreateControl();
+                canvas.LoadMap(dragMap, dragNpcs);
+                Application.DoEvents();
+                var t = typeof(MapCanvas);
+                var onDown = t.GetMethod("OnMouseDown", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var onMove = t.GetMethod("OnMouseMove", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var onUp = t.GetMethod("OnMouseUp", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var onDouble = t.GetMethod("OnMouseDoubleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+                void Fire(System.Reflection.MethodInfo m, MouseButtons btn, int x, int y)
+                {
+                    m.Invoke(canvas, new object[] { new MouseEventArgs(btn, 1, x, y, 0) });
+                    Application.DoEvents();
+                }
+
+                // 对每种画布模式跑完整的按下→移动→松开序列 + 中键平移 + 双击，覆盖状态机全路径
+                foreach (CanvasMode mode in Enum.GetValues(typeof(CanvasMode)))
+                {
+                    canvas.Mode = mode;
+                    dragCases++;
+                    try
+                    {
+                        Fire(onDown, MouseButtons.Left, 120, 120);
+                        Fire(onMove, MouseButtons.Left, 180, 200);
+                        Fire(onUp, MouseButtons.Left, 180, 200);
+                        Fire(onDown, MouseButtons.Middle, 300, 300);
+                        Fire(onMove, MouseButtons.Middle, 340, 360);
+                        Fire(onUp, MouseButtons.Middle, 340, 360);
+                        if (onDouble != null) Fire(onDouble, MouseButtons.Left, 150, 150);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"DRAG FAIL: {mode} {ex.GetType().Name}: {ex.Message}");
+                        dragFails++;
+                    }
+                }
+                // 无地图/空NPC 边界：LoadMap(null) 后任意鼠标事件不得抛异常
+                dragCases++;
+                try
+                {
+                    canvas.LoadMap(null, null);
+                    Fire(onDown, MouseButtons.Left, 10, 10);
+                    Fire(onMove, MouseButtons.Left, 20, 20);
+                    Fire(onUp, MouseButtons.Left, 20, 20);
+                }
+                catch (Exception ex) { Console.WriteLine($"DRAG FAIL: 空地图边界 {ex.GetType().Name}: {ex.Message}"); dragFails++; }
+
+                canvas.Dispose();
+                Console.WriteLine($"DRAG DONE: cases={dragCases} fails={dragFails}");
+                return dragFails == 0 ? 0 : 1;
+            }
+
             if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact" || args[0] == "--probe-buttons" || args[0] == "--probe-input"))
             {
                 bool auditMode = args[0] == "--layout-audit";
