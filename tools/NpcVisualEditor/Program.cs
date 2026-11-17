@@ -289,9 +289,10 @@ namespace NpcVisualEditor
             // 运行时视觉核验：--capture <服务端目录> <客户端目录> <输出目录>
             // 程序化实例化各窗体 → Show() 触发真实数据加载 → DrawToBitmap 渲染成 PNG，
             // 供逐张查看挤压/截断/遮挡/缺图等视觉问题（绿色测试分支，不影响正常启动）
-            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit"))
+            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact"))
             {
                 bool auditMode = args[0] == "--layout-audit";
+                bool interactMode = args[0] == "--probe-interact";
                 string serverDir = args[1], clientDir = args[2], outDir = args[3];
                 Environment.CurrentDirectory = serverDir;
                 Directory.CreateDirectory(outDir);
@@ -302,7 +303,7 @@ namespace NpcVisualEditor
                 }
                 var envir = Server.MirEnvir.Envir.Edit;
                 if (!envir.LoadDB()) { Console.WriteLine("CAPTURE FAIL: LoadDB 失败"); return 1; }
-                int okCount = 0, failCount = 0, layoutIssues = 0;
+                int okCount = 0, failCount = 0, layoutIssues = 0, interactionFails = 0;
 
                 // 布局溢出审计：递归遍历控件树，量化检测「文本溢出 / 控件越界 / 文本控件重叠」
                 // ——客观回应「输入框和文字挤压 / 显示不全 / 控件遮挡文字」类视觉问题
@@ -363,6 +364,63 @@ namespace NpcVisualEditor
                     Walk(root, "");
                 }
 
+                // 程序化交互探针：对窗体内所有列表类控件逐项选中，触发真实的
+                // SelectedIndexChanged / AfterSelect / CellClick 事件链，捕获「选中→详情加载」
+                // 路径上才会暴露的崩溃（这类框架回调契约 bug 静态审计与纯渲染都无法发现）。
+                // 每项交互后 DoEvents 让事件处理器完整执行；异常单独计数不中断整体。
+                void InteractForm(Form f, string name)
+                {
+                    int before = interactionFails;
+                    void Walk(Control parent, string path)
+                    {
+                        foreach (Control c in parent.Controls)
+                        {
+                            string here = string.IsNullOrEmpty(c.Name) ? c.GetType().Name : c.Name;
+                            string full = path + "/" + here;
+                            try
+                            {
+                                if (c is ListBox lb && lb.Items.Count > 0)
+                                {
+                                    for (int i = 0; i < Math.Min(lb.Items.Count, 6); i++)
+                                    { lb.SelectedIndex = i; Application.DoEvents(); }
+                                }
+                                else if (c is ComboBox cb && cb.Items.Count > 0 && cb.DropDownStyle != ComboBoxStyle.DropDown)
+                                {
+                                    for (int i = 0; i < Math.Min(cb.Items.Count, 6); i++)
+                                    { cb.SelectedIndex = i; Application.DoEvents(); }
+                                }
+                                else if (c is TreeView tv && tv.Nodes.Count > 0)
+                                {
+                                    foreach (TreeNode node in tv.Nodes)
+                                    { tv.SelectedNode = node; Application.DoEvents(); break; }
+                                }
+                                else if (c is ListView lv && lv.Items.Count > 0)
+                                {
+                                    lv.Items[0].Selected = true; Application.DoEvents();
+                                }
+                                else if (c is DataGridView dg && dg.RowCount > 0)
+                                {
+                                    for (int r = 0; r < Math.Min(dg.RowCount, 3); r++)
+                                    { dg.CurrentCell = dg.Rows[r].Cells[0]; Application.DoEvents(); }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"INTERACT FAIL: {name}{full} [{c.GetType().Name}] {ex.GetType().Name}: {ex.Message}");
+                                interactionFails++;
+                            }
+                            Walk(c, full);
+                        }
+                    }
+                    try { Walk(f, ""); }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"INTERACT WALK FAIL: {name} {ex.GetType().Name}: {ex.Message}");
+                        interactionFails++;
+                    }
+                    if (interactionFails == before) Console.WriteLine($"INTERACT OK: {name}");
+                }
+
                 void Shot(Form f, string name, Action<Form> before = null)
                 {
                     try
@@ -375,11 +433,15 @@ namespace NpcVisualEditor
                         Application.DoEvents();
                         System.Threading.Thread.Sleep(120);
                         Application.DoEvents();
-                        var rect = new System.Drawing.Rectangle(0, 0, Math.Max(1, f.Width), Math.Max(1, f.Height));
-                        using var bmp = new System.Drawing.Bitmap(rect.Width, rect.Height);
-                        f.DrawToBitmap(bmp, rect);
-                        bmp.Save(Path.Combine(outDir, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
-                        Console.WriteLine($"CAPTURE OK: {name} {rect.Width}x{rect.Height}");
+                        if (interactMode) { InteractForm(f, name); }
+                        else
+                        {
+                            var rect = new System.Drawing.Rectangle(0, 0, Math.Max(1, f.Width), Math.Max(1, f.Height));
+                            using var bmp = new System.Drawing.Bitmap(rect.Width, rect.Height);
+                            f.DrawToBitmap(bmp, rect);
+                            bmp.Save(Path.Combine(outDir, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
+                            Console.WriteLine($"CAPTURE OK: {name} {rect.Width}x{rect.Height}");
+                        }
                         okCount++;
                         if (auditMode) AuditLayout(f, name);
                     }
@@ -446,6 +508,11 @@ namespace NpcVisualEditor
                 }
                 catch (Exception ex) { Console.WriteLine("CAPTURE SETUP FAIL: " + ex.Message); }
                 if (auditMode) Console.WriteLine($"LAYOUT AUDIT DONE: issues={layoutIssues}");
+                if (interactMode)
+                {
+                    Console.WriteLine($"INTERACT DONE: forms={okCount} fails={interactionFails}");
+                    return interactionFails == 0 ? 0 : 1;
+                }
                 Console.WriteLine($"CAPTURE DONE: ok={okCount} fail={failCount}");
                 return failCount == 0 ? 0 : 1;
             }
