@@ -362,12 +362,13 @@ namespace NpcVisualEditor
                 return dragFails == 0 ? 0 : 1;
             }
 
-            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact" || args[0] == "--probe-buttons" || args[0] == "--probe-input"))
+            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact" || args[0] == "--probe-buttons" || args[0] == "--probe-input" || args[0] == "--probe-splitter"))
             {
                 bool auditMode = args[0] == "--layout-audit";
                 bool interactMode = args[0] == "--probe-interact";
                 bool buttonMode = args[0] == "--probe-buttons";
                 bool inputMode = args[0] == "--probe-input";
+                bool splitterMode = args[0] == "--probe-splitter";
                 string serverDir = args[1], clientDir = args[2], outDir = args[3];
                 Environment.CurrentDirectory = serverDir;
                 Directory.CreateDirectory(outDir);
@@ -378,7 +379,7 @@ namespace NpcVisualEditor
                 }
                 var envir = Server.MirEnvir.Envir.Edit;
                 if (!envir.LoadDB()) { Console.WriteLine("CAPTURE FAIL: LoadDB 失败"); return 1; }
-                int okCount = 0, failCount = 0, layoutIssues = 0, interactionFails = 0, buttonFails = 0, inputFails = 0;
+                int okCount = 0, failCount = 0, layoutIssues = 0, interactionFails = 0, buttonFails = 0, inputFails = 0, splitterFails = 0;
 
                 // 布局溢出审计：递归遍历控件树，量化检测「文本溢出 / 控件越界 / 文本控件重叠」
                 // ——客观回应「输入框和文字挤压 / 显示不全 / 控件遮挡文字」类视觉问题
@@ -591,6 +592,36 @@ namespace NpcVisualEditor
                     if (inputFails == before) Console.WriteLine($"INPUT OK: {name}");
                 }
 
+                // 分割框探针：反射调用 Splitter.FindTarget()，确认每个 splitter 都绑定到相邻目标控件（非 null 才可拖动）
+                void CheckSplitters(Form f, string name)
+                {
+                    int before = splitterFails;
+                    var mi = typeof(Splitter).GetMethod("FindTarget",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    if (mi == null) { Console.WriteLine($"SPLITTER FAIL: {name} 无法反射 FindTarget"); splitterFails++; return; }
+                    int count = 0;
+                    void Walk(Control.ControlCollection coll, string path)
+                    {
+                        foreach (Control c in coll)
+                        {
+                            if (c is Splitter sp)
+                            {
+                                count++;
+                                object target = null;
+                                try { target = mi.Invoke(sp, null); } catch { }
+                                if (target == null)
+                                {
+                                    Console.WriteLine($"SPLITTER FAIL: {name}/{path}Splitter(Dock={sp.Dock}) FindTarget=null（不可拖动）");
+                                    splitterFails++;
+                                }
+                            }
+                            Walk(c.Controls, path + c.Name + "/");
+                        }
+                    }
+                    Walk(f.Controls, "");
+                    if (splitterFails == before) Console.WriteLine($"SPLITTER OK: {name} splitters={count}");
+                }
+
                 void Shot(Form f, string name, Action<Form> before = null)
                 {
                     try
@@ -606,6 +637,7 @@ namespace NpcVisualEditor
                         if (interactMode) { InteractForm(f, name); }
                         else if (buttonMode) { ClickSafeButtons(f, name); }
                         else if (inputMode) { InputForm(f, name); }
+                        else if (splitterMode) { CheckSplitters(f, name); }
                         else
                         {
                             var rect = new System.Drawing.Rectangle(0, 0, Math.Max(1, f.Width), Math.Max(1, f.Height));
@@ -694,6 +726,11 @@ namespace NpcVisualEditor
                 {
                     Console.WriteLine($"INPUT DONE: forms={okCount} fails={inputFails}");
                     return inputFails == 0 ? 0 : 1;
+                }
+                if (splitterMode)
+                {
+                    Console.WriteLine($"SPLITTER DONE: forms={okCount} fails={splitterFails}");
+                    return splitterFails == 0 ? 0 : 1;
                 }
                 Console.WriteLine($"CAPTURE DONE: ok={okCount} fail={failCount}");
                 return failCount == 0 ? 0 : 1;

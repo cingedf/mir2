@@ -73,7 +73,9 @@ namespace NpcVisualEditor
             _lblSummary = new Label { Dock = DockStyle.Bottom, Height = 28,
                 TextAlign = ContentAlignment.MiddleLeft, Text = "就绪。点击「扫描全部脚本」建立引用链索引。" };
 
+            // Splitter 须在目标 Left 控件之前添加，FindTarget 才指向 leftPanel
             Controls.Add(_grid);
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 160 });
             Controls.Add(leftPanel);
             Controls.Add(top);
             Controls.Add(_lblSummary);

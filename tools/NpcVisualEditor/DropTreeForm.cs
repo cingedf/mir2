@@ -92,9 +92,11 @@ namespace NpcVisualEditor
             var summaryTip = new ToolTip();
             _summary.MouseHover += (s, e) => summaryTip.SetToolTip(_summary, _summary.Text);
 
+            // Splitter 须在目标 Left 控件之前添加，FindTarget 才指向 left
             Controls.Add(_grid);
             Controls.Add(_summary);
             Controls.Add(param);
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 170 });
             Controls.Add(left);
         }
 

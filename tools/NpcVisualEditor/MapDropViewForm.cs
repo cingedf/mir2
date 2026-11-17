@@ -117,7 +117,9 @@ namespace NpcVisualEditor
             right.Controls.Add(_grid);
             right.Controls.Add(_summary);
 
+            // Splitter 必须在目标 Left 控件之前添加，FindTarget 才指向 left，否则拖不动
             Controls.Add(right);
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 160 });
             Controls.Add(left);
             Controls.Add(top);
         }

@@ -63,6 +63,8 @@ namespace NpcVisualEditor
             foreach (var m in _maps) _lstMaps.Items.Add(m);
             if (_lstMaps.Items.Count > 0) _lstMaps.SelectedIndex = 0;
             left.Controls.Add(_lstMaps);
+            // Splitter 须在目标 Left 控件之前添加，FindTarget 才指向 left
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 160 });
             Controls.Add(left);
 
             // 中：参数
@@ -80,6 +82,8 @@ namespace NpcVisualEditor
             var btnSave = new Button { Text = "保存脚本", Location = new Point(10, 610), Width = 110 };
             btnSave.Click += BtnSave_Click;
             right.Controls.AddRange(new Control[] { _txtPreview, btnSave });
+            // Splitter 须在目标 Right 控件之前添加，FindTarget 才指向 right
+            Controls.Add(new Splitter { Dock = DockStyle.Right, Width = 4, MinSize = 220 });
             Controls.Add(right);
 
             _cmbTemplate.SelectedIndexChanged += (s, e) => { BuildParams(); UpdatePreview(); };

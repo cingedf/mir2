@@ -70,8 +70,10 @@ namespace NpcVisualEditor
             right.Controls.Add(picPanel);
 
             var splitter = new Splitter { Dock = DockStyle.Left, Width = 3, MinSize = 140 };
-            Controls.Add(_list);
+            // Splitter 必须在目标 _list 之前添加：目标贴左边缘、Splitter 在其内侧，
+            // 否则 FindTarget() 返回 null 导致完全拖不动（已用反射实证）
             Controls.Add(splitter);
+            Controls.Add(_list);
             Controls.Add(right);
             Controls.Add(top);
 

@@ -114,12 +114,13 @@ namespace NpcVisualEditor
             _lblInfo.MouseHover += (s, e) =>
                 infoTip.SetToolTip(_lblInfo, string.IsNullOrEmpty(_lblInfo.Text) ? "无信息" : _lblInfo.Text);
             rightBottom.Controls.Add(_txtScript);
+            // 目标 _lblInfo 必须在 Bottom splitter 之后添加才能贴底成为可拖动目标
+            rightBottom.Controls.Add(new Splitter { Dock = DockStyle.Bottom, Height = 4, MinSize = 20 });
             rightBottom.Controls.Add(_lblInfo);
-            rightBottom.Controls.Add(new Splitter { Dock = DockStyle.Bottom, Height = 4 });
             rightBottom.Controls.Add(rbHeader);
 
             Controls.Add(rightBottom);
-            Controls.Add(new Splitter { Dock = DockStyle.Top, Height = 4 }); // 上下列表/预览可调
+            Controls.Add(new Splitter { Dock = DockStyle.Top, Height = 4, MinSize = 100 }); // 上下列表/预览可调
             Controls.Add(rightTop);
             Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 180 }); // 左右栏可调
             Controls.Add(left);

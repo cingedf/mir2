@@ -299,8 +299,11 @@ namespace NpcVisualEditor
             rightTabs.TabPages.AddRange(new[] { tpMerchant, tpFixed, tpSafe });
             right.Controls.Add(rightTabs);
 
-            page.Controls.Add(right);
+            // 世界页三栏：canvas(Fill) 已先添加；随后每组「splitter 先、目标后」使左右栏都能左键拖动改宽
+            page.Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 150 });
             page.Controls.Add(left);
+            page.Controls.Add(new Splitter { Dock = DockStyle.Right, Width = 4, MinSize = 180 });
+            page.Controls.Add(right);
             return page;
         }
 
@@ -311,7 +314,7 @@ namespace NpcVisualEditor
             var left = new Panel { Dock = DockStyle.Fill };
             var right = new Panel { Dock = DockStyle.Fill };
 
-            var splitter = new Splitter { Dock = DockStyle.Right };
+            var splitter = new Splitter { Dock = DockStyle.Right, Width = 4, MinSize = 180 };
 
             // 物品
             _txtItemSearch = new TextBox { Dock = DockStyle.Top, PlaceholderText = "搜索物品..." };

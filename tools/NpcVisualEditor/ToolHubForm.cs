@@ -84,6 +84,8 @@ namespace NpcVisualEditor
             Controls.Add(_list);
             Controls.Add(toolbar);
             Controls.Add(header);
+            // Bottom splitter 须在目标 _detail 之前添加，FindTarget 才指向它，使其可拖高度
+            Controls.Add(new Splitter { Dock = DockStyle.Bottom, Height = 4, MinSize = 40 });
             Controls.Add(_detail);
             RefreshStatus();
         }

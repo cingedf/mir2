@@ -38,6 +38,8 @@ namespace NpcVisualEditor
 
             _tree = new TreeView { Dock = DockStyle.Left, Width = 280, HideSelection = false };
             _tree.AfterSelect += (s, e) => UpdateDetail();
+            // Splitter 须在目标 Left 控件之前添加，FindTarget 才指向 _tree，使其可拖动调宽
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 150 });
             Controls.Add(_tree);
 
             var right = new Panel { Dock = DockStyle.Fill };

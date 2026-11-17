@@ -83,6 +83,8 @@ namespace NpcVisualEditor
 
             Controls.Add(_gridRows);
             Controls.Add(bottom);
+            // Splitter 须在目标 left 之前添加，FindTarget 才指向 left
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 160 });
             Controls.Add(left);
             Controls.Add(param);   // 最后添加=最优先停靠：参数栏横跨全窗体宽度，避免 btnTree 被左侧列表挤压裁切
         }

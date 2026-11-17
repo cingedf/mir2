@@ -80,7 +80,9 @@ namespace NpcVisualEditor
             right.Controls.Add(_lblSummary);
             right.Controls.Add(modeBar);
 
+            // 外层 Splitter 须在目标 left 之前添加，FindTarget 才指向 left
             Controls.Add(right);
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 160 });
             Controls.Add(left);
         }
 

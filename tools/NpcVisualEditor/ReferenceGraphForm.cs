@@ -71,7 +71,9 @@ namespace NpcVisualEditor
             _lblStatus.MouseHover += (s, e) => statusTip.SetToolTip(_lblStatus, _lblStatus.Text);
             bottom.Controls.Add(_lblStatus);
 
+            // Splitter 须在目标 Left 控件之前添加，FindTarget 才指向 left
             Controls.Add(_grid);
+            Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 180 });
             Controls.Add(left);
             Controls.Add(top);
             Controls.Add(bottom);
