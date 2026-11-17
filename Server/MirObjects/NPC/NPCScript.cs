@@ -572,7 +572,10 @@ namespace Server.MirObjects
                             currentButtons = gotoButtons;
                             continue;
                         default:
-                            throw new NotImplementedException();
+                            // 20261117 审计修复P2：未知 # 指令原抛 NotImplementedException 中断整页脚本解析（启动崩/脚本页丢失）；
+                            // 改为记日志并跳过该行，保留其余脚本解析（行为等价收敛：无效指令本就不产生效果）
+                            MessageQueue.Enqueue($"NPC脚本 {FileName} 未知指令 #{action[0]}（第 {i + 1} 行），已跳过。");
+                            continue;
                     }
                 }
 
@@ -673,9 +676,11 @@ namespace Server.MirObjects
                 while (++i < lines.Count)
                 {
                     if (lines[i].StartsWith("[")) return;
-                    if (String.IsNullOrEmpty(lines[i])) continue;
+                    // 20261117 审计修复P2：空白行 Split 后 data 为空，data[0] 越界抛异常中断商品表解析
+                    if (String.IsNullOrWhiteSpace(lines[i])) continue;
 
                     var data = lines[i].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (data.Length == 0) continue;
 
                     ItemInfo info = Envir.GetItemInfo(data[0]);
                     if (info == null)
@@ -772,9 +777,11 @@ namespace Server.MirObjects
                 while (++i < lines.Count)
                 {
                     if (lines[i].StartsWith("[")) return;
-                    if (String.IsNullOrEmpty(lines[i])) continue;
+                    // 20261117 审计修复P2：同 ParseGoods，空白行 Split 后 data[0] 越界
+                    if (String.IsNullOrWhiteSpace(lines[i])) continue;
 
                     var data = lines[i].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (data.Length == 0) continue;
 
                     ItemInfo info = Envir.GetItemInfo(data[0]);
                     if (info == null)

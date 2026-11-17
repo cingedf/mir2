@@ -1574,9 +1574,10 @@ namespace Server
             FishingSuccessMultiplier = reader.ReadInt32("Rates", "SuccessMultiplier", FishingSuccessMultiplier);
             FishingDelay = reader.ReadInt64("Rates", "Delay", FishingDelay);
             FishingMobSpawnChance = reader.ReadInt32("Rates", "MonsterSpawnChance", FishingMobSpawnChance);
-            // 20261117 审计修复：来源 ini 钳制——次数≥1（防除零）、刷怪率 0-100（防 Random.Next 负数异常）
+            // 20261117 审计修复：来源 ini 钳制——次数≥1（防除零）、刷怪率 0-100（防 Random.Next 负数异常）、延迟≥0（防钓鱼提前到期）
             FishingAttempts = Math.Max(1, FishingAttempts);
             FishingMobSpawnChance = Math.Max(0, Math.Min(100, FishingMobSpawnChance));
+            FishingDelay = Math.Max(0L, FishingDelay);
             FishingMonster = reader.ReadString("Game", "Monster", FishingMonster);
         }
         public static void SaveFishing()

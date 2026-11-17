@@ -57,9 +57,11 @@ namespace Server.MirObjects
                 {
                     if (!m.Success) continue;
 
-                    int sequence = Convert.ToInt32(m.Groups[1].Value);
+                    // 20261117 审计修复P2：%ARG(n) 的 n 由 NPC 脚本文本控制，Convert.ToInt32 超大值抛 OverflowException、
+                    // 负数或越界索引访问 Page.Args 抛异常；改为 TryParse+范围校验，越界保留原文
+                    if (!int.TryParse(m.Groups[1].Value, out int sequence) || sequence < 0 || sequence >= Page.Args.Count) continue;
 
-                    if (Page.Args.Count >= (sequence + 1)) words[i] = words[i].Replace(m.Groups[0].Value, Page.Args[sequence]);
+                    words[i] = words[i].Replace(m.Groups[0].Value, Page.Args[sequence]);
                 }
             }
 
@@ -1390,6 +1392,16 @@ namespace Server.MirObjects
         private static readonly Regex oneValRegex = new Regex(@"(.*?)\(((.*?))\)");
         private static readonly Regex twoValRegex = new Regex(@"(.*?)\(((.*?),(.*?))\)");
 
+        // 20261117 审计修复P2：Match 未成功时 Groups[x].Captures[0] 抛 ArgumentOutOfRangeException；
+        // 脚本变量解析中 varMatch/oneValMatch/twoValMatch 均为「无条件 Match、按分支消费」，
+        // 畸形脚本（如 CONQUESTGUARD() 缺参数）会让对应 Match 无捕获 → 崩脚本页。统一走此安全取值 helper（行为等价收敛）
+        private static string CaptureValue(Match match, int group, int capture = 0)
+        {
+            return match != null && match.Success && group < match.Groups.Count && match.Groups[group].Captures.Count > capture
+                ? match.Groups[group].Captures[capture].Value
+                : string.Empty;
+        }
+
         public string ReplaceValue(PlayerObject player, string param)
         {
             ConquestObject Conquest;
@@ -1409,7 +1421,7 @@ namespace Server.MirObjects
             Match twoValMatch = twoValRegex.Match(innerMatch);
 
             if (varRegex.Match(innerMatch).Success)
-                innerMatch = innerMatch.Replace(varMatch.Groups[2].Captures[0].Value.ToUpper(), "");
+                innerMatch = innerMatch.Replace(CaptureValue(varMatch, 2).ToUpper(), "");
             else if (twoValRegex.Match(innerMatch).Success)
                 innerMatch = innerMatch.Replace(twoValMatch.Groups[2].Captures[0].Value.ToUpper(), "");
             else if (oneValRegex.Match(innerMatch).Success)
@@ -1420,12 +1432,12 @@ namespace Server.MirObjects
             switch (innerMatch)
             {
                 case "MONSTERCOUNT()":
-                    Map map = Envir.GetMapByNameAndInstance(oneValMatch.Groups[2].Captures[0].Value.ToUpper());
+                    Map map = Envir.GetMapByNameAndInstance(CaptureValue(oneValMatch, 2).ToUpper());
                     newValue = map == null ? "N/A" : map.MonsterCount.ToString();
                     break;
                 case "CONQUESTGUARD()":
-                    var val1 = FindVariable(player, "%" + twoValMatch.Groups[3].Captures[0].Value.ToUpper());
-                    var val2 = FindVariable(player, "%" + twoValMatch.Groups[4].Captures[0].Value.ToUpper());
+                    var val1 = FindVariable(player, "%" + CaptureValue(twoValMatch, 3).ToUpper());
+                    var val2 = FindVariable(player, "%" + CaptureValue(twoValMatch, 4).ToUpper());
 
                     int intVal1, intVal2;
 
@@ -1450,8 +1462,8 @@ namespace Server.MirObjects
                     }
                     break;
                 case "CONQUESTGATE()":
-                    val1 = FindVariable(player, "%" + twoValMatch.Groups[3].Captures[0].Value.ToUpper());
-                    val2 = FindVariable(player, "%" + twoValMatch.Groups[4].Captures[0].Value.ToUpper());
+                    val1 = FindVariable(player, "%" + CaptureValue(twoValMatch, 3).ToUpper());
+                    val2 = FindVariable(player, "%" + CaptureValue(twoValMatch, 4).ToUpper());
 
                     if (int.TryParse(val1.Replace("%", ""), out intVal1) && int.TryParse(val2.Replace("%", ""), out intVal2))
                     {
@@ -1473,8 +1485,8 @@ namespace Server.MirObjects
                     }
                     break;
                 case "CONQUESTWALL()":
-                    val1 = FindVariable(player, "%" + twoValMatch.Groups[3].Captures[0].Value.ToUpper());
-                    val2 = FindVariable(player, "%" + twoValMatch.Groups[4].Captures[0].Value.ToUpper());
+                    val1 = FindVariable(player, "%" + CaptureValue(twoValMatch, 3).ToUpper());
+                    val2 = FindVariable(player, "%" + CaptureValue(twoValMatch, 4).ToUpper());
 
                     if (int.TryParse(val1.Replace("%", ""), out intVal1) && int.TryParse(val2.Replace("%", ""), out intVal2))
                     {
@@ -1496,8 +1508,8 @@ namespace Server.MirObjects
                     }
                     break;
                 case "CONQUESTSIEGE()":
-                    val1 = FindVariable(player, "%" + twoValMatch.Groups[3].Captures[0].Value.ToUpper());
-                    val2 = FindVariable(player, "%" + twoValMatch.Groups[4].Captures[0].Value.ToUpper());
+                    val1 = FindVariable(player, "%" + CaptureValue(twoValMatch, 3).ToUpper());
+                    val2 = FindVariable(player, "%" + CaptureValue(twoValMatch, 4).ToUpper());
 
                     if (int.TryParse(val1.Replace("%", ""), out intVal1) && int.TryParse(val2.Replace("%", ""), out intVal2))
                     {
@@ -1519,7 +1531,7 @@ namespace Server.MirObjects
                     }
                     break;
                 case "CONQUESTOWNER()":
-                    val1 = FindVariable(player, "%" + oneValMatch.Groups[2].Captures[0].Value.ToUpper());
+                    val1 = FindVariable(player, "%" + CaptureValue(oneValMatch, 2).ToUpper());
 
                     if (int.TryParse(val1.Replace("%", ""), out intVal1))
                     {
@@ -1531,7 +1543,7 @@ namespace Server.MirObjects
                     }
                     break;
                 case "CONQUESTGOLD()":
-                    val1 = FindVariable(player, "%" + oneValMatch.Groups[2].Captures[0].Value.ToUpper());
+                    val1 = FindVariable(player, "%" + CaptureValue(oneValMatch, 2).ToUpper());
 
                     if (int.TryParse(val1.Replace("%", ""), out intVal1))
                     {
@@ -1542,7 +1554,7 @@ namespace Server.MirObjects
                     }
                     break;
                 case "CONQUESTRATE()":
-                    val1 = FindVariable(player, "%" + oneValMatch.Groups[2].Captures[0].Value.ToUpper());
+                    val1 = FindVariable(player, "%" + CaptureValue(oneValMatch, 2).ToUpper());
 
                     if (int.TryParse(val1.Replace("%", ""), out intVal1))
                     {
@@ -1553,7 +1565,7 @@ namespace Server.MirObjects
                     }
                     break;
                 case "CONQUESTSCHEDULE()":
-                    val1 = FindVariable(player, "%" + oneValMatch.Groups[2].Captures[0].Value.ToUpper());
+                    val1 = FindVariable(player, "%" + CaptureValue(oneValMatch, 2).ToUpper());
 
                     if (int.TryParse(val1.Replace("%", ""), out intVal1))
                     {
@@ -1572,7 +1584,7 @@ namespace Server.MirObjects
                     }
                     break;
                 case "OUTPUT()":
-                    newValue = FindVariable(player, "%" + varMatch.Groups[2].Captures[0].Value.ToUpper());
+                    newValue = FindVariable(player, "%" + CaptureValue(varMatch, 2).ToUpper());
                     break;
                 case "NPCNAME":
                     for (int i = 0; i < player.CurrentMap.NPCs.Count; i++)
@@ -1776,14 +1788,14 @@ namespace Server.MirObjects
             Match varMatch = varRegex.Match(innerMatch);
 
             if (varRegex.Match(innerMatch).Success)
-                innerMatch = innerMatch.Replace(varMatch.Groups[2].Captures[0].Value.ToUpper(), "");
+                innerMatch = innerMatch.Replace(CaptureValue(varMatch, 2).ToUpper(), "");
 
             string newValue = string.Empty;
 
             switch (innerMatch)
             {
                 case "OUTPUT()":
-                    newValue = FindVariable(Monster, "%" + varMatch.Groups[2].Captures[0].Value.ToUpper());
+                    newValue = FindVariable(Monster, "%" + CaptureValue(varMatch, 2).ToUpper());
                     break;
                 case "USERNAME":
                     newValue = Monster.Name;

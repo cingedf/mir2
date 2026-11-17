@@ -4724,7 +4724,9 @@ namespace Server.MirObjects
 
             if (page.Length > 0)
             {
-                var script = NPCScript.Get(scriptid);
+                // 20261117 审计修复P2：脚本 ID 由脚本数据控制，NPCScript.Get 内部索引器遇无效 ID 抛 KeyNotFoundException
+                // 中断 CompleteNPC（可能中断任务链）；改为 TryGetValue 静默跳过（无效脚本本就无处可去）
+                if (!Envir.Scripts.TryGetValue(scriptid, out NPCScript script) || script == null) return;
                 script.Call(this, npcid, page.ToUpper());
             }
         }

@@ -280,14 +280,11 @@ public class InIReader
 
     public Point ReadPoint(string section, string key, Point Default)
     {
+        // 20261117 审计修复P2：畸形配置（缺逗号/空段/非数字）原 Split(',')[1] 越界抛异常导致启动中断；统一钳制回写默认值
         string temp = FindValue(section, key);
         int tempX, tempY;
-        if (temp == null || !int.TryParse(temp.Split(',')[0], out tempX))
-        {
-            Write(section, key, Default);
-            return Default;
-        }
-        if (!int.TryParse(temp.Split(',')[1], out tempY))
+        string[] parts = temp == null ? null : temp.Split(',');
+        if (parts == null || parts.Length < 2 || !int.TryParse(parts[0], out tempX) || !int.TryParse(parts[1], out tempY))
         {
             Write(section, key, Default);
             return Default;
@@ -298,14 +295,11 @@ public class InIReader
 
     public Size ReadSize(string section, string key, Size Default)
     {
+        // 20261117 审计修复P2：同 ReadPoint，防 Split(',')[1] 越界
         string temp = FindValue(section, key);
         int tempX, tempY;
-        if (!int.TryParse(temp.Split(',')[0], out tempX))
-        {
-            Write(section, key, Default);
-            return Default;
-        }
-        if (!int.TryParse(temp.Split(',')[1], out tempY))
+        string[] parts = temp == null ? null : temp.Split(',');
+        if (parts == null || parts.Length < 2 || !int.TryParse(parts[0], out tempX) || !int.TryParse(parts[1], out tempY))
         {
             Write(section, key, Default);
             return Default;
