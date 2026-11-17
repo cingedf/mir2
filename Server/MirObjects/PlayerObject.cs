@@ -10697,6 +10697,8 @@ namespace Server.MirObjects
                     MyGuild.SendServerPacket(new S.GuildStorageItemChange() { Type = 1, User = Info.Index, To = to, From = from });
                     RefreshBagWeight();
                     MyGuild.NeedSave = true;
+                    // 20261117 审计修复P2 F4：领取成功未回包，客户端请求方仓库格持续锁定；补回执（与仓库其他失败分支 Enqueue(p) 一致）
+                    Enqueue(p);
                     break;
                 case 2: // Move Item
                     GuildStorageItem q = null;
@@ -10994,8 +10996,11 @@ namespace Server.MirObjects
             MyGuild.GTPrice = 0;
             gt.Owner = MyGuild.Name;
             gt.Leader = MyGuild.Ranks[0].Members[0].Name;
+            // 20261117 审计修复P2 F5：原代码把副会长写进 Leader 主字段（覆盖会长），应写 Leader2 副会字段
             if (MyGuild.Ranks[0].Members.Count > 1)
-                gt.Leader = MyGuild.Ranks[0].Members[1].Name;
+                gt.Leader2 = MyGuild.Ranks[0].Members[1].Name;
+            else
+                gt.Leader2 = string.Empty;
             gt.Price = 0;
             gt.Key = MyGuild.GTKey;
             gt.Days = (Envir.Now - MyGuild.GTRent).Days;
@@ -13778,6 +13783,21 @@ namespace Server.MirObjects
                 return;
             }
 
+            // 20261117 审计修复P2 F3：婚姻冷却需双向校验——旧求婚在离婚冷却期内仍可绕过（旧求婚发起时尚未离婚，
+            // 接受时才判定）；补充自己与对方两条冷却校验，命中则拒绝并清除求婚
+            if (Info.MarriedDate.AddDays(Settings.MarriageCooldown) > Envir.Now)
+            {
+                ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.MarriageCooldownAfterDivorce, Settings.MarriageCooldown), ChatType.System);
+                MarriageProposal = null;
+                return;
+            }
+
+            if (MarriageProposal.Info.MarriedDate.AddDays(Settings.MarriageCooldown) > Envir.Now)
+            {
+                ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.MarriageCooldownAfterDivorceOther, MarriageProposal.Info.Name, Settings.MarriageCooldown), ChatType.System);
+                MarriageProposal = null;
+                return;
+            }
 
             MarriageProposal.Info.Married = Info.Index;
             MarriageProposal.Info.MarriedDate = Envir.Now;

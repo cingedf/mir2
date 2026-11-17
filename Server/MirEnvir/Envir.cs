@@ -1161,7 +1161,7 @@ namespace Server.MirEnvir
                         if (!Directory.Exists(DatabaseBackUpPath)) Directory.CreateDirectory(DatabaseBackUpPath);
 
                         var fileName =
-                            $"Database {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}.bak";
+                            $"Database {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}-{System.Guid.NewGuid():N}.bak"; // 20261117 审计修复P2：同一秒内多次存档备份名冲突（后者删前者再 Copy），加 GUID 保证唯一
 
                         var backupFile = Path.Combine(DatabaseBackUpPath, fileName);
 
@@ -1409,6 +1409,20 @@ namespace Server.MirEnvir
             {
                 // 20261116 审计修复：存档异步收尾失败静默吞掉会导致坏档无人知晓，补日志
                 MessageQueue.Enqueue(ex);
+                // 20261117 审计修复P2：写盘失败时 NeedSave 已被提前置 false，导致坏档永不重试；按文件名索引复位以便下次存盘重写
+                try
+                {
+                    if (fStream != null)
+                    {
+                        int guildIndex = int.Parse(Path.GetFileNameWithoutExtension(fStream.Name));
+                        if (guildIndex >= 0 && guildIndex < GuildList.Count)
+                            GuildList[guildIndex].NeedSave = true;
+                    }
+                }
+                catch (Exception restoreEx)
+                {
+                    MessageQueue.Enqueue(restoreEx);
+                }
             }
         }
 
@@ -1512,6 +1526,20 @@ namespace Server.MirEnvir
             {
                 // 20261116 审计修复：存档异步收尾失败静默吞掉会导致坏档无人知晓，补日志
                 MessageQueue.Enqueue(ex);
+                // 20261117 审计修复P2：写盘失败时 NeedSave 已被提前置 false，导致坏档永不重试；按文件名 Info.Index 复位以便下次存盘重写
+                try
+                {
+                    if (fStream != null)
+                    {
+                        int infoIndex = int.Parse(Path.GetFileNameWithoutExtension(fStream.Name));
+                        var conquest = ConquestList.FirstOrDefault(c => c.Info != null && c.Info.Index == infoIndex);
+                        if (conquest != null) conquest.NeedSave = true;
+                    }
+                }
+                catch (Exception restoreEx)
+                {
+                    MessageQueue.Enqueue(restoreEx);
+                }
             }
         }
 
@@ -1531,7 +1559,7 @@ namespace Server.MirEnvir
                     {
                         if (!Directory.Exists(AccountsBackUpPath)) Directory.CreateDirectory(AccountsBackUpPath);
                         var fileName =
-                            $"Accounts {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}.bak";
+                            $"Accounts {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}-{System.Guid.NewGuid():N}.bak"; // 20261117 审计修复P2：同一秒内多次存档备份名冲突，加 GUID 保证唯一
                         if (File.Exists(Path.Combine(AccountsBackUpPath, fileName))) File.Delete(Path.Combine(AccountsBackUpPath, fileName));
                         // 20261117 审计修复P0：原 File.Move 把活档整个搬走，从此处到 EndSaveAccounts 替换前
                         // AccountPath 始终不存在，中途异常=活档丢失；改 File.Copy 保留原档（同名备份刚才已删，Copy 安全）
