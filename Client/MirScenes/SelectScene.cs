@@ -329,6 +329,7 @@ namespace Client.MirScenes
 
         private void NewCharacter(S.NewCharacter p)
         {
+            if (_character == null || _character.IsDisposed) return; //20261117 审计修复P2：防空引用
             _character.OKButton.Enabled = true;
 
             switch (p.Result)
@@ -359,6 +360,7 @@ namespace Client.MirScenes
         }
         private void NewCharacter(S.NewCharacterSuccess p)
         {
+            if (_character == null || _character.IsDisposed) return; //20261117 审计修复P2：防空引用
             _character.Dispose();
             MirMessageBox.Show(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.YourCharacterCreatedSuccessfully));
 

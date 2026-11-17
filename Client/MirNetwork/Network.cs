@@ -1096,7 +1096,19 @@ namespace Client.MirNetwork
                     if (p == null)
                         continue;
 
-                    MirScene.ActiveScene.ProcessPacket(p);
+                    // 20261117 审计修复P2：逐包 try，单包处理异常不再中断整帧剩余包（原无 try 一处炸全帧丢包）
+                    try
+                    {
+                        MirScene scene = MirScene.ActiveScene;
+                        if (scene == null)
+                            continue;
+
+                        scene.ProcessPacket(p);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Settings.LogErrors) CMain.SaveError(ex.ToString());
+                    }
                 }
             }
 

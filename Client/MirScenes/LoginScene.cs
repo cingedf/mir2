@@ -148,6 +148,13 @@ namespace Client.MirScenes
             catch (Exception ex)
             {
                 if (Settings.LogErrors) CMain.SaveError(ex.ToString());
+
+                // 20261117 审计修复P2：版本哈希计算/发送异常原仅记日志，玩家卡在"发送版本"无提示无重试；弹窗提供重试/断开
+                MirMessageBox box = new MirMessageBox(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.ErrorConnectingToServer), MirMessageBoxButtons.YesNo);
+                box.Label.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.SendingClientVersion) + "\n" + ex.Message;
+                box.YesButton.Click += (o, e) => SendVersion();
+                box.NoButton.Click += (o, e) => Network.Disconnect();
+                box.Show();
             }
         }
         private void ClientVersion(S.ClientVersion p)
@@ -163,6 +170,14 @@ namespace Client.MirScenes
                     _connectBox.Dispose();
                     _login.Show();
                     break;
+                default:
+                    // 20261117 审计修复P2：未知版本结果原无 default 分支，玩家卡在"发送版本"；弹窗提示更新/断开
+                    MirMessageBox versionBox = new MirMessageBox(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.ErrorConnectingToServer), MirMessageBoxButtons.YesNo);
+                    versionBox.Label.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.WrongVersionPleaseUpdateGame);
+                    versionBox.YesButton.Click += (o, e) => SendVersion();
+                    versionBox.NoButton.Click += (o, e) => Network.Disconnect();
+                    versionBox.Show();
+                    break;
             }
         }
 
@@ -177,6 +192,8 @@ namespace Client.MirScenes
         }
         private void NewAccount(S.NewAccount p)
         {
+            // 20261117 审计修复P2：对话框已被关闭/释放时忽略迟到响应包，防空引用崩溃
+            if (_account == null || _account.IsDisposed) return;
             _account.OKButton.Enabled = true;
             switch (p.Result)
             {
@@ -221,6 +238,7 @@ namespace Client.MirScenes
         }
         private void ChangePassword(S.ChangePassword p)
         {
+            if (_password == null || _password.IsDisposed) return; //20261117 审计修复P2：防空引用
             _password.OKButton.Enabled = true;
 
             switch (p.Result)
@@ -258,6 +276,7 @@ namespace Client.MirScenes
         }
         private void ChangePassword(S.ChangePasswordBanned p)
         {
+            if (_password == null || _password.IsDisposed) return; //20261117 审计修复P2：防空引用
             _password.Dispose();
 
             TimeSpan d = p.ExpiryDate - CMain.Now;
@@ -266,6 +285,7 @@ namespace Client.MirScenes
         }
         private void Login(S.Login p)
         {
+            if (_login == null || _login.IsDisposed) return; //20261117 审计修复P2：防空引用
             _login.OKButton.Enabled = true;
             switch (p.Result)
             {
@@ -299,6 +319,7 @@ namespace Client.MirScenes
         }
         private void Login(S.LoginBanned p)
         {
+            if (_login == null || _login.IsDisposed) return; //20261117 审计修复P2：防空引用
             _login.OKButton.Enabled = true;
 
             TimeSpan d = p.ExpiryDate - CMain.Now;

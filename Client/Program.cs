@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Threading; //20261117 审计修复P2：补丁器忙等改 Thread.Sleep(50) 需要
 using Launcher;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
@@ -91,9 +92,16 @@ namespace Client
                 {
                     string patcherPath = Application.StartupPath + @"\AutoPatcher.exe";
 
+                    // 20261117 审计修复P2：进程可能已退出，MainModule/FileName 抛异常不应中断补丁更新；逐个 try 忽略
                     for (int i = 0; i < processes.Length; i++)
-                        if (processes[i].MainModule.FileName == patcherPath)
-                            processes[i].Kill();
+                    {
+                        try
+                        {
+                            if (processes[i].MainModule.FileName == patcherPath)
+                                processes[i].Kill();
+                        }
+                        catch { } //进程已退出或访问被拒绝，忽略
+                    }
 
                     Stopwatch stopwatch = Stopwatch.StartNew();
                     bool wait = true;
@@ -102,13 +110,18 @@ namespace Client
                     while (wait)
                     {
                         wait = false;
-                        for (int i = 0; i < processes.Length; i++)
-                            if (processes[i].MainModule.FileName == patcherPath)
-                            {
-                                wait = true;
-                            }
+                        try
+                        {
+                            for (int i = 0; i < processes.Length; i++)
+                                if (processes[i].MainModule.FileName == patcherPath)
+                                {
+                                    wait = true;
+                                }
+                        }
+                        catch { wait = true; } //访问异常时保守继续等待
 
-                        if (stopwatch.ElapsedMilliseconds <= 3000) continue;
+                        // 20261117 审计修复P2：忙等改 Thread.Sleep(50)，避免 3 秒等待期间 CPU 空转
+                        if (stopwatch.ElapsedMilliseconds <= 3000) { Thread.Sleep(50); continue; }
                         MessageBox.Show(GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.FailedCloseAutoPatcherUpdate));
                         return true;
                     }

@@ -37,7 +37,8 @@ public class InIReader
                 for (int b = a + 1; b < _contents.Count; b++)
                 {
                     // 20261116 审计修复：无 '=' 的行 Split 后只有 [0]，直接取 [1] 会越界
-                    string[] parts = _contents[b].Split('=');
+                    // 20261117 审计修复P2：Split('=') 按所有 '=' 拆分只取 [1]，值含 '='（密码/URL）被截断；限制为 2 段保留完整值
+                    string[] parts = _contents[b].Split(new[] { '=' }, 2);
                     if (String.CompareOrdinal(parts[0], key) == 0)
                         return parts.Length > 1 ? parts[1] : string.Empty;
                     else if (_contents[b].StartsWith("[") && _contents[b].EndsWith("]"))
@@ -51,7 +52,8 @@ public class InIReader
         for (int a = 0; a < _contents.Count; a++)
             if (String.CompareOrdinal(_contents[a], "[" + section + "]") == 0)
                 for (int b = a + 1; b < _contents.Count; b++)
-                    if (String.CompareOrdinal(_contents[b].Split('=')[0], key) == 0)
+                    // 20261117 审计修复P2：Split('=', 2) 只按首个 '=' 拆，key 判定不受值中 '=' 影响
+                    if (String.CompareOrdinal(_contents[b].Split(new[] { '=' }, 2)[0], key) == 0)
                         return b;
                     else if (_contents[b].StartsWith("[") && _contents[b].EndsWith("]"))
                     {

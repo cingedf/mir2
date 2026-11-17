@@ -920,6 +920,9 @@ namespace Client.MirScenes
                         GameScene.Scene.GroupDialog.AddMember(MapObject.MouseObject.Name);
                         break;
                 }
+
+                // 20261117 审计修复P2：一次按键只执行第一个通过过滤的绑定，避免 Tab 同时触发拾取与掉落显示
+                break;
             }
         }
 
@@ -1883,6 +1886,7 @@ namespace Client.MirScenes
                     break;
                 case (short)ServerPacketIds.InTrapRock:
                     S.InTrapRock packetdata = (S.InTrapRock)p;
+                    if (User == null) break; //20261117 审计修复P2：User 尚未收到时防空引用
                     User.InTrapRock = packetdata.Trapped;
                     break;
                 case (short)ServerPacketIds.RemoveMagic:
@@ -2024,10 +2028,11 @@ namespace Client.MirScenes
                     DeleteQuestItem((S.DeleteQuestItem)p);
                     break;
                 case (short)ServerPacketIds.CancelReincarnation:
+                    if (User == null) break; //20261117 审计修复P2：User 尚未收到时防空引用
                     User.ReincarnationStopTime = 0;
                     break;
                 case (short)ServerPacketIds.RequestReincarnation:
-                    if (!User.Dead) return;
+                    if (User == null || User.Dead) return; //20261117 审计修复P2：User 尚未收到时防空引用
                     RequestReincarnation();
                     break;
                 case (short)ServerPacketIds.UserBackStep:
