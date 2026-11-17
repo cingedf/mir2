@@ -934,6 +934,10 @@ namespace Client.MirGraphics
 
         public unsafe byte* Data;
 
+        // 20261117 审计修复：Data 裸指针 Unlock 后失效（CreateTexture 末尾置 null），
+        // VisiblePixel 不能再依赖它；在 Lock 窗口内把 BGRA alpha 拷到托管数组保活，供像素命中判定使用。
+        private byte[] _pickAlpha;
+
         public MImage(BinaryReader reader)
         {
             //read layer 1
@@ -973,6 +977,12 @@ namespace Client.MirGraphics
             // 20261116 审计修复（use-after-unlock）：在 Unlock 前先完成 TrueSize 逐像素扫描——
             // 此时 Data 裸指针有效；Unlock 后 VisiblePixel 不再需要裸指针（TrueSize 已缓存）。
             GetTrueSize();
+
+            // 20261117 审计修复：趁 Lock 窗口内 Data 裸指针仍有效，把 BGRA alpha 拷入托管数组保活。
+            // Unlock 后 Data 置 null（见下），VisiblePixel 改为读此缓存——否则 PixelDetect 容器命中恒 false，
+            // 其子按钮（MainDialog 底部条等）被命中递归整支跳过，点击穿透到地图导致人物乱走。
+            _pickAlpha = new byte[w * h * 4];
+            System.Runtime.InteropServices.Marshal.Copy((IntPtr)Data, _pickAlpha, 0, _pickAlpha.Length);
 
             stream.Data.Dispose();
             Image.UnlockRectangle(0);
@@ -1017,6 +1027,7 @@ namespace Client.MirGraphics
             Image = null;
             MaskImage = null;
             Data = null;
+            _pickAlpha = null; //20261117 审计修复：释放像素命中缓存，随纹理一起回收
         }
 
         public unsafe bool VisiblePixel(Point p)
@@ -1024,24 +1035,13 @@ namespace Client.MirGraphics
             if (p.X < 0 || p.Y < 0 || p.X >= Width || p.Y >= Height)
                 return false;
 
-            int w = Width;
+            // 20261117 审计修复：改用 Lock 窗口内拷贝的托管 alpha 缓存判定（Data 裸指针 Unlock 后已置 null）。
+            // 原 58af1ed 在 Data==null 时返回 false（=整图不可见），与注释声称的"退化为整图可见"相反，
+            // 导致 PixelDetect=true 容器命中恒 false、子按钮点击穿透到地图。缓存未就绪时安全退化为整图可见（true）。
+            if (_pickAlpha != null)
+                return _pickAlpha[(p.Y * (Width << 2)) + (p.X << 2) + 3] != 0;
 
-            bool result = false;
-            // 20261116 审计修复（use-after-unlock）：Data 仅在 Lock 窗口内有效（CreateTexture 时已预热 TrueSize），
-            // Unlock 后为 null，此处安全回退 false（拾取判定退化为整图可见，无崩溃）
-            if (Data != null)
-            {
-                int x = p.X;
-                int y = p.Y;
-                
-                int index = (y * (w << 2)) + (x << 2) + 3;
-                
-                byte col = Data[index];
-
-                if (col == 0) return false;
-                else return true;
-            }
-            return result;
+            return true;
         }
 
         public Size GetTrueSize()
