@@ -35,6 +35,46 @@ namespace NpcVisualEditor
                 }
             }
 
+            // 浏览器属性表包装探针：--probe-browser <服务端目录>
+            // 遍历全部物品/怪物，逐个构造只读包装并赋给 PropertyGrid，精确定位 SelectedObjects NRE。
+            if (args.Length >= 2 && args[0] == "--probe-browser")
+            {
+                Environment.CurrentDirectory = args[1];
+                if (!File.Exists(Server.MirEnvir.Envir.DatabasePath))
+                {
+                    Console.WriteLine("PROBE FAIL: 未找到 Server.MirDB");
+                    return 1;
+                }
+                var env = Server.MirEnvir.Envir.Edit;
+                if (!env.LoadDB()) { Console.WriteLine("PROBE FAIL: LoadDB 失败"); return 1; }
+                using var host = new Form();
+                var pg = new PropertyGrid();
+                host.Controls.Add(pg);
+                host.CreateControl();
+                int fail = 0;
+                foreach (var it in env.ItemInfoList)
+                {
+                    try { pg.SelectedObject = new ItemInfoViewWrapper(it); }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"PROBE ITEM {it.Index} {it.Name}: {ex.GetType().Name}: {ex.Message}");
+                        if (++fail >= 5) break;
+                    }
+                }
+                if (fail < 5)
+                    foreach (var m in env.MonsterInfoList)
+                    {
+                        try { pg.SelectedObject = new ReadOnlyObjectWrapper(m); }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"PROBE MON {m.Index} {m.Name}: {ex.GetType().Name}: {ex.Message}");
+                            if (++fail >= 5) break;
+                        }
+                    }
+                Console.WriteLine($"PROBE DONE fail={fail}");
+                return fail == 0 ? 0 : 1;
+            }
+
             // 客户端配置解析自检：--verify-client-config <客户端目录>
             if (args.Length >= 2 && args[0] == "--verify-client-config")
             {

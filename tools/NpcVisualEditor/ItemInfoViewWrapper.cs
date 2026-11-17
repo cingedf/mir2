@@ -71,6 +71,11 @@ namespace NpcVisualEditor
             return new PropertyDescriptorCollection(list.ToArray());
         }
 
+        // PropertyGrid 必须拿到与原 ComponentType(typeof(ItemInfo)) 匹配的真实对象，
+        // 否则 CustomTypeDescriptor 基类默认返回 this(wrapper)，PropertyGrid 在 set_SelectedObjects
+        // 时按 ComponentType 强转得到 null 再调 GetType() → NRE（用户点击物品项即崩）。
+        public override object GetPropertyOwner(PropertyDescriptor pd) => _item;
+
         private int GetStat(Stat s) => _item.Stats != null ? _item.Stats[s] : 0;
 
         private string Range(Stat lo, Stat hi) => GetStat(lo) + "-" + GetStat(hi);
