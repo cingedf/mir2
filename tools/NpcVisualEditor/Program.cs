@@ -289,10 +289,11 @@ namespace NpcVisualEditor
             // 运行时视觉核验：--capture <服务端目录> <客户端目录> <输出目录>
             // 程序化实例化各窗体 → Show() 触发真实数据加载 → DrawToBitmap 渲染成 PNG，
             // 供逐张查看挤压/截断/遮挡/缺图等视觉问题（绿色测试分支，不影响正常启动）
-            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact"))
+            if (args.Length >= 4 && (args[0] == "--capture" || args[0] == "--layout-audit" || args[0] == "--probe-interact" || args[0] == "--probe-buttons"))
             {
                 bool auditMode = args[0] == "--layout-audit";
                 bool interactMode = args[0] == "--probe-interact";
+                bool buttonMode = args[0] == "--probe-buttons";
                 string serverDir = args[1], clientDir = args[2], outDir = args[3];
                 Environment.CurrentDirectory = serverDir;
                 Directory.CreateDirectory(outDir);
@@ -303,7 +304,7 @@ namespace NpcVisualEditor
                 }
                 var envir = Server.MirEnvir.Envir.Edit;
                 if (!envir.LoadDB()) { Console.WriteLine("CAPTURE FAIL: LoadDB 失败"); return 1; }
-                int okCount = 0, failCount = 0, layoutIssues = 0, interactionFails = 0;
+                int okCount = 0, failCount = 0, layoutIssues = 0, interactionFails = 0, buttonFails = 0;
 
                 // 布局溢出审计：递归遍历控件树，量化检测「文本溢出 / 控件越界 / 文本控件重叠」
                 // ——客观回应「输入框和文字挤压 / 显示不全 / 控件遮挡文字」类视觉问题
@@ -421,6 +422,43 @@ namespace NpcVisualEditor
                     if (interactionFails == before) Console.WriteLine($"INTERACT OK: {name}");
                 }
 
+                // 安全按钮探针：只对「已人工核实处理器无 MessageBox/ShowDialog/写盘」的纯计算按钮
+                // 做 PerformClick，捕获「点击→计算→刷新结果」事件链异常。白名单按按钮文本匹配，
+                // 避免通用遍历误触保存/导出/删除等有副作用或弹模态框的按钮导致阻塞或数据修改。
+                string[] safeButtonTexts = { "计算", "检查需求", "分析", "模拟产出", "全库体检" };
+                void ClickSafeButtons(Form f, string name)
+                {
+                    int before = buttonFails;
+                    void Walk(Control parent, string path)
+                    {
+                        foreach (Control c in parent.Controls)
+                        {
+                            if (c is Button btn && btn.Enabled && safeButtonTexts.Contains(btn.Text.Trim()))
+                            {
+                                try
+                                {
+                                    btn.PerformClick();
+                                    Application.DoEvents();
+                                    Console.WriteLine($"BUTTON OK: {name} [{btn.Text.Trim()}]");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"BUTTON FAIL: {name} [{btn.Text.Trim()}] {ex.GetType().Name}: {ex.Message}");
+                                    buttonFails++;
+                                }
+                            }
+                            Walk(c, path);
+                        }
+                    }
+                    try { Walk(f, ""); }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"BUTTON WALK FAIL: {name} {ex.GetType().Name}: {ex.Message}");
+                        buttonFails++;
+                    }
+                    if (buttonFails == before) Console.WriteLine($"BUTTON FORM OK: {name}");
+                }
+
                 void Shot(Form f, string name, Action<Form> before = null)
                 {
                     try
@@ -434,6 +472,7 @@ namespace NpcVisualEditor
                         System.Threading.Thread.Sleep(120);
                         Application.DoEvents();
                         if (interactMode) { InteractForm(f, name); }
+                        else if (buttonMode) { ClickSafeButtons(f, name); }
                         else
                         {
                             var rect = new System.Drawing.Rectangle(0, 0, Math.Max(1, f.Width), Math.Max(1, f.Height));
@@ -512,6 +551,11 @@ namespace NpcVisualEditor
                 {
                     Console.WriteLine($"INTERACT DONE: forms={okCount} fails={interactionFails}");
                     return interactionFails == 0 ? 0 : 1;
+                }
+                if (buttonMode)
+                {
+                    Console.WriteLine($"BUTTON DONE: forms={okCount} fails={buttonFails}");
+                    return buttonFails == 0 ? 0 : 1;
                 }
                 Console.WriteLine($"CAPTURE DONE: ok={okCount} fail={failCount}");
                 return failCount == 0 ? 0 : 1;
