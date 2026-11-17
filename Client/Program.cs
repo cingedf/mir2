@@ -52,6 +52,12 @@ namespace Client
                     Settings.NativeHeight = Settings.ScreenHeight;
                 }
 
+                // 20261117 审计修复：本客户端为固定逻辑分辨率 D3D 渲染（后缓冲恒 ScreenWidth×ScreenHeight），
+                // 依赖 Windows 位图缩放对齐鼠标；.NET 8 WinForms 默认 SystemAware，缩放≠100% 时
+                // PointToClient 逻辑坐标与物理后缓冲不一致致 UI 鼠标点不上/错位。DpiUnaware 让进程按虚拟
+                // 96 DPI 运行、由 Windows 对整窗位图缩放，ClientSize 与 D3D 后缓冲恢复 1:1，鼠标命中对齐。
+                // 必须在 EnableVisualStyles 及任何窗体创建之前调用，否则抛 InvalidOperationException。
+                Application.SetHighDpiMode(HighDpiMode.DpiUnaware);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 

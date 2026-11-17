@@ -603,8 +603,9 @@ namespace Client.MirScenes.Dialogs
 
         private void UpdateBigMapCoordinates(object sender, MouseEventArgs e)
         {
-            int MouseCoordsOnBigMap_MapValue_X = (int)((e.Location.X - BigMap_MouseCoordsProcessing_OffsetX) / ScaleX);
-            int MouseCoordsOnBigMap_MapValue_Y = (int)((e.Location.Y - BigMap_MouseCoordsProcessing_OffsetY) / ScaleY);
+            // 20261117 审计修复：e.Location 是物理坐标，Offset/Scale 基于逻辑坐标，全屏拉伸/非100%DPI 下相减必错位；改用 CMain.MPoint（已换算的逻辑坐标）
+            int MouseCoordsOnBigMap_MapValue_X = (int)((CMain.MPoint.X - BigMap_MouseCoordsProcessing_OffsetX) / ScaleX);
+            int MouseCoordsOnBigMap_MapValue_Y = (int)((CMain.MPoint.Y - BigMap_MouseCoordsProcessing_OffsetY) / ScaleY);
 
             ParentDialog.MouseLocation = new Point(MouseCoordsOnBigMap_MapValue_X, MouseCoordsOnBigMap_MapValue_Y);
         }
@@ -612,8 +613,9 @@ namespace Client.MirScenes.Dialogs
 
         private void OnMouseClick(object sender, MouseEventArgs e)
         {
-            int X = (int)((e.Location.X - BigMap_MouseCoordsProcessing_OffsetX) / ScaleX);
-            int Y = (int)((e.Location.Y - BigMap_MouseCoordsProcessing_OffsetY) / ScaleY);
+            // 20261117 审计修复：同上，改用 CMain.MPoint 逻辑坐标，防全屏/非100%DPI 点击寻路错位
+            int X = (int)((CMain.MPoint.X - BigMap_MouseCoordsProcessing_OffsetX) / ScaleX);
+            int Y = (int)((CMain.MPoint.Y - BigMap_MouseCoordsProcessing_OffsetY) / ScaleY);
 
             var path = GameScene.Scene.MapControl.PathFinder.FindPath(MapObject.User.CurrentLocation, new Point(X, Y));
 

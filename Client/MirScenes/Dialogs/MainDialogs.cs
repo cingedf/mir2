@@ -3073,7 +3073,8 @@ namespace Client.MirScenes.Dialogs
         {
             if (e.Button != MouseButtons.Left || SoundBar != ActiveControl) return;
 
-            Point p = e.Location.Subtract(SoundBar.DisplayLocation);
+            // 20261117 审计修复：e.Location 物理坐标与逻辑 DisplayLocation 相减在全屏/非100%DPI 下错位；改用 CMain.MPoint
+            Point p = CMain.MPoint.Subtract(SoundBar.DisplayLocation);
 
             byte volume = (byte)(p.X / (double)SoundBar.Size.Width * 100);
             Settings.Volume = volume;
@@ -3137,7 +3138,8 @@ namespace Client.MirScenes.Dialogs
         {
             if (e.Button != MouseButtons.Left || MusicSoundBar != ActiveControl) return;
 
-            Point p = e.Location.Subtract(MusicSoundBar.DisplayLocation);
+            // 20261117 审计修复：同上，改用 CMain.MPoint 逻辑坐标
+            Point p = CMain.MPoint.Subtract(MusicSoundBar.DisplayLocation);
 
             byte volume = (byte)(p.X / (double)MusicSoundBar.Size.Width * 100);
             Settings.MusicVolume = volume;
