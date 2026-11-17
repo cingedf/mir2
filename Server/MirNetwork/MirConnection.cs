@@ -280,7 +280,9 @@ namespace Server.MirNetwork
 
         public void AddObserver(MirConnection c)
         {
-            if (c == null || c == this)
+            // 20261117 审计修复P2：拒绝自观察与双向互观察（Observing==c 真正拦 2 节点环；c.Observing==this 防重复反向建立）。
+            // 更长环由 Enqueue 的访问集兜底。
+            if (c == null || c == this || Observing == c || c.Observing == this)
                 return;
 
             Observers.Add(c);
@@ -690,7 +692,17 @@ namespace Server.MirNetwork
 
         public void Enqueue(Packet p)
         {
+            Enqueue(p, null);
+        }
+
+        private void Enqueue(Packet p, HashSet<MirConnection> visited)
+        {
             if (p == null)
+                return;
+
+            // 20261117 审计修复P2：观察者扇出加访问集，防管理员构造 A观察B/B观察A（或更长的环）时无限递归爆栈崩进程。
+            // 非 Observable 包不扇出，visited 为 null 时不分配集合，正常路径零额外开销。
+            if (visited != null && !visited.Add(this))
                 return;
 
             lock (_connectionLock)
@@ -711,12 +723,15 @@ namespace Server.MirNetwork
             if (!p.Observable)
                 return;
 
+            if (visited == null)
+                visited = new HashSet<MirConnection> { this };
+
             foreach (MirConnection c in Observers)
             {
                 if (c == null || !c.Connected)
                     continue;
 
-                c.Enqueue(p);
+                c.Enqueue(p, visited);
             }
         }
 
@@ -1664,10 +1679,16 @@ namespace Server.MirNetwork
                 _disconnectDeadline = Envir.Time + DisconnectGracePeriod;
                 _connectionState = ConnectionState.Disconnecting;
 
-                _sendList.Enqueue(new S.Disconnect
+                // 20261117 审计修复P2：原直入队不计数，而 TryBeginSend 出队时无条件 --，导致计数变负绕过队列上限保护。
+                // 不可改调 Enqueue()：此时 state 已 Disconnecting 会被入口拦截；此处手工补计数。
+                if (_sendQueueCount < MaxSendQueue)
                 {
-                    Reason = reason
-                });
+                    _sendList.Enqueue(new S.Disconnect
+                    {
+                        Reason = reason
+                    });
+                    _sendQueueCount++;
+                }
             }
 
             SoftDisconnect(reason);

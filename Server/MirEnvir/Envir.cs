@@ -817,6 +817,26 @@ namespace Server.MirEnvir
                                 Message = GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.OnlinePlayers), Players.Count),
                                 Type = ChatType.Hint
                             });
+
+                            // 20261117 审计修复P2：定期清理过期 IP 封禁与连接日志，防字典随运行时长无限膨胀。
+                            // 用 ICollection.Remove(KeyValuePair) 做键+值原子匹配删——不可用 TryRemove 仅按键删，
+                            // 否则会误删其它线程刚刷新的新封禁/新日志（值是引用类型时尤其危险）。
+                            DateTime now = Now;
+                            foreach (var pair in IPBlocks)
+                            {
+                                if (pair.Value < now)
+                                    ((ICollection<KeyValuePair<string, DateTime>>)IPBlocks).Remove(new KeyValuePair<string, DateTime>(pair.Key, pair.Value));
+                            }
+
+                            foreach (var pair in ConnectionLogs)
+                            {
+                                long last = 0;
+                                if (pair.Value.AccountsMade.Count > 0) last = Math.Max(last, pair.Value.AccountsMade[pair.Value.AccountsMade.Count - 1]);
+                                if (pair.Value.CharactersMade.Count > 0) last = Math.Max(last, pair.Value.CharactersMade[pair.Value.CharactersMade.Count - 1]);
+
+                                if (last == 0 || last + 24L * 60 * 60 * 1000 < Time)
+                                    ((ICollection<KeyValuePair<string, MirConnectionLog>>)ConnectionLogs).Remove(new KeyValuePair<string, MirConnectionLog>(pair.Key, pair.Value));
+                            }
                         }
 
                         if (LineMessages.Count > 0 && Time >= lineMessageTime)
@@ -2402,7 +2422,8 @@ namespace Server.MirEnvir
             }
             finally
             {
-                while (StatusConnections.Count >= 5) //dont allow to many status port connections it's just an abuse thing
+                // 20261117 审计修复P2：停机时状态端口排空也须检查 Running，否则关服线程永久滞留在此
+                while (Running && StatusConnections.Count >= 5) //dont allow to many status port connections it's just an abuse thing
                     Thread.Sleep(1);
 
                 if (Running && _StatusPort.Server.IsBound)
