@@ -42,20 +42,24 @@ namespace NpcVisualEditor
             Controls.Add(new Splitter { Dock = DockStyle.Left, Width = 4, MinSize = 150 });
             Controls.Add(_tree);
 
-            var right = new Panel { Dock = DockStyle.Fill };
-            right.Controls.Add(new Label { Text = "命令说明 / 范例:", Location = new Point(12, 12), AutoSize = true });
-            _txtDetail = new TextBox
-            {
-                Location = new Point(12, 38), Size = new Size(560, 520), Multiline = true,
-                ScrollBars = ScrollBars.Vertical, ReadOnly = true, Font = new Font("Consolas", 10F)
-            };
-            var btnCopy = new Button { Text = "复制命令", Location = new Point(12, 575), Width = 100 };
+            var right = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8) };
+            // 说明区改 Dock 自适应：原硬编码 Location(12,38)+Size(560,520) 在窗口变窄时
+            // 会越过 right 面板右边界被遮挡；Dock=Fill + 底部按钮彻底消除硬编码宽度依赖
+            var btnCopy = new Button { Text = "复制命令", Dock = DockStyle.Bottom, Height = 32, Width = 110 };
             btnCopy.Click += (s, e) =>
             {
                 string text = _txtDetail.Lines.FirstOrDefault(l => l.Trim().Length > 0) ?? "";
                 if (text.Length > 0) { Clipboard.SetText(text); MessageBox.Show("已复制: " + text); }
             };
-            right.Controls.AddRange(new Control[] { _txtDetail, btnCopy });
+            _txtDetail = new TextBox
+            {
+                Dock = DockStyle.Fill, Multiline = true,
+                ScrollBars = ScrollBars.Vertical, ReadOnly = true, Font = new Font("Consolas", 10F)
+            };
+            // 停靠顺序：后加的先停。label(Top)→btn(Bottom)→txt(Fill) 的添加顺序使最终布局正确
+            right.Controls.Add(_txtDetail);
+            right.Controls.Add(btnCopy);
+            right.Controls.Add(new Label { Text = "命令说明 / 范例:", Dock = DockStyle.Top, Height = 24 });
             Controls.Add(right);
 
             ParseHelp();

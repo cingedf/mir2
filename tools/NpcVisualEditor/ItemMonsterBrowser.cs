@@ -30,8 +30,8 @@ namespace NpcVisualEditor
             _envir = envir;
             _serverDir = serverDir;
 
-            // 顶部：类型 + 搜索
-            var top = new Panel { Dock = DockStyle.Top, Height = 34 };
+            // 顶部：类型 + 搜索（高度 40，给控件留足垂直空间，避免文字被边缘裁切）
+            var top = new Panel { Dock = DockStyle.Top, Height = 40 };
             _cmbKind = new ComboBox
             {
                 Location = new Point(6, 5), Width = 90, DropDownStyle = ComboBoxStyle.DropDownList
@@ -50,7 +50,8 @@ namespace NpcVisualEditor
 
             // 右：外观 + 属性
             var right = new Panel { Dock = DockStyle.Fill };
-            var picPanel = new Panel { Dock = DockStyle.Left, Width = 150, Padding = new Padding(8) };
+            // 图片区加宽到 240：原 150px 太窄，图片被 Zoom 缩得过小，用户误以为"没有可视化"
+            var picPanel = new Panel { Dock = DockStyle.Left, Width = 240, Padding = new Padding(8) };
             _pic = new PictureBox
             {
                 Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom,

@@ -380,6 +380,9 @@ namespace NpcVisualEditor
                 _lstMaps.Items.Add(m);
             }
             _lstMaps.EndUpdate();
+            // 填充后默认选中第一张地图，触发 OnMapSelected→LoadMap，
+            // 否则画布只显示深色背景（用户反馈"地图不是真彩图"实为未加载任何图）
+            if (_lstMaps.Items.Count > 0 && _lstMaps.SelectedIndex < 0) _lstMaps.SelectedIndex = 0;
         }
 
         private void FillItems(string filter)

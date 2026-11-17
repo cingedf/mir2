@@ -43,6 +43,8 @@ namespace NpcVisualEditor
             Size = new Size(1000, 680);
             MinimumSize = new Size(800, 520);
             BuildUi();
+            // 打开即有内容：默认生成轮盘分解树，否则用户看到空白页误以为"没有怪物/物品显示"
+            BuildTreeView();
         }
 
         private void BuildSpawnWeight()

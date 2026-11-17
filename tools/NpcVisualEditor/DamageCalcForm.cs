@@ -44,7 +44,8 @@ namespace NpcVisualEditor
             {
                 Text = "⚠ 本工具按引擎静态公式估算“标称伤害/需求条件”，非真实战斗结果。\n" +
                        "真实伤害还取决于目标防御/准确/敏捷、暴击、增益状态与幸运随机掷点。",
-                Dock = DockStyle.Top, Height = 48, ForeColor = Color.DarkRed,
+                Dock = DockStyle.Top, Height = 72, ForeColor = Color.DarkRed,
+                AutoSize = false,  // 两行提示+Padding 实际高度>48，AutoSize 会撑高遮挡下方输入框
                 BackColor = Color.FromArgb(255, 245, 220), Padding = new Padding(8, 6, 8, 4)
             };
             Controls.Add(note);

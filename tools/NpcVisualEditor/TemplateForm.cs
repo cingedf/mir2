@@ -45,7 +45,7 @@ namespace NpcVisualEditor
             Text = "玩法模板生成器";
             Font = new Font("Microsoft YaHei UI", 9F);
             StartPosition = FormStartPosition.CenterParent;
-            Size = new Size(960, 720);
+            Size = new Size(1180, 720);  // 三栏布局：左230+中参数+右360，加宽避免中间参数输入框(x=150,w=200)被右栏遮挡
 
             // 左：模板列表
             var left = new Panel { Dock = DockStyle.Left, Width = 230 };
@@ -72,11 +72,11 @@ namespace NpcVisualEditor
             Controls.Add(_paramPanel);
 
             // 右：预览
-            var right = new Panel { Dock = DockStyle.Right, Width = 430 };
+            var right = new Panel { Dock = DockStyle.Right, Width = 360 };
             right.Controls.Add(new Label { Text = "生成脚本预览:", Location = new Point(10, 10), AutoSize = true });
             _txtPreview = new TextBox
             {
-                Location = new Point(10, 34), Size = new Size(410, 560), Multiline = true,
+                Location = new Point(10, 34), Size = new Size(340, 560), Multiline = true,
                 ScrollBars = ScrollBars.Both, ReadOnly = true, Font = new Font("Consolas", 9F)
             };
             var btnSave = new Button { Text = "保存脚本", Location = new Point(10, 610), Width = 110 };
