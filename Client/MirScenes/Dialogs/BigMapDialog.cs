@@ -511,6 +511,12 @@ namespace Client.MirScenes.Dialogs
 
         public void MakeButtons(List<WorldMapIcon> icons)
         {
+            // 20261118 内存批：地图数据重发/重复 setup 时，先清理旧按钮（含捕获 icon 的委托），
+            // 否则 ButtonList 及其事件闭包只增不减（MirControl.Dispose 会一并从父控件移除）
+            foreach (MirButton old in ButtonList)
+                old.Dispose();
+            ButtonList.Clear();
+
             foreach (WorldMapIcon icon in icons)
             {
                 MirButton button = new MirButton()

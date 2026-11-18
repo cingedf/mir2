@@ -887,6 +887,12 @@ namespace Client.MirScenes.Dialogs
             for (int i = 0; i < chat.Count; i++)
                 FullHistory.Add(new ChatHistory { Text = chat[i], BackColour = backColour, ForeColour = foreColour, Type = type });
 
+            // 20261118 内存批：FullHistory 无上限会随在线时长线性增长，且 Update 每帧全量重建使其 O(n²)；
+            // 保留最近 500 条（聊天窗口只展示有限行，更早内容无实用价值），StartIndex 同步防越界
+            while (FullHistory.Count > 500)
+                FullHistory.RemoveAt(0);
+            if (StartIndex >= FullHistory.Count) StartIndex = FullHistory.Count - 1;
+
             Update();
         }
 

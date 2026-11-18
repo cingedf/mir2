@@ -54,6 +54,18 @@ namespace Server.MirEnvir
         public static bool Notify(string key, Action logAction, long windowMs = 10000)
         {
             long now = Envir.Main.Time;
+
+            // 20261118 内存批：LastNotify 以自增 ObjectID 为 key（见 MapObject.HandleProcessError）时永不复用，
+            // 字典会随出错对象累积无限增长。惰性清理超过保留窗口的陈旧条目：仅当规模超阈值才扫描，
+            // 且只删 value < now - max(windowMs,60s) 的 key（均已过节流窗口，清掉等价下次放行，语义不变）。
+            if (LastNotify.Count > 512)
+            {
+                long cutoff = now - Math.Max(windowMs, 60000);
+                foreach (var pair in LastNotify)
+                    if (pair.Value < cutoff)
+                        LastNotify.TryRemove(pair.Key, out _);
+            }
+
             long last;
             LastNotify.TryGetValue(key, out last);
             if (now - last < windowMs) return false;

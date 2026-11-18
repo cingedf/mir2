@@ -7060,6 +7060,9 @@ namespace Client.MirScenes
         private void GameShopUpdate(S.GameShopInfo p)
         {
             p.Item.Stock = p.StockLevel;
+            // 20261118 内存批：服务端可下发多个同名商品条目，先移除同 GIndex 旧项再加，
+            // 避免重复 update 导致 GameShopInfoList 无限膨胀（与 GameShopStock 按 GIndex 定位语义一致）
+            GameShopInfoList.RemoveAll(x => x.GIndex == p.Item.GIndex);
             GameShopInfoList.Add(p.Item);
             if (p.Item.Date > CMain.Now.AddDays(-7)) GameShopDialog.New.Visible = true;
         }
