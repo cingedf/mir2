@@ -734,7 +734,9 @@ namespace Server.MirObjects
                         continue;
 
                     // TODO: Check this.
-                    if ((item.WeddingRing != -1) && (Info.Equipment[(int)EquipmentSlot.左戒指].UniqueID == item.UniqueID))
+                    // 20261118 审计修复：戒指在右槽而左槽为空时，直接取左槽 UniqueID 抛 NRE 中断红名掉落
+                    var leftRing = Info.Equipment[(int)EquipmentSlot.左戒指];
+                    if ((item.WeddingRing != -1) && leftRing != null && leftRing.UniqueID == item.UniqueID)
                         continue;
 
                     if (item.SealedInfo != null && item.SealedInfo.ExpiryDate > Envir.Now)
@@ -925,7 +927,8 @@ namespace Server.MirObjects
                 if (HasBuff(BuffType.伴侣经验提升, out Buff buff))
                 {
                     CharacterInfo lover = Envir.GetCharacterInfo(Info.Married);
-                    PlayerObject loverPlayer = Envir.GetPlayer(lover.Name);
+                    // 20261118 审计修复P1：配偶角色已删档时 GetCharacterInfo 返回 null，直接 .Name 触发 NRE 中断 GainExp
+                    PlayerObject loverPlayer = lover == null ? null : Envir.GetPlayer(lover.Name);
                     if (loverPlayer != null && loverPlayer.CurrentMap == CurrentMap && Functions.InRange(loverPlayer.CurrentLocation, CurrentLocation, Globals.DataRange) && !loverPlayer.Dead)
                     {
                         amount += (uint)Math.Max(0, (amount * Stats[Stat.伴侣经验收益]) / 100);
@@ -938,7 +941,8 @@ namespace Server.MirObjects
                 if (HasBuff(BuffType.师徒经验提升, out _))
                 {
                     CharacterInfo mentor = Envir.GetCharacterInfo(Info.Mentor);
-                    PlayerObject mentorPlayer = Envir.GetPlayer(mentor.Name);
+                    // 20261118 审计修复P1：师父角色已删档时 GetCharacterInfo 返回 null，直接 .Name 触发 NRE
+                    PlayerObject mentorPlayer = mentor == null ? null : Envir.GetPlayer(mentor.Name);
                     if (mentorPlayer != null && mentorPlayer.CurrentMap == CurrentMap && Functions.InRange(mentorPlayer.CurrentLocation, CurrentLocation, Globals.DataRange) && !mentorPlayer.Dead)
                     {
                         if (GroupMembers != null && GroupMembers.Contains(mentorPlayer))
@@ -2174,11 +2178,12 @@ namespace Server.MirObjects
                 if (Info.Mentor == 0) return;
 
                 CharacterInfo Mentor = Envir.GetCharacterInfo(Info.Mentor);
-                PlayerObject player = Envir.GetPlayer(Mentor.Name);
+                // 20261118 审计修复：Mentor 可能已删档返回 null，判空防 NRE
+                PlayerObject player = Mentor == null ? null : Envir.GetPlayer(Mentor.Name);
 
                 if (player == null)
                 {
-                    ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.TargetIsNotOnline), Mentor.Name), ChatType.System);
+                    ReceiveChat(Mentor == null ? "师父角色不存在" : GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.TargetIsNotOnline), Mentor.Name), ChatType.System);
                     return;
                 }
 
@@ -2264,11 +2269,12 @@ namespace Server.MirObjects
                 if (Info.Married == 0) return;
 
                 CharacterInfo Lover = Envir.GetCharacterInfo(Info.Married);
-                PlayerObject player = Envir.GetPlayer(Lover.Name);
+                // 20261118 审计修复：Lover 可能已删档返回 null，判空防 NRE
+                PlayerObject player = Lover == null ? null : Envir.GetPlayer(Lover.Name);
 
                 if (player == null)
                 {
-                    ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.TargetIsNotOnline), Lover.Name), ChatType.System);
+                    ReceiveChat(Lover == null ? "伴侣角色不存在" : GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.TargetIsNotOnline), Lover.Name), ChatType.System);
                     return;
                 }
 
@@ -4932,10 +4938,11 @@ namespace Server.MirObjects
             }
 
             // Relationship & conquest hooks
+            // 20261118 审计修复：配偶删档后 GetCharacterInfo 返回 null，直接取 lover.Name 抛 NRE 中断传送落地链
             if (Info.Married != 0)
             {
                 CharacterInfo lover = Envir.GetCharacterInfo(Info.Married);
-                PlayerObject ply = Envir.GetPlayer(lover.Name);
+                PlayerObject ply = lover == null ? null : Envir.GetPlayer(lover.Name);
                 if (ply != null) ply.GetRelationship(false);
             }
 
@@ -6852,7 +6859,10 @@ namespace Server.MirObjects
 
             var originalItem = temp;
 
-            temp = Envir.CreateFreshItem(temp.Info);
+            // 20261118 审计修复：原用 CreateFreshItem 只拷 Info，丢失强化/觉醒/耐久/宝石/租赁等属性；
+            // 改用 Clone() 全属性复制（仓库既有权威实现，AddedStats 深拷贝），再分配新 UniqueID 与拆分数量
+            temp = originalItem.Clone();
+            temp.UniqueID = ++Envir.NextUserItemID;
             temp.Count = count;
 
             Report.ItemSplit(originalItem, temp, grid);
@@ -7110,6 +7120,14 @@ namespace Server.MirObjects
             }
 
             if (tempTo.Info.Type != ItemType.鱼饵 && (gridFrom == MirGridType.Fishing || gridTo == MirGridType.Fishing))
+            {
+                Enqueue(p);
+                return;
+            }
+
+            // 20261118 审计修复P1：源与目标为同一物品（ref相等）时，下方合并逻辑会凭空补满整叠或销毁整叠
+            //（Count=2X 后 arrayFrom[index]=null，或 tempTo.Count=StackSize 凭空增殖）→ 直接拒绝自合并
+            if (tempFrom == tempTo)
             {
                 Enqueue(p);
                 return;
@@ -8117,13 +8135,20 @@ namespace Server.MirObjects
                 GainGold(gold);
                 return;
             }
-            gold = gold / count;
+            // 20261118 审计修复：原 gold/count 整商分配丢失 gold%count 余数（金币凭空消失）；
+            // 改为前 remainder 名符合条件队员各补 1 金币，总额守恒（每人至多多得 1）
+            uint share = gold / count;
+            uint remainder = gold % count;
+            uint given = 0;
 
             for (int i = 0; i < GroupMembers.Count; i++)
             {
                 PlayerObject player = GroupMembers[i];
                 if (player.CurrentMap == CurrentMap && Functions.InRange(player.CurrentLocation, CurrentLocation, Globals.DataRange) && !player.Dead)
-                    player.GainGold(gold);
+                {
+                    player.GainGold(share + (given < remainder ? 1u : 0u));
+                    given++;
+                }
             }
         }
         public void GainGold(uint gold)
@@ -11537,9 +11562,14 @@ namespace Server.MirObjects
                 }
             }
 
-            FishingNibbleChance = 5 + Envir.Random.Next(nibbleMin, nibbleMax);
+            // 20261118 审计修复：装备 stats 可使 min>max（如鱼漂 MinAC=10/MaxAC=0 → nibbleMin>nibbleMax），
+            // Random.Next(min>max) 抛 ArgumentOutOfRangeException 中断钓鱼；排序保证 min<=max（相等时 Next 返回该值，合法）
+            int nibbleLo = Math.Min(nibbleMin, nibbleMax), nibbleHi = Math.Max(nibbleMin, nibbleMax);
+            int failedLo = Math.Min(failedAddSuccessMin, failedAddSuccessMax), failedHi = Math.Max(failedAddSuccessMin, failedAddSuccessMax);
 
-            if (cast) FishingChance = Settings.FishingSuccessStart + (int)successStat + (FishingChanceCounter != 0 ? Envir.Random.Next(failedAddSuccessMin, failedAddSuccessMax) : 0) + (FishingChanceCounter * Settings.FishingSuccessMultiplier); //10 //10
+            FishingNibbleChance = 5 + Envir.Random.Next(nibbleLo, nibbleHi);
+
+            if (cast) FishingChance = Settings.FishingSuccessStart + (int)successStat + (FishingChanceCounter != 0 ? Envir.Random.Next(failedLo, failedHi) : 0) + (FishingChanceCounter * Settings.FishingSuccessMultiplier); //10 //10
             if (FishingChanceCounter != 0) DamagedFishingItem(FishingSlot.Finder, 1);
             FishingChance += Stats[Stat.钓鱼收益];
 
@@ -11602,7 +11632,9 @@ namespace Server.MirObjects
                             {
                                 foreach (var dropitems in reward.Items)
                                 {
-                                    dropItem = Envir.CreateDropItem(drop.Item);
+                                    // 20261118 审计修复：原取 drop.Item（配置基础物品，可能为 null/非实际掉落），
+                                    // 应取 AttemptDrop 实际掉落列表里的 ItemInfo（dropitems）
+                                    dropItem = Envir.CreateDropItem(dropitems);
                                     break;
                                 }
                             }
@@ -11636,7 +11668,9 @@ namespace Server.MirObjects
 
                         DamagedFishingItem(FishingSlot.Reel, 1);
 
-                        if (!FishingAutocast || (FishingAutocast && reel.CurrentDura == 0))
+                        // 20261118 审计修复：reel（卷线器槽）可为空，自动施放启动后 reel 被消耗/损坏时为 null，
+                        // 原直接 reel.CurrentDura 抛 NRE 中断钓鱼；判空后取消本次自动施放
+                        if (reel == null || !FishingAutocast || reel.CurrentDura == 0)
                         {
                             cancel = true;
                         }
@@ -14305,6 +14339,9 @@ namespace Server.MirObjects
                 return;
             }
 
+            // 20261118 审计修复P2：StackSize==0 时下方除法抛 DivideByZeroException 中断购买链（配置错误可触发）
+            if (Product.Info.StackSize == 0) return;
+
             if (((decimal)(Quantity * Product.Count) / Product.Info.StackSize) > 5) return;
 
             if (Product.Stock != 0)
@@ -14422,7 +14459,10 @@ namespace Server.MirObjects
 
             Report.ItemGSBought(Product, Quantity, CreditCost, GoldCost);
 
-            ushort quantity = (ushort)(Quantity * Product.Count);
+            // 20261118 审计修复P2：Quantity*Product.Count 超 ushort 上限时强转截断=少发货（如 5*StackSize>65535），改为 long 计算并超限拒绝
+            long totalQuantity = (long)Quantity * Product.Count;
+            if (totalQuantity > ushort.MaxValue) return;
+            ushort quantity = (ushort)totalQuantity;
 
             if (Product.Info.StackSize <= 1 || quantity == 1)
             {

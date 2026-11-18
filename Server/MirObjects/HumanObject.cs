@@ -7970,8 +7970,9 @@ namespace Server.MirObjects
                 if (HasBuff(BuffType.师徒经验提升, out _))
                 {
                     CharacterInfo mentor = Envir.GetCharacterInfo(Info.Mentor);
-                    PlayerObject player = Envir.GetPlayer(mentor.Name);
-                    if (player.CurrentMap == CurrentMap && Functions.InRange(player.CurrentLocation, CurrentLocation, Globals.DataRange) && !player.Dead)
+                    // 20261118 审计修复P1：师父删档/离线时 mentor/player 可能为 null，缺判空直接取 CurrentMap 触发 NRE 中断技能升级
+                    PlayerObject player = mentor == null ? null : Envir.GetPlayer(mentor.Name);
+                    if (player != null && player.CurrentMap == CurrentMap && Functions.InRange(player.CurrentLocation, CurrentLocation, Globals.DataRange) && !player.Dead)
                     {
                         if (Stats[Stat.技能熟练度收益] == 1)
                         {

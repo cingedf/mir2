@@ -1272,7 +1272,8 @@ namespace Server.MirObjects
                         }
 
                         if (drop.QuestRequired) continue;
-                        if (!DropItem(item)) return;
+                        // 20261118 审计修复：单件掉落失败不应中断整批（原 return 导致后续掉落全丢）
+                        if (!DropItem(item)) continue;
                     }
                 }
             }
@@ -2939,7 +2940,8 @@ namespace Server.MirObjects
                 if (attacker.HasBuff(BuffType.师徒增伤提升, out _))
                 {
                     CharacterInfo mentee = Envir.GetCharacterInfo(attacker.Info.Mentor);
-                    PlayerObject player = Envir.GetPlayer(mentee.Name);
+                    // 20261118 审计修复：mentee 可能已删档（GetCharacterInfo 返回 null），判空防 NRE 中断 Attacked
+                    PlayerObject player = mentee == null ? null : Envir.GetPlayer(mentee.Name);
                     if (player != null && player.CurrentMap == attacker.CurrentMap && Functions.InRange(player.CurrentLocation, attacker.CurrentLocation, Globals.DataRange) && !player.Dead)
                     {
                         if (GroupMembers != null && GroupMembers.Contains(player))
