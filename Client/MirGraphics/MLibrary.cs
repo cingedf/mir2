@@ -213,9 +213,10 @@ namespace Client.MirGraphics
                 Directory.CreateDirectory(path);
             }
 
-            var allFiles = Directory.GetFiles(path, "*" + suffix + MLibrary.Extention, SearchOption.TopDirectoryOnly).OrderBy(x => int.Parse(Regex.Match(x, @"\d+").Value));
+            // 20261119 低优先级修复：OrderBy 为延迟枚举，原 Count()+Last() 对同一序列枚举两遍=两次目录扫描+两次正则排序；物化数组只排一次
+            var allFiles = Directory.GetFiles(path, "*" + suffix + MLibrary.Extention, SearchOption.TopDirectoryOnly).OrderBy(x => int.Parse(Regex.Match(x, @"\d+").Value)).ToArray();
 
-            var lastFile = allFiles.Count() > 0 ? Path.GetFileName(allFiles.Last()) : "0";
+            var lastFile = allFiles.Length > 0 ? Path.GetFileName(allFiles[allFiles.Length - 1]) : "0";
 
             var count = int.Parse(Regex.Match(lastFile, @"\d+").Value) + 1;
 

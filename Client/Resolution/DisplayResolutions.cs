@@ -16,7 +16,8 @@ namespace Client.Resolution
         {
             bool parsedOK = false;
 
-            var supportedResolutions = Enum.GetNames(typeof(eSupportedResolution));
+            // 20261119 低优先级修复：Enum.GetNames 返回 string[]，原 Contains 为数组线性扫；改 HashSet 哈希查找（大小写语义保持 Ordinal）
+            var supportedResolutions = new HashSet<string>(Enum.GetNames(typeof(eSupportedResolution)), StringComparer.Ordinal);
             try
             {
                 List<string> list = new();

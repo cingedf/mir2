@@ -362,7 +362,8 @@ namespace Server.MirObjects
                 ProcessItems();
             }
 
-            for (int i = Pets.Count() - 1; i >= 0; i--)
+            // 20261119 低优先级修复：Pets 是 List，Count() 走 LINQ 扩展多余；直接用 Count 属性
+            for (int i = Pets.Count - 1; i >= 0; i--)
             {
                 MonsterObject pet = Pets[i];
                 if (pet.Dead) Pets.RemoveAt(i);

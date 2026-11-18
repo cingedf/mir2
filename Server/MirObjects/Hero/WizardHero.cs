@@ -200,6 +200,15 @@ namespace Server.MirObjects
                 MoveTo(Target.CurrentLocation);
         }
 
-        private bool HasRangedSpell => Info.Magics.Select(x => x.Spell).Intersect(Globals.RangedSpells).Any();
+        // 20261119 低优先级修复：每帧访问属性，原 LINQ Select/Intersect/Any 每次重建集合+枚举器；改无分配循环
+        private bool HasRangedSpell
+        {
+            get
+            {
+                for (int i = 0; i < Info.Magics.Count; i++)
+                    if (Array.IndexOf(Globals.RangedSpells, Info.Magics[i].Spell) >= 0) return true;
+                return false;
+            }
+        }
     }
 }

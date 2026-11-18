@@ -10692,6 +10692,8 @@ namespace Client.MirScenes
                     return who.UserName;
             }
             Network.Enqueue(new C.RequestUserName { UserID = id });
+            // 20261119 低优先级修复：用户名缓存无上限，长期运行随遇到玩家单调增长；超 1024 条淘汰最旧（淘汰后再次查询会重发请求，无功能损失）
+            if (UserIdList.Count >= 1024) UserIdList.RemoveAt(0);
             UserIdList.Add(new UserId() { Id = id, UserName = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.UserNameUnknown) });
             return String.Empty;
         }
@@ -10711,6 +10713,8 @@ namespace Client.MirScenes
 
         public void Rankings(S.Rankings p)
         {
+            // 20261119 低优先级修复：排行榜缓存按 PlayerId 累积无上限；超 2048 条在收包起始整体重建，避免 foreach 中途清空导致下方 RankingList[id] KeyNotFound
+            if (RankingList.Count > 2048) RankingList.Clear();
             foreach (RankCharacterInfo info in p.ListingDetails)
             {
                 if (RankingList.ContainsKey(info.PlayerId))

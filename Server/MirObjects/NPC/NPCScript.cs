@@ -1412,7 +1412,8 @@ namespace Server.MirObjects
                 return;
             }
 
-            if (count > (goods.Info.StackSize / goods.Count) || count < 1)
+            // 20261119 低优先级修复：goods.Count 为 0（配置错误/异常物品）时除零抛 DivideByZeroException 中断合成；前置拦截
+            if (goods.Count == 0 || count > (goods.Info.StackSize / goods.Count) || count < 1)
             {
                 player.Enqueue(p);
                 return;
