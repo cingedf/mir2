@@ -423,6 +423,27 @@ namespace Client.MirObjects
             return quests;
         }
 
+        // 20261118 性能优化：无分配的「是否有可用任务」判定，等价 GetAvailableQuests(true).Any()
+        // 供小地图每帧判定与 NPC 对话判定使用，避免每次 new List + 多段 LINQ 管道/委托/枚举器
+        public bool HasAvailableQuest()
+        {
+            foreach (ClientQuestProgress q in User.CurrentQuests)
+            {
+                if (User.CompletedQuests.Contains(q.QuestInfo.Index)) continue;
+                if (q.QuestInfo.FinishNPCIndex == ObjectID) return true;
+                if (q.QuestInfo.NPCIndex == ObjectID && q.QuestInfo.SameFinishNPC) return true;
+            }
+
+            foreach (ClientQuestInfo q in Quests)
+            {
+                if (!CanAccept(q)) continue;
+                if (User.CompletedQuests.Contains(q.Index)) continue;
+                return true;
+            }
+
+            return false;
+        }
+
         public bool CanAccept(ClientQuestInfo quest)
         {
             if (quest.MinLevelNeeded > User.Level || quest.MaxLevelNeeded < User.Level)

@@ -1883,10 +1883,13 @@ namespace Client.MirScenes.Dialogs
         private void MiniMap_BeforeDraw(object sender, EventArgs e)
         {
 
+            // 20261118 性能优化：任务图标由「每帧 Dispose+Clear+重建」改为持久对象池——
+            // 原实现每帧每图标 new Font（经 MirControl.ScaleFont 再造一个再销毁旧的），
+            // 3~8 图标时每秒 360~960 次 GDI 字体创建+纹理重建。现仅在池不足时新建，
+            // 每帧开头统一隐藏池内图标（行为等价于原 Clear：中途 return 时也不显示旧图标）。
+            int questIconUsed = 0;
             foreach (var icon in QuestIcons)
-                icon.Dispose();
-
-            QuestIcons.Clear();
+                icon.Visible = false;
 
             MapControl map = GameScene.Scene.MapControl;
             if (map == null) return;
@@ -1932,6 +1935,9 @@ namespace Client.MirScenes.Dialogs
             int startPointX = (int)(viewRect.X / scaleX);
             int startPointY = (int)(viewRect.Y / scaleY);
 
+            // 20261118 性能优化：队员名后缀循环外计算一次，避免每对象每帧 string.Format 临时串
+            string nameSuffix = "(" + MapObject.User.Name + ")";
+
             foreach (var ob in MapControl.Objects.Values)
             {
                 if (ob.Race == ObjectType.Item || ob.Dead || ob.Race == ObjectType.Spell || ob.Sneaking) continue;
@@ -1940,7 +1946,7 @@ namespace Client.MirScenes.Dialogs
 
                 Color colour;
 
-                if ((GroupDialog.GroupList.Contains(ob.Name) && MapObject.User != ob) || ob.Name.EndsWith(string.Format("({0})", MapObject.User.Name)))
+                if ((GroupDialog.GroupList.Contains(ob.Name) && MapObject.User != ob) || ob.Name.EndsWith(nameSuffix, StringComparison.Ordinal))
                     colour = Color.FromArgb(0, 0, 255);
                 else
                     if (ob is PlayerObject)
@@ -1958,7 +1964,7 @@ namespace Client.MirScenes.Dialogs
 
                 #region NPC Quest Icons
 
-                if (ob is NPCObject npc && npc.GetAvailableQuests(true).Any())
+                if (ob is NPCObject npc && npc.HasAvailableQuest())
                 {
                     string text = "";
                     Color color = Color.Empty;
@@ -1995,19 +2001,29 @@ namespace Client.MirScenes.Dialogs
                             break;
                     }
 
-                    QuestIcons.Add(new MirLabel
+                    // 20261118 性能优化：从对象池复用图标，仅池不足时新建（Font 只在新建时设一次，避开每帧 ScaleFont 抖动）
+                    MirLabel icon;
+                    if (questIconUsed < QuestIcons.Count)
+                        icon = QuestIcons[questIconUsed];
+                    else
                     {
-                        AutoSize = true,
-                        Parent = GameScene.Scene.MiniMapDialog,
-                        Font = new Font(Settings.FontName, 9f, FontStyle.Bold),
-                        DrawFormat = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter,
-                        Text = text,
-                        ForeColour = color,
-                        Location = new Point((int)(x - Settings.ScreenWidth + GameScene.Scene.MiniMapDialog.Size.Width) - 6, (int)(y) - 10),
-                        NotControl = true,
-                        Visible = true,
-                        Modal = true
-                    });
+                        icon = new MirLabel
+                        {
+                            AutoSize = true,
+                            Parent = GameScene.Scene.MiniMapDialog,
+                            Font = new Font(Settings.FontName, 9f, FontStyle.Bold),
+                            DrawFormat = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter,
+                            NotControl = true,
+                            Modal = true
+                        };
+                        QuestIcons.Add(icon);
+                    }
+                    questIconUsed++;
+
+                    if (icon.Text != text) icon.Text = text;
+                    if (icon.ForeColour != color) icon.ForeColour = color;
+                    icon.Location = new Point((int)(x - Settings.ScreenWidth + GameScene.Scene.MiniMapDialog.Size.Width) - 6, (int)(y) - 10);
+                    icon.Visible = true;
                 }
 
                 #endregion

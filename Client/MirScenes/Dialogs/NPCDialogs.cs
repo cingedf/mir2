@@ -1053,7 +1053,8 @@ namespace Client.MirScenes.Dialogs
                 string[] nameSplit = npc.Name.Split('_');
                 NameLabel.Text = nameSplit[0];
 
-                if (npc.GetAvailableQuests().Any())
+                // 20261118 性能优化：无分配布尔判定替代 GetAvailableQuests().Any()（完整 LINQ 列表构造）
+                if (npc.HasAvailableQuest())
                     QuestButton.Visible = true;
             }
         }

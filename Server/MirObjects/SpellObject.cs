@@ -28,6 +28,10 @@ namespace Server.MirObjects
 
         public long TickTime, StartTime;
         public MapObject Caster;
+
+        // 20261118 性能优化：复用目标快照缓冲，避免每次 tick 每法术 ToArray() 分配（保留快照语义防 ProcessSpell 修改集合）
+        private MapObject[] _spellTargetBuffer = new MapObject[16];
+
         public int Value, TickSpeed, BonusDmg, Healingdmg;
         public DefenceType DefenceType;
         public Spell Spell;
@@ -159,12 +163,16 @@ namespace Server.MirObjects
             TickTime = Envir.Time + TickSpeed;
 
             // 20261116 审计修复P2：GetCell 可能返回 null（越界/无效格），判空前置防 NRE；迭代中集合可变，快照后遍历
+            // 20261118 性能优化：ToArray() 改为复用实例缓冲 CopyTo，保留快照语义同时消除每 tick 数组分配
             Cell cell = CurrentMap.GetCell(CurrentLocation);
             if (cell == null || cell.Objects == null) return;
-            MapObject[] snapshot = cell.Objects.ToArray();
-            for (int i = 0; i < snapshot.Length; i++)
+            int count = cell.Objects.Count;
+            if (count == 0) return;
+            if (_spellTargetBuffer.Length < count) Array.Resize(ref _spellTargetBuffer, count);
+            cell.Objects.CopyTo(_spellTargetBuffer, 0);
+            for (int i = 0; i < count; i++)
             {
-                ProcessSpell(snapshot[i]);
+                ProcessSpell(_spellTargetBuffer[i]);
             }
 
             if ((Spell == Spell.MapLava) || (Spell == Spell.MapLightning)) Value = 0;
