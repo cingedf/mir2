@@ -2035,7 +2035,7 @@ namespace Server.MirObjects
             {
                 if (message == GMPassword)
                 {
-                    IsGM = true;
+                    // 20261119 审计修复P1：移除聊天口令提权，GM 身份只由 AdminAccount 决定（@LOGIN 入口已禁用，此处为死代码双保险）
                     UpdateGMBuff();
                     MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.UserIsNowGM), Name));
                     ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.YouHaveBeenMadeGM), ChatType.System);
@@ -2324,8 +2324,8 @@ namespace Server.MirObjects
                 switch (parts[0].ToUpper())
                 {
                     case "LOGIN":
-                        GMLogin = true;
-                        ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.EnterGmPassword), ChatType.Hint);
+                        // 20261119 审计修复P1：聊天 @LOGIN 口令提权已移除（口令曾随部署配置公开），GM 身份只由账号 AdminAccount 标记决定
+                        ReceiveChat("GM 提权命令已禁用，GM 身份由账号标记决定", ChatType.Hint);
                         return;
 
                     case "KILL":
@@ -2491,7 +2491,8 @@ namespace Server.MirObjects
                         ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerChangedTo), data.Name, data.Gender), ChatType.System);
                         MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerChangedBy), data.Name, data.Gender, Name));
 
-                        Helpers.ChatSystem.SystemMessage(chatMessage: GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerGenderChangedByGM), data.Player.Name, data.Gender.ToString(), Name));
+                        // 20261119 审计修复P2：data.Player 在离线角色为 null，原 data.Player.Name 在下方判空前解引用 NRE；改用 CharacterInfo 自带的 data.Name（等价）
+                        Helpers.ChatSystem.SystemMessage(chatMessage: GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerGenderChangedByGM), data.Name, data.Gender.ToString(), Name));
 
                         if (data.Player != null)
                             data.Player.Connection.LogOut();
@@ -3736,7 +3737,8 @@ namespace Server.MirObjects
                         ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerChangedTo), data.Name, data.Class), ChatType.System);
                         MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerChangedBy), data.Name, data.Class, Name));
 
-                        Helpers.ChatSystem.SystemMessage(chatMessage: GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.ClassChangedByGM), data.Player.Name, data.Class.ToString(), Name));
+                        // 20261119 审计修复P2：data.Player 在离线角色为 null，原 data.Player.Name 在下方判空前解引用 NRE；改用 CharacterInfo 自带的 data.Name（等价）
+                        Helpers.ChatSystem.SystemMessage(chatMessage: GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.ClassChangedByGM), data.Name, data.Class.ToString(), Name));
 
                         if (data.Player != null)
                             data.Player.Connection.LogOut();
@@ -4446,9 +4448,16 @@ namespace Server.MirObjects
                     case "SETTIMER":
                         if (parts.Length < 4) return;
 
+                        // 20261119 审计修复P2：SETTIMER 影响 NPC 计时器（可绕过冷却/门禁），补 GM 权限校验（对齐 SETLIGHT :4458）
+                        if (!IsGM && !Settings.TestServer) return;
+
                         string key = parts[1];
 
                         if (!int.TryParse(parts[2], out int seconds)) return;
+
+                        // 20261119 审计修复P2：钳制秒数防 seconds*Settings.Second 整型溢出为负
+                        if (seconds < 0 || seconds > 86400 * 30) return;
+
                         if (!byte.TryParse(parts[3], out byte timerType)) return;
 
                         SetTimer(key, seconds, timerType);
