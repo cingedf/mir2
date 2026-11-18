@@ -719,11 +719,15 @@ public class UserItem
             SoulBoundId = SoulBoundId,
             Identified = Identified,
             Cursed = Cursed,
-            Slots = Slots,
+            // 20261119 审计修复P2：Slots 数组浅拷贝隔离孔位增删，Awake 独立拷贝隔离觉醒等级污染（原共享引用）；
+            // 补齐漏拷的 RefinedValue/RefineSuccessChance，避免 Clone 后精炼属性/成功率蒸发
+            Slots = (UserItem[])Slots.Clone(),
             AddedStats = new Stats(AddedStats),
-            Awake = Awake,
+            Awake = new Awake(Awake),
 
+            RefinedValue = RefinedValue,
             RefineAdded = RefineAdded,
+            RefineSuccessChance = RefineSuccessChance,
 
             ExpireInfo = ExpireInfo,
             RentalInformation = RentalInformation,
@@ -919,6 +923,13 @@ public class Awake
     readonly List<byte> listAwake = new List<byte>();
 
     public Awake() { }
+
+    // 20261119 审计修复P2：拷贝构造（SplitItem/Clone 需独立 Awake 对象，否则两堆叠共享觉醒等级 List 互相污染）
+    public Awake(Awake other)
+    {
+        Type = other.Type;
+        listAwake.AddRange(other.listAwake);
+    }
 
     public Awake(BinaryReader reader)
     {

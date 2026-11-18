@@ -1242,9 +1242,17 @@ namespace Server.MirObjects
             if ((isBuyBack || isUsed) && count > goods.Count)
                 count = goods.Count;
 
-            uint cost = goods.Price();
-            cost = (uint)(cost * PriceRate(player));
-            uint baseCost = (uint)(goods.Price() * PriceRate(player, true));
+            // 20261119 审计修复：前批删除 goods.Count=count（避免污染共享模板）后，成本仍按模板
+            // Count（默认1）计价，实发却是客户端 count→少扣款刷物（P0）。改按实发数量在临时副本上计价，
+            // 不回写共享模板；isBuyBack/isUsed 路径 goods 即玩家物品，沿用其自身 Count 计价（等价）。
+            UserItem priceItem = goods;
+            if (!isBuyBack && !isUsed)
+            {
+                priceItem = goods.Clone();
+                priceItem.Count = (ushort)purchaseCount;
+            }
+            uint cost = (uint)(priceItem.Price() * PriceRate(player));
+            uint baseCost = (uint)(priceItem.Price() * PriceRate(player, true));
 
             if (player.NPCPage.Key.ToUpper() == PearlBuyKey)//pearl currency
             {
@@ -1325,7 +1333,11 @@ namespace Server.MirObjects
                 return;
             }
 
-            if (player.Account.Gold < (recipe.Gold * count))
+            // 20261119 审计修复P1：recipe.Gold(uint)×count 在 uint 域乘法回绕（如 65536×65535 真值 42.9 亿回绕成 65535），
+            // 用 ulong 中间量校验与扣款，防大额合成少扣金币刷钱
+            ulong totalGold = (ulong)recipe.Gold * (ulong)count;
+
+            if ((ulong)player.Account.Gold < totalGold)
             {
                 player.Enqueue(p);
                 return;
@@ -1496,9 +1508,10 @@ namespace Server.MirObjects
                 }
             }
 
-            //Take Gold
-            player.Account.Gold -= (recipe.Gold * count);
-            player.Enqueue(new S.LoseGold { Gold = (recipe.Gold * count) });
+            //Take Gold  (20261119 审计修复P1：用 ulong 中间量强转前已校验未超玩家金币，安全)
+            uint goldCost = (uint)totalGold;
+            player.Account.Gold -= goldCost;
+            player.Enqueue(new S.LoseGold { Gold = goldCost });
 
             if (Envir.Random.Next(100) >= recipe.Chance + player.Stats[Stat.大师收益])
             {

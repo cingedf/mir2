@@ -758,7 +758,10 @@ namespace Server.MirObjects
                         if (count > item.Count)
                             throw new ArgumentOutOfRangeException();
 
-                        var temp2 = Envir.CreateFreshItem(item.Info);
+                        // 20261119 审计修复P2：部分堆叠分出需保留强化/觉醒/耐久等属性（原 CreateFreshItem 只拷 Info），
+                        // Clone 后重设 UniqueID 避免与原堆叠撞号
+                        var temp2 = item.Clone();
+                        temp2.UniqueID = ++Envir.NextUserItemID;
                         temp2.Count = count;
 
                         if (!DropItem(temp2, Settings.DropRange, true))
@@ -7920,7 +7923,9 @@ namespace Server.MirObjects
             }
             else
             {
-                UserItem temp2 = Envir.CreateFreshItem(temp.Info);
+                // 20261119 审计修复P2：部分丢弃保留原物品属性（Clone + 重设 UniqueID）
+                UserItem temp2 = temp.Clone();
+                temp2.UniqueID = ++Envir.NextUserItemID;
                 temp2.Count = count;
                 if (!temp.Info.Bind.HasFlag(BindMode.DestroyOnDrop))
                     if (!DropItem(temp2))
@@ -8541,7 +8546,9 @@ namespace Server.MirObjects
 
                 if (temp.Info.StackSize > 1 && count != temp.Count)
                 {
-                    UserItem item = Envir.CreateFreshItem(temp.Info);
+                    // 20261119 审计修复P2：部分出售保留原物品属性（Clone + 重设 UniqueID）
+                    UserItem item = temp.Clone();
+                    item.UniqueID = ++Envir.NextUserItemID;
                     item.Count = count;
 
                     if (item.Price() / 2 + Account.Gold > uint.MaxValue)

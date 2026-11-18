@@ -1310,10 +1310,13 @@ namespace Server.MirObjects
             }
 
             // 20261116 审计修复P2：原三目优先级使整倍数金额末堆=gold%Max=0 产生 0 金币垃圾堆；整除时不再多掉一堆
-            uint count = gold / Settings.MaxDropGold + (gold % Settings.MaxDropGold == 0 ? 0u : 1u);
+            // 20261119 审计修复P1：MaxDropGold 由 ini 可读，配 0 时下方除法抛 DivideByZeroException 中断怪物 Process；
+            // 局部兜底为 1（仅本方法有效，不改配置写回），行为等价收敛
+            uint maxDrop = Settings.MaxDropGold == 0 ? 1u : Settings.MaxDropGold;
+            uint count = gold / maxDrop + (gold % maxDrop == 0 ? 0u : 1u);
             for (int i = 0; i < count; i++)
             {
-                uint stackGold = i != count - 1 ? Settings.MaxDropGold : gold - (uint)(count - 1) * Settings.MaxDropGold;
+                uint stackGold = i != count - 1 ? maxDrop : gold - (uint)(count - 1) * maxDrop;
                 ItemObject ob = new ItemObject(this, stackGold)
                 {
                     Owner = EXPOwner,

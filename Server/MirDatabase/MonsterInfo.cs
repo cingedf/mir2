@@ -485,8 +485,12 @@ namespace Server.MirDatabase
 
         private static List<string> ParseInsert(List<string> lines)
         {
+            // 20261119 审计修复：移植 NPCScript.ParseInsert 的归一路径去重 + 缺失文件保护——
+            // 原 for(i<lines.Count) 内 AddRange 使 Count 持续增长，掉落表 #INSERT 自引用/循环即无限扩张
+            // 死循环/OOM；File.ReadAllLines 对缺失文件抛未捕获异常。
             Regex regex = new Regex($"#INSERT \\[(.*?)\\]", RegexOptions.IgnoreCase);
 
+            HashSet<string> processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             List<string> newLines = new List<string>();
 
             for (int i = 0; i < lines.Count; i++)
@@ -498,6 +502,15 @@ namespace Server.MirDatabase
                 var subPath = match.Groups[1].Value;
 
                 string path = Path.Combine(Settings.DropPath, subPath);
+
+                if (!processed.Add(Path.GetFullPath(path))) continue;
+
+                if (!File.Exists(path))
+                {
+                    MessageQueue.Enqueue($"掉落表插入文件不存在: {path}");
+                    newLines.Clear(); // 防沿用上轮残留内容重复插入
+                    continue;
+                }
 
                 newLines = File.ReadAllLines(path).ToList();
 
@@ -530,18 +543,23 @@ namespace Server.MirDatabase
 
             if (Gold > 0)
             {
-                int lowerGoldRange = (int)(Gold / 2);
-                int upperGoldRange = (int)(Gold + Gold / 2);
+                // 20261119 审计修复P1：Gold(uint) 加法/乘法回绕后转 int 可能为负，
+                // Random.Next(负, 负+1) 抛 ArgumentOutOfRangeException 崩溃；负返回值再 (uint) 转巨额金币（刷钱）。
+                // 改 long 中间量并钳制到 [0, int.MaxValue-1]（正常小配置下与 uint 域计算等价）
+                long lowerL = Gold / 2L;
+                long upperL = Gold + Gold / 2L;
 
                 if (goldDropRatePercentOffset > 0)
                 {
-                    lowerGoldRange += (lowerGoldRange * goldDropRatePercentOffset) / 100;
-                    upperGoldRange += (upperGoldRange * goldDropRatePercentOffset) / 100;
+                    lowerL += lowerL * goldDropRatePercentOffset / 100L;
+                    upperL += upperL * goldDropRatePercentOffset / 100L;
                 }
 
-                if (lowerGoldRange > upperGoldRange) lowerGoldRange = upperGoldRange;
+                if (lowerL < 0) lowerL = 0;
+                if (upperL > int.MaxValue - 1) upperL = int.MaxValue - 1;
+                if (lowerL > upperL) lowerL = upperL;
 
-                gold = (uint)Envir.Random.Next(lowerGoldRange, upperGoldRange + 1);
+                gold = (uint)Envir.Random.Next((int)lowerL, (int)upperL + 1);
             }
             else if (Item != null)
             {

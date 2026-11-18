@@ -1517,7 +1517,9 @@ namespace Server.MirObjects
                         if (count > item.Count)
                             throw new ArgumentOutOfRangeException();
 
-                        var temp2 = Envir.CreateFreshItem(item.Info);
+                        // 20261119 审计修复P2：部分堆叠分出保留原物品属性（Clone + 重设 UniqueID，对齐 SplitItem）
+                        var temp2 = item.Clone();
+                        temp2.UniqueID = ++Envir.NextUserItemID;
                         temp2.Count = count;
 
                         if (!DropItem(temp2, Settings.DropRange, true))
@@ -1594,7 +1596,9 @@ namespace Server.MirObjects
                     if (count > item.Count)
                         throw new ArgumentOutOfRangeException();
 
-                    var temp2 = Envir.CreateFreshItem(item.Info);
+                    // 20261119 审计修复P2：部分堆叠分出保留原物品属性（Clone + 重设 UniqueID，对齐 SplitItem）
+                    var temp2 = item.Clone();
+                    temp2.UniqueID = ++Envir.NextUserItemID;
                     temp2.Count = count;
 
                     if (!DropItem(temp2, Settings.DropRange, true))
