@@ -202,8 +202,26 @@ namespace Client.MirGraphics
 
             LoadLibraries();
 
-            Thread thread = new Thread(LoadGameLibraries) { IsBackground = true };
+            // 20261119 健壮性修复：资源库在后台线程加载，任一 .Lib 损坏/异常 _count 抛异常到线程顶层
+            // 会触发未处理异常直接终止进程；包一层 Safe 方法捕获并记录，单批损坏时降级而非崩游戏
+            Thread thread = new Thread(LoadGameLibrariesSafe) { IsBackground = true };
             thread.Start();
+        }
+
+        // 20261119 健壮性修复：LoadGameLibraries 后台线程的异常兜底
+        private static void LoadGameLibrariesSafe()
+        {
+            try
+            {
+                LoadGameLibraries();
+            }
+            catch (Exception ex)
+            {
+                CMain.SaveError(ex.ToString());
+                // 必须置 Loaded，否则进场关卡 Libraries.Loaded 永远等不到；部分库未初始化时
+                // CheckImage 对 _images==null 返回 false 自然降级（缺图不崩）
+                Loaded = true;
+            }
         }
 
         static void InitLibrary(ref MLibrary[] library, string path, string toStringValue, string suffix = "")
@@ -214,11 +232,14 @@ namespace Client.MirGraphics
             }
 
             // 20261119 低优先级修复：OrderBy 为延迟枚举，原 Count()+Last() 对同一序列枚举两遍=两次目录扫描+两次正则排序；物化数组只排一次
-            var allFiles = Directory.GetFiles(path, "*" + suffix + MLibrary.Extention, SearchOption.TopDirectoryOnly).OrderBy(x => int.Parse(Regex.Match(x, @"\d+").Value)).ToArray();
+            // 20261119 健壮性修复：文件名无数字时 Regex.Match(...).Value="" → int.Parse 抛 FormatException →
+            // 静态构造 TypeInitializationException 被 Application_Idle 吞掉 → ActiveScene 永远 null 黑屏；改 TryParse 容错
+            var allFiles = Directory.GetFiles(path, "*" + suffix + MLibrary.Extention, SearchOption.TopDirectoryOnly)
+                .OrderBy(x => int.TryParse(Regex.Match(x, @"\d+").Value, out int n) ? n : 0).ToArray();
 
             var lastFile = allFiles.Length > 0 ? Path.GetFileName(allFiles[allFiles.Length - 1]) : "0";
 
-            var count = int.Parse(Regex.Match(lastFile, @"\d+").Value) + 1;
+            var count = (int.TryParse(Regex.Match(lastFile, @"\d+").Value, out int lastN) ? lastN : 0) + 1;
 
             library = new MLibrary[count];
 

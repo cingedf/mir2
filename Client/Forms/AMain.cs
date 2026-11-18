@@ -81,7 +81,10 @@ namespace Launcher
                 ServicePointManager.DefaultConnectionLimit = Settings.P_Concurrency;
                 _stopwatch = Stopwatch.StartNew();
 
-                for (var i = 0; i < Settings.P_Concurrency; i++) BeginDownload();
+                // 20261119 审计修复P1：原按 P_Concurrency 多次调 BeginDownload，但 DownloadFile 用 task.Result
+                // 同步阻塞（并发从未生效），且 DownloadFile 尾部递归调 BeginDownload→递归深度=文件数→栈溢出；
+                // 改单次调度，BeginDownload 内部 while 循环下载，保持串行下载+完成后 Completed/CleanUp 语义
+                BeginDownload();
             }
             catch (EndOfStreamException ex)
             {
@@ -103,40 +106,48 @@ namespace Launcher
 
         private void BeginDownload()
         {
-            if (DownloadList.Count == 0)
+            // 20261119 审计修复P1：改为 while 循环逐项下载（原来靠 DownloadFile 尾部递归调本方法推进）。
+            // 下载全部完成后置 Completed + CleanUp，与原「Count==0 分支」语义等价，但不再累积调用栈
+            while (DownloadList.Count > 0)
             {
-                Completed = true;
-
-                CleanUp();
-                return;
+                var download = new Download();
+                download.Info = DownloadList.Dequeue();
+                DownloadFile(download);
             }
 
-            var download = new Download();
-            download.Info = DownloadList.Dequeue();
-            DownloadFile(download);
-
+            Completed = true;
+            CleanUp();
         }
 
         private void CleanUp()
         {
-            if (!CleanFiles) return;
-
-            string[] fileNames = Directory.GetFiles(@".\", "*.*", SearchOption.AllDirectories);
-            string fileName;
-            for (int i = 0; i < fileNames.Length; i++)
+            // 20261119 健壮性修复：CleanUp 在补丁后台线程执行，原 Directory.GetFiles 在逐文件 try 之外，
+            // 一旦抛异常（目录被占用/权限）冒泡到线程顶层=未处理异常杀进程；整体包 try 降级
+            try
             {
-                if (fileNames[i].StartsWith(".\\Screenshots\\")) continue;
+                if (!CleanFiles) return;
 
-                fileName = Path.GetFileName(fileNames[i]);
-
-                if (fileName == "Mir2Config.ini" || fileName == System.AppDomain.CurrentDomain.FriendlyName) continue;
-
-                try
+                string[] fileNames = Directory.GetFiles(@".\", "*.*", SearchOption.AllDirectories);
+                string fileName;
+                for (int i = 0; i < fileNames.Length; i++)
                 {
-                    if (!NeedFile(fileNames[i]))
-                        File.Delete(fileNames[i]);
+                    if (fileNames[i].StartsWith(".\\Screenshots\\")) continue;
+
+                    fileName = Path.GetFileName(fileNames[i]);
+
+                    if (fileName == "Mir2Config.ini" || fileName == System.AppDomain.CurrentDomain.FriendlyName) continue;
+
+                    try
+                    {
+                        if (!NeedFile(fileNames[i]))
+                            File.Delete(fileNames[i]);
+                    }
+                    catch { }
                 }
-                catch { }
+            }
+            catch (Exception ex)
+            {
+                try { CMain.SaveError(ex.ToString()); } catch { }
             }
         }
         public bool NeedFile(string fileName)
@@ -334,8 +345,7 @@ namespace Launcher
                     MessageBox.Show(GameLanguage.ClientTextMap.GetLocalization((ClientTextKeys.FileDownload_Failure), fileName));
                 }
             }
-
-            BeginDownload();
+            // 20261119 审计修复P1：删除尾部 BeginDownload() 递归（原导致栈溢出）；下载推进改由 BeginDownload 的 while 循环负责
         }
 
         public byte[] Download(string fileName)

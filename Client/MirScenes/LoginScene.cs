@@ -15,6 +15,7 @@ namespace Client.MirScenes
         public MirLabel Version;
 
         private LoginDialog _login;
+        private bool _loggedIn; // 20261119 审计修复P2：防重复 LoginSuccess 重入
         private NewAccountDialog _account;
         private ChangePasswordDialog _password;
 
@@ -328,6 +329,11 @@ namespace Client.MirScenes
         }
         private void Login(S.LoginSuccess p)
         {
+            // 20261119 审计修复P2：Enabled=false 不阻止 ProcessPacket，重复 LoginSuccess 会注册多个
+            // AfterAnimation 回调→多次 Dispose + 多个 SelectScene 覆盖；加一次性闸门只允许首次进入
+            if (_loggedIn) return;
+            _loggedIn = true;
+
             Enabled = false;
             _login.Dispose();
             if(_ViewKey != null && !_ViewKey.IsDisposed) _ViewKey.Dispose();

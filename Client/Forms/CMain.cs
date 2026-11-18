@@ -812,31 +812,47 @@ namespace Client
 
             string path = $"{Settings.MouseCursorPath}Cursor_Default.CUR";
             if (File.Exists(path))
-                Cursors[(int)MouseCursor.Default] = LoadCustomCursor(path);
+                Cursors[(int)MouseCursor.Default] = TryLoadCustomCursor(path);
 
             path = $"{Settings.MouseCursorPath}Cursor_Normal_Atk.CUR";
             if (File.Exists(path))
-                Cursors[(int)MouseCursor.Attack] = LoadCustomCursor(path);
+                Cursors[(int)MouseCursor.Attack] = TryLoadCustomCursor(path);
 
             path = $"{Settings.MouseCursorPath}Cursor_Compulsion_Atk.CUR";
             if (File.Exists(path))
-                Cursors[(int)MouseCursor.AttackRed] = LoadCustomCursor(path);
+                Cursors[(int)MouseCursor.AttackRed] = TryLoadCustomCursor(path);
 
             path = $"{Settings.MouseCursorPath}Cursor_Npc.CUR";
             if (File.Exists(path))
-                Cursors[(int)MouseCursor.NPCTalk] = LoadCustomCursor(path);
+                Cursors[(int)MouseCursor.NPCTalk] = TryLoadCustomCursor(path);
 
             path = $"{Settings.MouseCursorPath}Cursor_TextPrompt.CUR";
             if (File.Exists(path))
-                Cursors[(int)MouseCursor.TextPrompt] = LoadCustomCursor(path);
+                Cursors[(int)MouseCursor.TextPrompt] = TryLoadCustomCursor(path);
 
             path = $"{Settings.MouseCursorPath}Cursor_Trash.CUR";
             if (File.Exists(path))
-                Cursors[(int)MouseCursor.Trash] = LoadCustomCursor(path);
+                Cursors[(int)MouseCursor.Trash] = TryLoadCustomCursor(path);
 
             path = $"{Settings.MouseCursorPath}Cursor_Upgrade.CUR";
             if (File.Exists(path))
-                Cursors[(int)MouseCursor.Upgrade] = LoadCustomCursor(path);
+                Cursors[(int)MouseCursor.Upgrade] = TryLoadCustomCursor(path);
+        }
+
+        // 20261119 健壮性修复：损坏的 .CUR 文件（hCurs==0）会让 LoadCustomCursor 抛 Win32Exception，
+        // 若冒泡到 CMain_Load 的 try(:98) 会中断后续 DXManager.Create()(:103)/SoundManager.Create()(:104)
+        // → 黑屏全渲染失效；此处单个光标加载失败降级为默认光标，不影响 D3D/声音初始化
+        private static Cursor TryLoadCustomCursor(string path)
+        {
+            try
+            {
+                return LoadCustomCursor(path);
+            }
+            catch (Exception ex)
+            {
+                SaveError("加载鼠标指针失败 " + path + ": " + ex.Message);
+                return Program.Form.Cursor;
+            }
         }
 
         public static Cursor LoadCustomCursor(string path)

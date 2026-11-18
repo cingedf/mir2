@@ -261,8 +261,16 @@ namespace Client.MirScenes
         }
 
 
+        // 20261119 审计修复P2：防连点/多入口重复发 StartGame（按钮 Click、角色双击、回车键均调用本方法），
+        // 一次性闸门确保只发一个 C.StartGame，loadProgress 回调走 SendStartGame 发包而非再进本方法
+        private bool _starting;
+
         public void StartGame()
         {
+            if (_starting) return;
+            _starting = true;
+            StartGameButton.Enabled = false;
+
             if (!Libraries.Loaded)
             {
                 MirAnimatedControl loadProgress = new MirAnimatedControl
@@ -281,12 +289,17 @@ namespace Client.MirScenes
                 {
                     if (!Libraries.Loaded) return;
                     loadProgress.Dispose();
-                    StartGame();
+                    SendStartGame(); // 20261119 审计修复P2：不再递归 StartGame（闸门会拦截），直接发包
                 };
                 return;
             }
-            StartGameButton.Enabled = false;
 
+            SendStartGame(); // 20261119 审计修复P2：抽发包方法，闸门在 StartGame 入口已置
+        }
+
+        // 20261119 审计修复P2：实际发包逻辑（从 StartGame 抽出，供加载完成回调与直连路径共用）
+        private void SendStartGame()
+        {
             Network.Enqueue(new C.StartGame
             {
                 CharacterIndex = Characters[_selected].Index
