@@ -831,7 +831,13 @@ namespace Server.MirObjects
         {
             if (Dead) return;
 
+            // 20261119 审计修复P0：base.Die 内 MonsterObject.Die 会置 Master=null，故先捕获；
+            // 死后从主人 Pets 列表移除，避免死宠滞留致 UnSummon 空转仍清标志→无限刷宠
+            var master = Master;
             base.Die();
+
+            if (master != null)
+                master.Pets.Remove(this);
 
             if (Dead)
             {

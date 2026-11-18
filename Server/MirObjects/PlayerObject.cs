@@ -10166,6 +10166,9 @@ namespace Server.MirObjects
         public void SetHeroBehaviour(HeroBehaviour behaviour)
         {
             if (!HeroSpawned) return;
+
+            // 20261119 审计修复P2：behaviour 由客户端 byte 传入，非法枚举值致英雄 Can* 全 false 永久冻结
+            if (!Enum.IsDefined(typeof(HeroBehaviour), behaviour)) return;
             if (Info.HeroBehaviour == behaviour) return;
 
             Info.HeroBehaviour = behaviour;
@@ -12643,6 +12646,10 @@ namespace Server.MirObjects
 
                 var pet = (IntelligentCreatureObject)Pets[i];
                 if (pet.PetType != pType) continue;
+
+                // 20261119 审计修复P0：跳过已死亡/已 Despawn 的宠，避免空转仍清除召唤标志导致可被反复召唤刷宠
+                if (pet.Dead || pet.Node == null) continue;
+
                 if (doUpdate) ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.CreatureDismissed), pet.CustomName), ChatType.System);
 
                 pet.Die();
@@ -12659,6 +12666,9 @@ namespace Server.MirObjects
         public void ReleaseIntelligentCreature(IntelligentCreatureType pType, bool doUpdate = true)
         {
             if (pType == IntelligentCreatureType.None) return;
+
+            // 20261119 审计修复P2：遣散正在召唤中的宠须先 UnSummon，否则地图活宠成孤儿（拾取/产珍珠不停）
+            if (CreatureSummoned && SummonedCreatureType == pType) UnSummonIntelligentCreature(pType, false);
 
             //remove creature
             for (int i = 0; i < Info.IntelligentCreatures.Count; i++)
