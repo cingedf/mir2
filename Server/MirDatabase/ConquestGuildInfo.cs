@@ -307,7 +307,8 @@ namespace Server.MirDatabase
         {
             if (Wall != null) Health = Wall.HP;
             writer.Write(Index);
-            writer.Write(Wall.Health);
+            // 20261119 审计修复P2：原写 Wall.Health（Wall 运行时对象，为 null 时 NRE 且未持久化已同步的 Health 值）；改写 Health 字段
+            writer.Write(Health);
         }
 
         public void Spawn(bool repair)
@@ -517,6 +518,9 @@ namespace Server.MirDatabase
 
         public void Spawn(bool Revive = false)
         {
+            // 20261119 审计修复P1：重复 Spawn 前先 Despawn 旧弓箭手，防对象泄漏致地图残留幽灵弓箭手
+            if (ArcherMonster != null) { ArcherMonster.Despawn(); ArcherMonster = null; }
+
             if (Revive) Alive = true;
 
             MonsterInfo monsterInfo = Envir.GetMonsterInfo(Info.MobIndex);

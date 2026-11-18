@@ -4643,7 +4643,9 @@ namespace Server.MirObjects
                             var conquest = Envir.Conquests.FirstOrDefault(z => z.Info.Index == tempInt);
                             if (conquest == null) return;
 
-                            if (player.MyGuild != null && player.MyGuild.Guildindex != conquest.GuildInfo.Owner && !conquest.WarIsOn)
+                            // 20261119 审计修复P1：宣战（提交本行会为攻城方）须会长操作，防任意普通成员劫持宣战权（对齐 GuildWarReturn/PurchaseGuildTerritory 限 Ranks[0]）
+                            if (player.MyGuild != null && player.MyGuild.Guildindex != conquest.GuildInfo.Owner && !conquest.WarIsOn
+                                && player.MyGuildRank == player.MyGuild.Ranks[0])
                             {
                                 conquest.GuildInfo.AttackerID = player.MyGuild.Guildindex;
                             }
@@ -4659,6 +4661,9 @@ namespace Server.MirObjects
                             ConquestGuildGateInfo OpenGate = Conquest.GateList.FirstOrDefault(z => z.Index == tempInt);
                             if (OpenGate == null) return;
                             if (OpenGate.Gate == null) return;
+                            // 20261119 审计修复P1：开关城门须占领方（守方）会长操作，防任意行会脚本跳子页开关城门左右胜负；GM 例外
+                            if (!player.IsGM && (player.MyGuild == null || player.MyGuild.Guildindex != Conquest.GuildInfo.Owner
+                                || player.MyGuildRank != player.MyGuild.Ranks[0])) return;
                             OpenGate.Gate.OpenDoor();
                         }
                         break;
@@ -4672,6 +4677,9 @@ namespace Server.MirObjects
                             ConquestGuildGateInfo CloseGate = conquest.GateList.FirstOrDefault(z => z.Index == tempInt);
                             if (CloseGate == null) return;
                             if (CloseGate.Gate == null) return;
+                            // 20261119 审计修复P1：开关城门须占领方（守方）会长操作，防任意行会脚本跳子页开关城门左右胜负；GM 例外
+                            if (!player.IsGM && (player.MyGuild == null || player.MyGuild.Guildindex != conquest.GuildInfo.Owner
+                                || player.MyGuildRank != player.MyGuild.Ranks[0])) return;
                             CloseGate.Gate.CloseDoor();
                         }
                         break;

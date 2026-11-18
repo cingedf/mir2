@@ -282,7 +282,9 @@ namespace Server.MirObjects
                     if (PalaceMap.NPCs[i].Info.Conquest == Info.Index)
                     {
                         PalaceMap.NPCs[i].Conq = this;
-                        ConquestNPCs.Add(ConquestMap.NPCs[i]);
+                        // 20261119 审计修复P1：原错写 ConquestMap.NPCs[i]（复制粘贴错误），用 PalaceMap 索引去索引
+                        // ConquestMap.NPCs 会在 PalaceMap NPC 更多时越界崩溃，且加错对象；改为 PalaceMap.NPCs[i]
+                        ConquestNPCs.Add(PalaceMap.NPCs[i]);
                     }
                 }                    
             }
