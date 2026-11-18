@@ -315,6 +315,9 @@ namespace Server.MirObjects
 
                 if (split.Length < 2) continue;
 
+                // 20261119 审计修复：畸形 token（无配对引号/长度不足）时 Substring(1,Length-2) 负长度抛异常，启动期崩溃
+                if (split[1].Length < 2 || split[1][0] != '"' || split[1][split[1].Length - 1] != '"') continue;
+
                 string path = Path.Combine(Settings.EnvirPath, split[1].Substring(1, split[1].Length - 2));
 
                 if (!processed.Add(Path.GetFullPath(path))) continue;
@@ -348,6 +351,9 @@ namespace Server.MirObjects
                 string[] split = lines[i].Split(' ');
 
                 if (split.Length < 3) continue;
+
+                // 20261119 审计修复：畸形 token（无配对引号/长度不足）时 Substring(1,Length-2) 负长度抛异常，启动期崩溃
+                if (split[1].Length < 2 || split[1][0] != '"' || split[1][split[1].Length - 1] != '"') continue;
 
                 string path = Path.Combine(Settings.EnvirPath, split[1].Substring(1, split[1].Length - 2));
 
@@ -963,9 +969,10 @@ namespace Server.MirObjects
                         {
                             for (int i = 0; i < callingNPC.UsedGoods.Count; i++)
                                 player.CheckItem(callingNPC.UsedGoods[i]);
-                        }
 
-                        sentGoods.AddRange(callingNPC.UsedGoods);
+                            // 20261119 审计修复：AddRange 原逃逸出 null 检查块，NPC 已消失时 AddRange(null) 抛 NRE；移入块内
+                            sentGoods.AddRange(callingNPC.UsedGoods);
+                        }
                     }
 
                     player.SendNPCGoods(sentGoods, PriceRate(player), PanelType.Buy, Settings.GoodsHideAddedStats);

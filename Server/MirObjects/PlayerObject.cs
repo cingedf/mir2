@@ -8422,13 +8422,14 @@ namespace Server.MirObjects
         private void CallNPCNextPage()
         {
             //process any new npc calls immediately
-            for (int i = 0; i < ActionList.Count; i++)
+            // 20261119 审计修复：原正向遍历+RemoveAt(i)，CompleteNPC→script.Call 执行 GOTO/CALL
+            // 会向 ActionList 尾部新增 Time==-1 的 NPC 动作；一页多个 segment 命中时 Count 增长
+            // 快于 i→主循环死循环；且 RemoveAt 后 i++ 不回退会跳过紧邻动作。改快照待处理动作
+            // +budget=64 上限，按引用移除；遍历中新增动作留待下次调用处理，行为等价收敛。
+            var pending = ActionList.Where(a => a.Type == DelayedType.NPC && a.Time == -1).Take(64).ToList();
+            foreach (var action in pending)
             {
-                if (ActionList[i].Type != DelayedType.NPC || ActionList[i].Time != -1) continue;
-                var action = ActionList[i];
-
-                ActionList.RemoveAt(i);
-
+                ActionList.Remove(action);
                 CompleteNPC(action.Params);
             }
         }

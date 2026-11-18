@@ -3618,6 +3618,10 @@ namespace Server.MirNetwork
             if (Stage != GameStage.Game)
                 return;
 
+            // 20261119 审计修复：PageName 无长度校验（CallNPC 路径有 >30 SendDisconnect），此路径可绕过；补齐同款限制
+            if (p.PageName == null || p.PageName.Length > 30)
+                return;
+
             // 20261116 审计修复：玩家输入直存脚本变量无长度限制，超长串可撑爆存档/NPC 脚本处理；截断 100 字符
             Player.NPCData["NPCInputStr"] = p.Value?.Length > 100 ? p.Value.Substring(0, 100) : p.Value;
 

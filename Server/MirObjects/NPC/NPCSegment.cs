@@ -1970,7 +1970,8 @@ namespace Server.MirObjects
                             break;
                         }
 
-                        failed = 0 != Envir.Random.Next(0, tempInt);
+                        // 20261119 审计修复：tempInt<0 时 Random.Next(0,负)抛异常中断脚本检查；负值视为检查失败
+                        failed = tempInt < 0 || 0 != Envir.Random.Next(0, tempInt);
                         break;
                     case CheckType.CheckCalc:
                         int left;
@@ -2178,7 +2179,8 @@ namespace Server.MirObjects
                             break;
                         }
 
-                        failed = 0 != Envir.Random.Next(0, tempInt);
+                        // 20261119 审计修复：tempInt<0 时 Random.Next(0,负)抛异常中断脚本检查；负值视为检查失败
+                        failed = tempInt < 0 || 0 != Envir.Random.Next(0, tempInt);
                         break;
                     case CheckType.CheckCalc:
                         int left;
@@ -2558,7 +2560,8 @@ namespace Server.MirObjects
                             break;
                         }
 
-                        failed = 0 != Envir.Random.Next(0, tempInt);
+                        // 20261119 审计修复：tempInt<0 时 Random.Next(0,负)抛异常中断脚本检查；负值视为检查失败
+                        failed = tempInt < 0 || 0 != Envir.Random.Next(0, tempInt);
                         break;
 
                     case CheckType.Groupleader:
@@ -3438,6 +3441,8 @@ namespace Server.MirObjects
                         break;
                     case ActionType.GiveGuildGold:
                         {
+                            // 20261119 审计修复：无公会玩家执行此脚本动作 MyGuild 为 null，直接解引用会 NRE
+                            if (player.MyGuild == null) return;
                             if (!uint.TryParse(param[0], out uint gold)) return;
 
                             if (gold + player.MyGuild.Gold >= uint.MaxValue)
@@ -3449,6 +3454,8 @@ namespace Server.MirObjects
                         break;
                     case ActionType.TakeGuildGold:
                         {
+                            // 20261119 审计修复：无公会玩家执行此脚本动作 MyGuild 为 null，直接解引用会 NRE
+                            if (player.MyGuild == null) return;
                             if (!uint.TryParse(param[0], out uint gold)) return;
 
                             if (gold >= player.MyGuild.Gold) gold = player.MyGuild.Gold;
@@ -3539,6 +3546,13 @@ namespace Server.MirObjects
                             if (info == null)
                             {
                                 MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.FailedToGetItemInfoPage), param[0], Key));
+                                break;
+                            }
+
+                            // 20261119 审计修复：StackSize==0 时下方 count-=StackSize 不变→死循环+OOM；配置错误时记日志并跳过
+                            if (info.StackSize <= 0)
+                            {
+                                MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.FailedCreateUserItemPage), param[0], Key));
                                 break;
                             }
 
