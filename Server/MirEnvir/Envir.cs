@@ -1304,22 +1304,47 @@ namespace Server.MirEnvir
 
         public void SaveAccounts()
         {
-            while (Saving)
-                Thread.Sleep(1);
+            // 20261119 审计修复P0：原同步存盘路径是唯一未加固的原子替换——中途异常且无回滚=MirADB 活档
+            // 永久丢失（全账号/角色/金币/仓库）；对齐 BeginSaveAccounts/EndSaveAccounts 加固：加锁防并发共写、
+            // 备份保留活档、catch 内 "+o" 回滚。C# lock 可重入，LoadAccounts 内调用安全。
+            lock (LoadLock)
+            {
+                while (Saving)
+                    Thread.Sleep(1);
 
-            try
-            {
-                using (var stream = File.Create(AccountPath + "n"))
-                    SaveAccounts(stream);
-                if (File.Exists(AccountPath))
-                    File.Move(AccountPath, AccountPath + "o");
-                File.Move(AccountPath + "n", AccountPath);
-                if (File.Exists(AccountPath + "o"))
-                    File.Delete(AccountPath + "o");
-            }
-            catch (Exception ex)
-            {
-                MessageQueue.Enqueue(ex);
+                try
+                {
+                    // 备份活档（File.Copy 保留原件，不用 Move），对齐 BeginSaveAccounts :1571-1579
+                    if (File.Exists(AccountPath))
+                    {
+                        if (!Directory.Exists(AccountsBackUpPath)) Directory.CreateDirectory(AccountsBackUpPath);
+                        var fileName =
+                            $"Accounts {Now.Year:0000}-{Now.Month:00}-{Now.Day:00} {Now.Hour:00}-{Now.Minute:00}-{Now.Second:00}-{System.Guid.NewGuid():N}.bak";
+                        File.Copy(AccountPath, Path.Combine(AccountsBackUpPath, fileName));
+                    }
+
+                    using (var stream = File.Create(AccountPath + "n"))
+                        SaveAccounts(stream);
+                    if (File.Exists(AccountPath))
+                        File.Move(AccountPath, AccountPath + "o");
+                    File.Move(AccountPath + "n", AccountPath);
+                    if (File.Exists(AccountPath + "o"))
+                        File.Delete(AccountPath + "o");
+                }
+                catch (Exception ex)
+                {
+                    MessageQueue.Enqueue(ex);
+                    // 回滚：原档已被 Move 成 "+o"，若新档未就位则从 "+o" 恢复活档（对齐 EndSaveAccounts :1627-1628）
+                    try
+                    {
+                        if (!File.Exists(AccountPath) && File.Exists(AccountPath + "o"))
+                            File.Move(AccountPath + "o", AccountPath);
+                    }
+                    catch (Exception recoverEx)
+                    {
+                        MessageQueue.Enqueue(recoverEx);
+                    }
+                }
             }
         }
 
@@ -1478,6 +1503,10 @@ namespace Server.MirEnvir
                     var fStream = new FileStream(path, FileMode.Create);
                     var data = mStream.ToArray();
                     fStream.BeginWrite(data, 0, data.Length, EndSaveGoodsAsync, fStream);
+
+                    // 20261119 审计修复：写盘后清 NeedSave，避免每周期重复全量重写所有改过商品的 NPC
+                    // （对齐 SaveGuilds/SaveConquests 的清零；异步回调只拿 fStream 无法定位 npc 故不做失败复位）
+                    npc.NeedSave = false;
                 }
             }
         }
@@ -1758,6 +1787,27 @@ namespace Server.MirEnvir
 
                     if (LoadVersion > 67)
                         RespawnTick = new RespawnTimer(reader);
+
+                    // 20261119 审计修复P1：GTMapList 在 SaveDB(:1235-1237) 无条件写出，但 LoadDB 从不读回
+                    // → 重启后 GT 地图的 Key/Owner/Leader/Price/Days/Begin 全部回滚为默认值。补读：
+                    // 该段无版本门控，旧档可能无此段（stream 已到末尾），按剩余字节判断；count 合理性
+                    // 校验防损坏档 OOM；try/catch 兜底避免旧档/坏档启动崩溃（补读失败仅 GT 数据回滚，不影响主档）。
+                    try
+                    {
+                        if (reader.BaseStream.Position < reader.BaseStream.Length)
+                        {
+                            int gtCount = reader.ReadInt32();
+                            if (gtCount >= 0 && gtCount <= 10000)
+                                for (var i = 0; i < gtCount; i++)
+                                    GTMapList.Add(new GTMap(reader));
+                            else
+                                MessageQueue.Enqueue($"存档 GTMap 数量异常，已跳过补读: {gtCount}");
+                        }
+                    }
+                    catch (Exception gtEx)
+                    {
+                        MessageQueue.Enqueue(gtEx);
+                    }
                 }
                 Settings.LinkGuildCreationItems(ItemInfoList);
             }
@@ -1825,7 +1875,9 @@ namespace Server.MirEnvir
                     for (var i = 0; i < count; i++)
                     {
                         AccountInfo NextAccount = new AccountInfo(reader);
-                        if (i > 0 && NextAccount.Characters.Count == 0)
+                        // 20261119 审计修复P1：归档致空的账号（CharactersArchived=true）不得当成空系统账号丢弃，
+                        // 否则该账号的仓库/金币/密保/Admin 会在下次 SaveAccounts 永久丢失。真正空账号仍跳过。
+                        if (i > 0 && NextAccount.Characters.Count == 0 && !NextAccount.CharactersArchived)
                             continue;
                         AccountList.Add(NextAccount);
                         CharacterList.AddRange(AccountList[TrueAccount].Characters);

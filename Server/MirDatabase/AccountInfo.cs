@@ -66,6 +66,11 @@ namespace Server.MirDatabase
 
         public List<CharacterInfo> Characters = new List<CharacterInfo>();
 
+        // 20261119 审计修复P1：标记本账号有角色被归档（内存字段，不参与存档序列化）。
+        // 归档会把角色从 Characters 移除，导致 0 角色账号被 LoadAccounts 误判为系统账号整条丢弃，
+        // 连带 Storage/Gold/Credit/密保/Admin 全部丢失；靠此标记让归档致空账号得以保留。
+        public bool CharactersArchived;
+
         public UserItem[] Storage = new UserItem[80];
         public bool HasExpandedStorage;
         public DateTime ExpandedStorageExpiryDate;
@@ -144,6 +149,7 @@ namespace Server.MirDatabase
                 {
                     MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerArchivedAfterDeletionMonths), info.Name, Settings.ArchiveDeletedCharacterAfterMonths));
                     Envir.SaveArchivedCharacter(info);
+                    CharactersArchived = true; //20261119 归档标记，防 0 角色账号被丢弃
                     continue;
                 }
 
@@ -151,6 +157,7 @@ namespace Server.MirDatabase
                 {
                     MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerArchivedAfterNoLoginMonths), info.Name, Settings.ArchiveInactiveCharacterAfterMonths));
                     Envir.SaveArchivedCharacter(info);
+                    CharactersArchived = true; //20261119 归档标记
                     continue;
                 }
                 
@@ -158,6 +165,7 @@ namespace Server.MirDatabase
                 {
                     MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.PlayerArchivedAfterInactivityMonths), info.Name, Settings.ArchiveInactiveCharacterAfterMonths));
                     Envir.SaveArchivedCharacter(info);
+                    CharactersArchived = true; //20261119 归档标记
                     continue;
                 }
 
