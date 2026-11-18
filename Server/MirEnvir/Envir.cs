@@ -6,6 +6,7 @@ using Server.MirObjects;
 using Server.MirObjects.Monsters;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Threading.Tasks; // 20261118 启动优化：ReloadDrops 掉落文件并行加载
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
@@ -1679,6 +1680,7 @@ namespace Server.MirEnvir
                     count = reader.ReadInt32();
                     ItemInfoList.Clear();
                     _itemInfoIndexCache.Clear(); // 体检④修复：重载时同步失效索引缓存
+                    _itemInfoNameCache.Clear(); // 20261118 启动优化：重载时同步失效名字缓存
                     for (var i = 0; i < count; i++)
                     {
                         ItemInfoList.Add(new ItemInfo(reader, LoadVersion, LoadCustomVersion));
@@ -3176,6 +3178,9 @@ namespace Server.MirEnvir
         {
             ItemInfoList.Remove(info);
             _itemInfoIndexCache.TryRemove(info.Index, out _); // 体检④修复：运行期删除同步失效索引缓存
+            // 20261118 启动优化：运行期删除按名字同步失效（按 info.Name 去空格构造可能的查询 key）
+            if (info != null)
+                _itemInfoNameCache.TryRemove(info.Name.Replace(" ", ""), out _);
         }
         public void Remove(MonsterInfo info)
         {
@@ -3460,6 +3465,10 @@ namespace Server.MirEnvir
         // 并发说明：多线程模式下 mob 线程与主线程并发读，ConcurrentDictionary 保证安全；
         // 同 Index 重复资料时「首个命中」语义与线性扫描一致（回填值来自扫描首命中）。
         private readonly ConcurrentDictionary<int, ItemInfo> _itemInfoIndexCache = new ConcurrentDictionary<int, ItemInfo>();
+        // 20261118 启动优化：GetItemInfo(string) 名字查找原为线性扫描+每元素 Name.Replace(" ","") 分配，
+        // 启动期掉落表/任务/配方加载调用上万次（O(n) × 全表分配）耗时数秒；名字版惰性缓存，key=去空格小写名
+        // （OrdinalIgnoreCase 与线性扫描的 Compare 语义一致，key 用 name 原样以严格保持原匹配语义），失效点同 _itemInfoIndexCache（LoadDB 重载/运行期删除）
+        private readonly ConcurrentDictionary<string, ItemInfo> _itemInfoNameCache = new ConcurrentDictionary<string, ItemInfo>(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<int, MonsterInfo> _monsterInfoIndexCache = new ConcurrentDictionary<int, MonsterInfo>();
         private readonly ConcurrentDictionary<int, NPCInfo> _npcInfoIndexCache = new ConcurrentDictionary<int, NPCInfo>();
 
@@ -3654,10 +3663,17 @@ namespace Server.MirEnvir
 
         public ItemInfo GetItemInfo(string name)
         {
+            // 20261118 启动优化：名字惰性缓存，首次未命中线性扫描并回填，后续 O(1)；
+            // key 用 name 原样（原逻辑仅对 info.Name 去空格、name 原样比较，此处严格保持该语义）
+            if (name == null) return null;
+            if (_itemInfoNameCache.TryGetValue(name, out var cached))
+                return cached;
+
             for (var i = 0; i < ItemInfoList.Count; i++)
             {
                 var info = ItemInfoList[i];
                 if (string.Compare(info.Name.Replace(" ", ""), name, StringComparison.OrdinalIgnoreCase) != 0) continue;
+                _itemInfoNameCache[name] = info; // 回填（线程安全，首命中语义由线性扫描顺序决定）
                 return info;
             }
             return null;
@@ -4331,7 +4347,12 @@ namespace Server.MirEnvir
         {
             // 20261116 审计修复：ReloadDrops 在 UI 线程逐个 Clear() 与怪物线程 Drop() 遍历/玩家线程拾取遍历竞态，
             // 改为局部新 List 加载完成后整体替换引用（读侧持旧引用遍历不受影响，原子切换无 Clear 空窗）
-            for (var i = 0; i < MonsterInfoList.Count; i++)
+            // 20261118 启动优化：怪物掉落文件（1000+ 个 txt）串行打开是启动热点；逐项核实线程安全后改并行加载——
+            //   MessageQueue 内部 ConcurrentQueue（Enqueue 安全）、DropInfo.Load/FromLine/ParseInsert/ParseGroup 全为局部操作、
+            //   FromLine 内的 GetItemInfo 已改 ConcurrentDictionary 缓存；各索引写独立 newDropArrays[i]，循环外按 index 回写，
+            //   最终 MonsterInfoList 顺序/引用绑定与串行版完全一致（保持原子切换语义）
+            var newDropArrays = new List<DropInfo>[MonsterInfoList.Count];
+            Parallel.For(0, MonsterInfoList.Count, i =>
             {
                 string path = Path.Combine(Settings.DropPath, MonsterInfoList[i].Name + ".txt");
 
@@ -4342,8 +4363,10 @@ namespace Server.MirEnvir
 
                 var newDrops = new List<DropInfo>();
                 DropInfo.Load(newDrops, MonsterInfoList[i].Name, path, 0, true);
-                MonsterInfoList[i].Drops = newDrops;
-            }
+                newDropArrays[i] = newDrops;
+            });
+            for (var i = 0; i < MonsterInfoList.Count; i++)
+                MonsterInfoList[i].Drops = newDropArrays[i];
 
             var newFishingDrops = new List<DropInfo>();
             for (int i = 0; i < 19; i++)
