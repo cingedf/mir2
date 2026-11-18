@@ -3786,7 +3786,9 @@ namespace Server.MirObjects
                 return;
             }
 
-            if ((location.X != 0) && (location.Y != 0) && magic.Info.Range != 0 && Functions.InRange(CurrentLocation, location, magic.Info.Range) == false) return;
+            // 20261119 审计修复P1：原用 X/Y!=0 判坐标有效性——X==0 或 Y==0 时整条距离检查被跳过，
+            // 玩家可用 C.Magic{Spell=StormEscape,Location=(0,Y)} 无视施法射程远程瞬移/穿墙；改用 Point.Empty 判定
+            if (location != Point.Empty && magic.Info.Range != 0 && Functions.InRange(CurrentLocation, location, magic.Info.Range) == false) return;
 
             if (Hidden)
             {
@@ -7078,6 +7080,8 @@ namespace Server.MirObjects
                         ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.YouCannotTeleportOnMap), ChatType.System);
                         return;
                     }
+                    // 20261119 审计修复P1：纵深防御——补独立施法距离校验（对齐 Blink :7132），防距离旁路后远程瞬移
+                    if (Functions.InRange(CurrentLocation, location, magic.Info.Range) == false) return;
                     if (!CurrentMap.ValidPoint(location) || Envir.Random.Next(4) >= magic.Level + 1 || !Teleport(CurrentMap, location, false)) return;
                     CurrentMap.Broadcast(new S.ObjectEffect { ObjectID = ObjectID, Effect = SpellEffect.StormEscape }, CurrentLocation);
 
@@ -7094,6 +7098,8 @@ namespace Server.MirObjects
                         ReceiveChat(("地图传送禁止"), ChatType.System);
                         return;
                     }
+                    // 20261119 审计修复P1：纵深防御——补独立施法距离校验（对齐 Blink :7132），防距离旁路后远程瞬移
+                    if (Functions.InRange(CurrentLocation, location, magic.Info.Range) == false) return;
                     if (!CurrentMap.ValidPoint(location) || Envir.Random.Next(4) >= magic.Level + 1 || !Teleport(CurrentMap, location, false)) return;
                     CurrentMap.Broadcast(new S.ObjectEffect { ObjectID = ObjectID, Effect = SpellEffect.StormEscapeRare }, CurrentLocation);
 

@@ -1158,6 +1158,9 @@ namespace Server.MirObjects
         }
         private void SetBind()
         {
+            // 20261119 审计修复P2：安全区列表为空（地图全加载失败）时 Random.Next(0)=0 索引[0]越界
+            if (Envir.StartPoints.Count == 0) return;
+
             SafeZoneInfo szi = Envir.StartPoints[Envir.Random.Next(Envir.StartPoints.Count)];
 
             BindMapIndex = szi.Info.Index;
@@ -4977,6 +4980,8 @@ namespace Server.MirObjects
         public override bool MagicTeleport(UserMagic magic)
         {
             Map temp = Envir.GetMap(BindMapIndex);
+            // 20261119 审计修复P2：绑定地图可能已删/加载失败返回 null，判空防 NRE
+            if (temp == null) return false;
             int mapSizeX = temp.Width / (magic.Level + 1);
             int mapSizeY = temp.Height / (magic.Level + 1);
 
@@ -10073,7 +10078,10 @@ namespace Server.MirObjects
                 targetMap = Envir.GetMap(BindMapIndex);
                 targetLocation = BindLocation;
             }
-            if (targetMap == null || !targetMap.ValidPoint(targetLocation))
+            // 20261119 审计修复P2：targetMap 仍可能为 null（SetBind 重取后地图已删），前置判空防下方解引用 NRE
+            if (targetMap == null) return;
+
+            if (!targetMap.ValidPoint(targetLocation))
                 targetLocation = new Point(targetMap.Width / 2, targetMap.Height / 2);
 
             Teleport(targetMap, targetLocation);

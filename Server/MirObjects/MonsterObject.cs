@@ -1083,6 +1083,9 @@ namespace Server.MirObjects
 
             CurrentMap.MonsterCount++;
 
+            // 20261119 审计修复P2：怪物传送换图后重算安全区标志（对齐玩家版 Teleport），防安全区内外攻击裁决错误
+            InSafeZone = CurrentMap.GetSafeZone(CurrentLocation) != null;
+
             InTrapRock = false;
 
             CurrentMap.AddObject(this);
