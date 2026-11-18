@@ -2631,7 +2631,9 @@ namespace Client.MirScenes
                     return;
             }
 
-            //if (toCell == null || fromCell == null) return;
+            // 20261118 客户端 bug 批：恢复被注释的判空——服务端下发的 to/from 格若在当前 UI 中找不到
+            //（如对应窗口未打开），下方 toCell.Locked/fromCell.Locked 会 NRE；对照 CombineItem 同款判空先例
+            if (toCell == null || fromCell == null) return;
 
             toCell.Locked = false;
             fromCell.Locked = false;
