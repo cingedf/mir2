@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
+using System.Threading; //20261119 审计修复：收发队列计数跨锁/跨线程 ++/-- 改 Interlocked 需此命名空间
 using Server.MirDatabase;
 using Server.MirEnvir;
 using Server.MirObjects;
@@ -375,7 +376,7 @@ namespace Server.MirNetwork
                     }
 
                     _receiveList.Enqueue(p);
-                    _receiveQueueCount++;
+                    Interlocked.Increment(ref _receiveQueueCount); //20261119 审计修复：IO 线程++ / 主线程-- 跨线程，Interlocked 防 lost update
 
                     _lastPackets.Enqueue(p);
 
@@ -664,7 +665,7 @@ namespace Server.MirNetwork
                     {
                         // 空包/无效包直接出队丢弃（与原实现 continue 语义一致）
                         if (_sendList.TryDequeue(out Packet discarded) && discarded == p)
-                            _sendQueueCount--;
+                            Interlocked.Decrement(ref _sendQueueCount); //20261119 审计修复：与 Enqueue 的 Interlocked.Increment 配对
                         continue;
                     }
 
@@ -673,7 +674,7 @@ namespace Server.MirNetwork
 
                     if (_sendList.TryDequeue(out Packet dequeued) && dequeued == p)
                     {
-                        _sendQueueCount--;
+                        Interlocked.Decrement(ref _sendQueueCount); //20261119 审计修复：跨锁配对
                         data.AddRange(packetBytes);
                     }
                     else
@@ -717,7 +718,7 @@ namespace Server.MirNetwork
                 }
 
                 _sendList.Enqueue(p);
-                _sendQueueCount++;
+                Interlocked.Increment(ref _sendQueueCount); //20261119 审计修复：与 TryBeginSend 的 Interlocked.Decrement 配对
             }
 
             if (!p.Observable)
@@ -774,7 +775,7 @@ namespace Server.MirNetwork
                         continue;
 
                     //20261117 审计修复 P1-1：消费时递减队列计数（原计数只增不减，累计 5001 包即误踢玩家）
-                    _receiveQueueCount--;
+                    Interlocked.Decrement(ref _receiveQueueCount); //20261119 审计修复：跨锁配对
                     ProcessPacket(p);
 
                     // ProcessPacket() may change the connection state.
@@ -805,7 +806,7 @@ namespace Server.MirNetwork
                             continue;
 
                         _receiveList.Enqueue(retryPacket);
-                        _receiveQueueCount++; //20261117 审计修复：补 ++ 与消费处 -- 配对，避免计数变负
+                        Interlocked.Increment(ref _receiveQueueCount); //20261119 审计修复：补 ++ 与消费处 -- 配对（Interlocked 跨锁）
                     }
                 }
 
@@ -1687,7 +1688,7 @@ namespace Server.MirNetwork
                     {
                         Reason = reason
                     });
-                    _sendQueueCount++;
+                    Interlocked.Increment(ref _sendQueueCount); //20261119 审计修复：与出队 -- 配对（Interlocked 跨锁）
                 }
             }
 
@@ -1702,6 +1703,10 @@ namespace Server.MirNetwork
             {
                 if (c == null)
                     continue;
+
+                // 20261119 审计修复P2：清观察者的反向指针，避免已断开连接被强引用无法 GC/悬挂
+                if (c.Observing == this)
+                    c.Observing = null;
 
                 c.Stage = GameStage.Login;
                 c.Enqueue(new S.ReturnToLogin());
@@ -3753,6 +3758,21 @@ namespace Server.MirNetwork
 
         public void CheckItemInfo(ItemInfo info, bool dontLoop = false)
         {
+            CheckItemInfo(info, dontLoop, null);
+        }
+
+        // 20261119 审计修复P0：观察者扇出加访问集防环（对齐 Enqueue:698 的 visited 模式）。
+        // 环检测放在观察者循环内 visited.Add(observer) 而非方法入口——因类级递归分支（本方法内
+        // CheckItemInfo(item, true, visited)）会在 this 上再次调用本方法，入口加 this 会误伤该分支；
+        // 私有重载透传同一 visited，公共签名保持不变，外部调用点零改动。
+        private void CheckItemInfo(ItemInfo info, bool dontLoop, HashSet<MirConnection> visited)
+        {
+            if (info == null)
+                return;
+
+            if (visited == null)
+                visited = new HashSet<MirConnection> { this };
+
             if ((dontLoop == false) &&
                 (info.ClassBased | info.LevelBased))
             {
@@ -3763,13 +3783,17 @@ namespace Server.MirNetwork
                     {
                         CheckItemInfo(
                             Envir.ItemInfoList[i],
-                            true);
+                            true, visited);
                     }
                 }
             }
 
             foreach (MirConnection observer in Observers)
-                observer.CheckItemInfo(info, dontLoop);
+            {
+                if (observer == null || !visited.Add(observer))
+                    continue;
+                observer.CheckItemInfo(info, dontLoop, visited);
+            }
 
             if (SentItemInfo.Contains(info))
                 return;
@@ -3790,11 +3814,24 @@ namespace Server.MirNetwork
 
         public void CheckMonsterInfo(MonsterInfo info)
         {
+            CheckMonsterInfo(info, null);
+        }
+
+        // 20261119 审计修复P0：观察者扇出加访问集防环（同 CheckItemInfo）
+        private void CheckMonsterInfo(MonsterInfo info, HashSet<MirConnection> visited)
+        {
             if (info == null)
                 return;
 
+            if (visited == null)
+                visited = new HashSet<MirConnection> { this };
+
             foreach (MirConnection observer in Observers)
-                observer.CheckMonsterInfo(info);
+            {
+                if (observer == null || !visited.Add(observer))
+                    continue;
+                observer.CheckMonsterInfo(info, visited);
+            }
 
             if (SentMonsterInfo.Contains(info))
                 return;
@@ -3815,11 +3852,24 @@ namespace Server.MirNetwork
 
         public void CheckNPCInfo(NPCInfo info)
         {
+            CheckNPCInfo(info, null);
+        }
+
+        // 20261119 审计修复P0：观察者扇出加访问集防环（同 CheckItemInfo）
+        private void CheckNPCInfo(NPCInfo info, HashSet<MirConnection> visited)
+        {
             if (info == null)
                 return;
 
+            if (visited == null)
+                visited = new HashSet<MirConnection> { this };
+
             foreach (MirConnection observer in Observers)
-                observer.CheckNPCInfo(info);
+            {
+                if (observer == null || !visited.Add(observer))
+                    continue;
+                observer.CheckNPCInfo(info, visited);
+            }
 
             if (SentNPCInfo.Contains(info))
                 return;

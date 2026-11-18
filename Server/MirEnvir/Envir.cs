@@ -2391,9 +2391,13 @@ namespace Server.MirEnvir
                 MessageQueue.Enqueue(e.ToString());
             }
 
+            // 20261119 审计修复P2：构造 MirConnection 抛异常时 tempTcpClient 未在 catch 兜底 Close→句柄泄漏；
+            // 声明移到 try 外并用 handedOff 标记所有权是否已转移（正常连接不能无条件 Close）
+            TcpClient tempTcpClient = null;
+            bool handedOff = false;
             try
             {
-                var tempTcpClient = _listener.EndAcceptTcpClient(result);
+                tempTcpClient = _listener.EndAcceptTcpClient(result);
 
                 bool connected = false;
                 var ipAddress = tempTcpClient.Client.RemoteEndPoint.ToString().Split(':')[0];
@@ -2424,6 +2428,7 @@ namespace Server.MirEnvir
                         if (tempConnection.Connected)
                         {
                             connected = true;
+                            handedOff = true; //所有权已转移给 MirConnection，catch/finally 不得再 Close
                             lock (Connections)
                                 Connections.Add(tempConnection);
                         }
@@ -2435,6 +2440,9 @@ namespace Server.MirEnvir
             }
             catch (Exception ex)
             {
+                // 20261119 审计修复P2：构造/握手异常且所有权未转移时兜底关闭 socket，防句柄泄漏
+                if (tempTcpClient != null && !handedOff)
+                    tempTcpClient.Close();
                 MessageQueue.Enqueue(ex);
             }
             finally
