@@ -393,7 +393,11 @@ namespace Server.MirObjects
                 }
             }
 
-            if (SelfRankIndex > RankIndex)
+            // 20261119 审计修复：原判定 SelfRankIndex>RankIndex 有两处越权：
+            // ①未找到自身 rank（=-1）时 -1>RankIndex 恒 false→可改任意 rank 名（含会长 rank0）；
+            // ②相等时也可改自身 rank 名（ChangeRank/ChangeRankOption 均不允许改同级或更高级）。
+            // 对齐 ChangeRank :264 的会长豁免语义：未找到拒绝；非会长仅可改比自己低的 rank。
+            if (SelfRankIndex < 0 || (SelfRankIndex >= RankIndex && SelfRankIndex != 0))
             {
                 Self.ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.YourRankNotAdequate), ChatType.System);
                 return false;

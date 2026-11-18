@@ -11282,7 +11282,9 @@ namespace Server.MirObjects
                 TradePartner.CheckItem(u);
             }
 
-            TradePartner.Enqueue(new S.TradeItem { TradeItems = Info.Trade });
+            // 20261119 审计修复：原直接把 Info.Trade 数组引用入队，包延迟序列化时数组已被
+            // 后续增删物品改写→对方看到滞后/错乱的交易物品；克隆数组快照再入队（元素仍共享，成交按实时数组校验不受影响）
+            TradePartner.Enqueue(new S.TradeItem { TradeItems = (UserItem[])Info.Trade.Clone() });
         }
 
         public void TradeUnlock()
@@ -13804,6 +13806,16 @@ namespace Server.MirObjects
                 return;
             }
 
+            // 20261119 审计修复：接受端原缺在线/同图/距离复核（发起端 :13770 有），
+            // 求婚后对方跑远/换图/下线仍可远程确认结婚；补校验并清除失效请求
+            if (MarriageProposal.Node == null || MarriageProposal.CurrentMap != CurrentMap ||
+                !Functions.InRange(MarriageProposal.CurrentLocation, CurrentLocation, Globals.DataRange))
+            {
+                ReceiveChat("对方已离线或不在附近，无法结婚", ChatType.System);
+                MarriageProposal = null;
+                return;
+            }
+
             if (Info.Married != 0)
             {
                 ReceiveChat(GameLanguage.ServerTextMap.GetLocalization(ServerTextKeys.YouAlreadyMarried), ChatType.System);
@@ -13933,6 +13945,16 @@ namespace Server.MirObjects
             if (!accept)
             {
                 DivorceProposal.ReceiveChat(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.HasRefusedDivorceYou), Info.Name), ChatType.System);
+                DivorceProposal = null;
+                return;
+            }
+
+            // 20261119 审计修复：接受端原缺在线/同图/距离复核（发起端 :13909 有），
+            // 离婚请求后对方跑远/换图/下线仍可远程确认离婚；补校验并清除失效请求
+            if (DivorceProposal.Node == null || DivorceProposal.CurrentMap != CurrentMap ||
+                !Functions.InRange(DivorceProposal.CurrentLocation, CurrentLocation, Globals.DataRange))
+            {
+                ReceiveChat("对方已离线或不在附近，无法离婚", ChatType.System);
                 DivorceProposal = null;
                 return;
             }
@@ -14983,7 +15005,10 @@ namespace Server.MirObjects
                 return;
             }
 
-            if (!ItemRentalItemLocked && !ItemRentalPartner.ItemRentalFeeLocked)
+            // 20261119 审计修复：原用 && 导致任一方未锁也能成交（如自己未锁物品但对方锁了租金）。
+            // 对照 CanConfirmItemRental 下发条件（本方 ItemLocked && 对方 FeeLocked，:14924）及
+            // ItemRentalLockFee/LockItem 的成对语义，成交必须双方都锁 → 任一未锁即拒绝（||）
+            if (!ItemRentalItemLocked || !ItemRentalPartner.ItemRentalFeeLocked)
                 return;
 
             if (!ItemRentalPartner.CanGainItem(ItemRentalDepositedItem))
