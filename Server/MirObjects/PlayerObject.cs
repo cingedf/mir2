@@ -11786,6 +11786,10 @@ namespace Server.MirObjects
 
             QuestInfo info = Envir.QuestInfoList.FirstOrDefault(d => d.Index == index);
 
+            // 20261119 审计修复P0：客户端 QuestIndex 任意提供，index 不存在时 info 为 null，
+            // 下方 info.NpcIndex 解引用 NRE→ProcessPacket 无 try→Envir 熔断全服停机
+            if (info == null) return;
+
             NPCObject npc = null;
 
             for (int i = CurrentMap.NPCs.Count - 1; i >= 0; i--)
@@ -11839,6 +11843,9 @@ namespace Server.MirObjects
                 foreach (QuestItemTask carryItem in info.CarryItems)
                 {
                     ushort count = carryItem.Count;
+
+                    // 20261119 审计修复P1：StackSize==0 时 else 分支 count-=0 不变→死循环；对齐 GameshopBuy
+                    if (carryItem.Item.StackSize <= 0) continue;
 
                     while (count > 0)
                     {
@@ -11903,6 +11910,9 @@ namespace Server.MirObjects
 
                 UserItem rewardItem;
 
+                // 20261119 审计修复P1：StackSize==0 时 else 分支 count-=0 不变→死循环；对齐 GameshopBuy
+                if (reward.Item.StackSize <= 0) continue;
+
                 while (count > 0)
                 {
                     rewardItem = Envir.CreateFreshItem(reward.Item);
@@ -11929,6 +11939,9 @@ namespace Server.MirObjects
 
                     ushort count = quest.Info.SelectRewards[i].Count;
                     UserItem rewardItem;
+
+                    // 20261119 审计修复P1：StackSize==0 时 else 分支 count-=0 不变→死循环；对齐 GameshopBuy
+                    if (quest.Info.SelectRewards[i].Item.StackSize <= 0) continue;
 
                     while (count > 0)
                     {
