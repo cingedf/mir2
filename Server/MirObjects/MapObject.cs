@@ -664,6 +664,8 @@ namespace Server.MirObjects
             }
             else
             {
+                // 20261119 审计修复：待删 buff（FlagForRemoval=true）被重施时须复活，否则刷新 ExpireTime 后下一 tick 仍被删
+                buff.FlagForRemoval = false;
                 if (!updateOnly)
                 {
                     switch (buff.StackType)
@@ -841,6 +843,8 @@ namespace Server.MirObjects
                 }
 
                 if (Buffs[i].Type != type) continue;
+                // 20261119 审计修复：待删 buff（FlagForRemoval）不应判为有效
+                if (Buffs[i].FlagForRemoval) continue;
                 return true;
             }
             return false;
@@ -864,6 +868,8 @@ namespace Server.MirObjects
                 }
 
                 if (Buffs[i].Type != type) continue;
+                // 20261119 审计修复：待删 buff（FlagForRemoval）不应判为有效
+                if (Buffs[i].FlagForRemoval) continue;
 
                 buff = Buffs[i];
                 return true;

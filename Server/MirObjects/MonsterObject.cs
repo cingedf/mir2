@@ -1864,6 +1864,13 @@ namespace Server.MirObjects
             {
                 Buff buff = Buffs[i];
 
+                // 20261119 审计修复：ProcessBuffs 未判空/无效 Info（HasBuff/RemoveBuff 均做了），空 buff 每 tick NRE
+                if (buff == null || buff.Info == null)
+                {
+                    Buffs.RemoveAt(i);
+                    continue;
+                }
+
                 if (buff.NextTime > Envir.Time) continue;
 
                 if (!buff.Paused && buff.StackType != BuffStackType.Infinite)
@@ -2842,7 +2849,8 @@ namespace Server.MirObjects
 
             if (damageWeapon)
                 attacker.DamageWeapon();
-            damage += attacker.Stats[Stat.武器增伤];
+            // 20261119 审计修复：武器增伤用 long 中间量+clamp，防 int 溢出回绕成负值导致 armour>=damage 判 MISS
+            damage = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, (long)damage + attacker.Stats[Stat.武器增伤]));
 
             if (armour >= damage)
             {
@@ -3138,6 +3146,9 @@ namespace Server.MirObjects
         public override Buff AddBuff(BuffType type, MapObject owner, int duration, Stats stats, bool refreshStats = true, bool updateOnly = false, params int[] values)
         {
             Buff b = base.AddBuff(type, owner, duration, stats, refreshStats, updateOnly, values);
+
+            // 20261119 审计修复：base.AddBuff 遇未注册 BuffType 返回 null，避免 b.ToClientBuff() NRE
+            if (b == null) return null;
 
             var packet = new S.AddBuff
             {

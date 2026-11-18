@@ -452,6 +452,13 @@ namespace Server.MirObjects
             {
                 Buff buff = Buffs[i];
 
+                // 20261119 审计修复：ProcessBuffs 未判空/无效 Info（HasBuff/RemoveBuff 均做了），空 buff 每 tick NRE
+                if (buff == null || buff.Info == null)
+                {
+                    Buffs.RemoveAt(i);
+                    continue;
+                }
+
                 switch (buff.Type)
                 {
                     case BuffType.气流术:
@@ -3258,6 +3265,8 @@ namespace Server.MirObjects
                 case Spell.DoubleSlash:
                     {
                         magic = GetMagic(spell);
+                        // 20261119 审计修复：C.Attack.Spell 客户端全控，未学技能构造包 GetMagic 返 null→下方 magic.Info NRE；对齐同 switch 其它 case 判空
+                        if (magic == null) { spell = Spell.None; break; }
                         if (!HasWeapon())
                         {
                             spell = Spell.None;
@@ -3785,16 +3794,6 @@ namespace Server.MirObjects
                 RemoveBuff(BuffType.烈火身);
             }
 
-            AttackTime = Envir.Time + MoveDelay;
-            SpellTime = Envir.Time + 1800; //Spell Delay
-
-            if (spell != Spell.ShoulderDash)
-            {
-                ActionTime = Envir.Time + MoveDelay;
-            }
-
-            LogTime = Envir.Time + Globals.LogDelay;
-
             long delay = magic.GetDelay();
 
             if (magic != null && Envir.Time < (magic.CastTime + delay))
@@ -3810,6 +3809,18 @@ namespace Server.MirObjects
                 Enqueue(new S.UserLocation { Direction = Direction, Location = CurrentLocation });
                 return;
             }
+
+            // 20261119 审计修复：全局时标赋值原在冷却/MP 校验之前，校验失败也锁 1.8s 禁咒+动作锁；
+            // 统一移到两项校验通过之后，失败路径不再占用全局冷却（含单技能 CastTime 绕过）
+            AttackTime = Envir.Time + MoveDelay;
+            SpellTime = Envir.Time + 1800; //Spell Delay
+
+            if (spell != Spell.ShoulderDash)
+            {
+                ActionTime = Envir.Time + MoveDelay;
+            }
+
+            LogTime = Envir.Time + Globals.LogDelay;
 
             RegenTime = Envir.Time + RegenDelay;
             ChangeMP(-cost);
@@ -8202,9 +8213,11 @@ namespace Server.MirObjects
             if (damageWeapon)
                 attacker.DamageWeapon();
 
-            damage += attacker.Stats[Stat.武器增伤];
+            // 20261119 审计修复：武器增伤用 long 中间量+clamp，防 int 溢出回绕成负值导致 armour>=damage 判 MISS（伤害归零）
+            damage = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, (long)damage + attacker.Stats[Stat.武器增伤]));
 
-            if (Envir.Random.Next(100) < Stats[Stat.反弹伤害])
+            // 20261119 审计修复：反弹递归——反射调用 damageWeapon=false，必须守卫否则 A→B→A 无限递归爆栈杀进程
+            if (damageWeapon && Envir.Random.Next(100) < Stats[Stat.反弹伤害])
             {
                 if (attacker.IsAttackTarget(this))
                 {
@@ -8282,13 +8295,15 @@ namespace Server.MirObjects
 
             if (HasBuff(BuffType.魔法盾, out Buff magicShield))
             {
-                var duration = (int)Math.Min(int.MaxValue, magicShield.ExpireTime - ((damage - armour) * 60));
+                // 20261119 审计修复：(damage-armour)*60 int 溢出→duration 异常近似永久盾；改 long 中间量+clamp
+                var duration = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, magicShield.ExpireTime - (long)(damage - armour) * 60));
                 AddBuff(BuffType.魔法盾, this, duration, null);
             }
 
             if (HasBuff(BuffType.金刚术, out Buff elementalBarrier))
             {
-                var duration = (int)Math.Min(int.MaxValue, elementalBarrier.ExpireTime - ((damage - armour) * 60));
+                // 20261119 审计修复：(damage-armour)*60 int 溢出→duration 异常近似永久盾；改 long 中间量+clamp
+                var duration = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, elementalBarrier.ExpireTime - (long)(damage - armour) * 60));
                 AddBuff(BuffType.金刚术, this, duration, null);
             }
 
@@ -8421,13 +8436,15 @@ namespace Server.MirObjects
 
             if (HasBuff(BuffType.魔法盾, out Buff magicShield))
             {
-                var duration = (int)Math.Min(int.MaxValue, magicShield.ExpireTime - ((damage - armour) * 60));
+                // 20261119 审计修复：(damage-armour)*60 int 溢出→duration 异常近似永久盾；改 long 中间量+clamp
+                var duration = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, magicShield.ExpireTime - (long)(damage - armour) * 60));
                 AddBuff(BuffType.魔法盾, this, duration, null);
             }
 
             if (HasBuff(BuffType.金刚术, out Buff elementalBarrier))
             {
-                var duration = (int)Math.Min(int.MaxValue, elementalBarrier.ExpireTime - ((damage - armour) * 60));
+                // 20261119 审计修复：(damage-armour)*60 int 溢出→duration 异常近似永久盾；改 long 中间量+clamp
+                var duration = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, elementalBarrier.ExpireTime - (long)(damage - armour) * 60));
                 AddBuff(BuffType.金刚术, this, duration, null);
             }
 
@@ -8508,13 +8525,15 @@ namespace Server.MirObjects
 
             if (HasBuff(BuffType.魔法盾, out Buff magicShield))
             {
-                var duration = (int)Math.Min(int.MaxValue, magicShield.ExpireTime - ((damage - armour) * 60));
+                // 20261119 审计修复：(damage-armour)*60 int 溢出→duration 异常近似永久盾；改 long 中间量+clamp
+                var duration = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, magicShield.ExpireTime - (long)(damage - armour) * 60));
                 AddBuff(BuffType.魔法盾, this, duration, null);
             }
 
             if (HasBuff(BuffType.金刚术, out Buff elementalBarrier))
             {
-                var duration = (int)Math.Min(int.MaxValue, elementalBarrier.ExpireTime - ((damage - armour) * 60));
+                // 20261119 审计修复：(damage-armour)*60 int 溢出→duration 异常近似永久盾；改 long 中间量+clamp
+                var duration = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, elementalBarrier.ExpireTime - (long)(damage - armour) * 60));
                 AddBuff(BuffType.金刚术, this, duration, null);
             }
 
@@ -8614,6 +8633,9 @@ namespace Server.MirObjects
         public override Buff AddBuff(BuffType type, MapObject owner, int duration, Stats stats, bool refreshStats = true, bool updateOnly = false, params int[] values)
         {
             Buff b = base.AddBuff(type, owner, duration, stats, refreshStats, updateOnly, values);
+
+            // 20261119 审计修复：base.AddBuff 遇未注册 BuffType 返回 null（旧存档移除类型/NPC GIVEBUFF 数字），避免下方解引用 NRE
+            if (b == null) return null;
 
             switch (b.Type)
             {
