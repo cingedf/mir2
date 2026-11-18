@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Shared.Extensions;
+using LibraryEditor.ReverseIndex;
 
 namespace LibraryEditor
 {
@@ -16,6 +17,7 @@ namespace LibraryEditor
     {
         private readonly Dictionary<int, int> _indexList = new Dictionary<int, int>();
         private MLibraryV2 _library, _referenceLibrary, _shadowLibrary;
+        private ReverseIndexForm _reverseIndexForm;
         private MLibraryV2.MImage _selectedImage, _exportImage;
         private Image _originalImage;
         public Bitmap _referenceImage;
@@ -378,6 +380,13 @@ namespace LibraryEditor
                 PreviewListView.Items[0].Selected = true;
 
             UpdateFrameGridView();
+
+            // 反向索引：打开 lib 后自动反查源码帧号并以人话展示（不改源码全程不打开代码编辑器）。
+            if (_reverseIndexForm == null || _reverseIndexForm.IsDisposed)
+                _reverseIndexForm = new ReverseIndexForm();
+            _reverseIndexForm.OpenLibrary(filename, _library);
+            if (!_reverseIndexForm.Visible)
+                _reverseIndexForm.Show(this);
         }
 
         private void OpenReferenceLibrary(string filename)
