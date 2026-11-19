@@ -18,23 +18,19 @@ namespace Server.Library.Utils
         {
             CancellationToken token = (CancellationToken)obj;
 
-            if (!HttpListener.IsSupported)
-            {
-                throw new InvalidOperationException(
-                "HttpListener 不受当前操作系统支持（需要 Windows XP SP2 / Server 2003 及以上版本）。");
-            }
-
-			//if (!HttpListener.IsSupported)//待修复
-            //{
-                //throw new InvalidOperationException(ServerLanguage.GetLocalization(
-                //ServerTextKeys.HttpListenerNotSupported));
-            //}
-
+            // 20261119 审计修复：IsSupported 与 new HttpListener() 原在 try 外，后台线程抛异常会终止进程；
+            // 统一纳入 try，失败时记日志并退出监听线程
             string[] prefixes = { Host };
 
-            _listener = new HttpListener();
             try
             {
+                if (!HttpListener.IsSupported)
+                {
+                    MessageQueue.Instance.Enqueue("HttpListener 不受当前操作系统支持（需 Windows XP SP2 / Server 2003 及以上），HTTP 服务未启动");
+                    return;
+                }
+
+                _listener = new HttpListener();
                 foreach (var s in prefixes)
                 {
                     _listener.Prefixes.Add(s);
@@ -54,21 +50,20 @@ namespace Server.Library.Utils
                 {
                     var context = _listener.GetContext();
                     var request = context.Request;
-                    Console.WriteLine("{0} {1} HTTP/1.1", request.HttpMethod, request.RawUrl);
+                    // 20261119 审计修复：原记录 RawUrl 含查询串（newaccount 的 psd/question/answer 明文）→只记路径
+                    Console.WriteLine("{0} {1} HTTP/1.1", request.HttpMethod, request.Url.AbsolutePath);
                     Console.WriteLine("User-Agent: {0}", request.UserAgent);
                     Console.WriteLine("Accept-Encoding: {0}", request.Headers["Accept-Encoding"]);
                     Console.WriteLine("Connection: {0}", request.KeepAlive ? "Keep-Alive" : "close");
                     Console.WriteLine("Host: {0}", request.UserHostName);
                     var response = context.Response;
-                    if (context.Request.RemoteEndPoint != null)
+                    // 20261119 审计修复P1：原 RemoteEndPoint==null 时整体跳过校验=零认证 fail-open；改 fail-closed——
+                    // 取不到对端 IP 或不在白名单一律拒绝
+                    var clientIp = context.Request.RemoteEndPoint?.Address.ToString();
+                    if (clientIp == null || clientIp != Settings.HTTPTrustedIPAddress)
                     {
-                        var clientIp = context.Request.RemoteEndPoint.Address.ToString();
-
-                        if (clientIp != Settings.HTTPTrustedIPAddress)
-                        {
-                            WriteResponse(response, "notrusted:" + clientIp);
-                            continue;
-                        }
+                        WriteResponse(response, "notrusted:" + (clientIp ?? "unknown"));
+                        continue;
                     }
 
                     if (request.HttpMethod == "GET")
@@ -95,10 +90,15 @@ namespace Server.Library.Utils
         public void Stop()
         {
             _isActive = false;
-            if (_listener != null && _listener.IsListening)
+            try
             {
-                _listener.Stop();
+                if (_listener != null)
+                {
+                    if (_listener.IsListening) _listener.Stop();
+                    _listener.Close();
+                }
             }
+            catch { }
         }
 
         public abstract void OnGetRequest(HttpListenerRequest request, HttpListenerResponse response);

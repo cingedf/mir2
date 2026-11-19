@@ -16,7 +16,8 @@ namespace Server.Library.Utils
 
         public void Start()
         {
-            _thread = new Thread(Listen);
+            // 20261119 审计修复：后台监听线程，避免关服时线程阻止进程退出
+            _thread = new Thread(Listen) { IsBackground = true };
             _thread.Start(tokenSource.Token);
         }
 
@@ -25,7 +26,8 @@ namespace Server.Library.Utils
             base.Stop();
             
             tokenSource.Cancel();
-            Thread.Sleep(1000);
+            // 20261119 审计修复：原 Sleep(1000) 不等待线程真正退出→Stop 返回后监听线程可能仍处理请求；改 Join 等待
+            try { _thread?.Join(2000); } catch { }
             tokenSource.Dispose();
 
         }
@@ -37,8 +39,9 @@ namespace Server.Library.Utils
             if (url.Contains("?"))
             {
                 url = url.Substring(0, url.IndexOf("?", StringComparison.Ordinal));
-                url = url.ToLower();
             }
+            // 20261119 审计修复：ToLower 原在 if 分支内，无查询串的 URL 不转小写→大小写归一化不一致；移到分支外
+            url = url.ToLowerInvariant();
             try
             {
                 switch (url)
@@ -72,7 +75,8 @@ namespace Server.Library.Utils
                         break;              
                     case "/broadcast":
                         var msg = request.QueryString["msg"];
-                        if (msg.Length < 5)
+                        // 20261119 审计修复：缺 msg 参数时 msg 为 null，原 msg.Length 抛 NRE 回显堆栈；补空判定
+                        if (string.IsNullOrEmpty(msg) || msg.Trim().Length < 5)
                         {
                             WriteResponse(response, "short");
                             return;
@@ -91,22 +95,41 @@ namespace Server.Library.Utils
             }
             catch (Exception error)
             {
-                WriteResponse(response, "request error: " + error);
+                // 20261119 审计修复：异常详情不回显给客户端（信息泄露），固定文案响应，详情写日志
+                MessageQueue.Instance.Enqueue("HttpServer 请求处理异常: " + error);
+                WriteResponse(response, "request error");
             }
         }      
 
         void AddNameList(string playerName, string fileName)
         {
-            fileName = Path.Combine(Settings.NameListPath, fileName);
-            var sDirectory = Path.GetDirectoryName(fileName);
-            Directory.CreateDirectory(sDirectory ?? throw new InvalidOperationException());
-            if (!File.Exists(fileName))
-                File.Create(fileName).Close();
+            // 20261119 审计修复P0：fileName 原直接 Path.Combine 查询参数，绝对路径会丢弃 base、..\ 可逃逸，
+            // 导致任意文件创建/追加写。取纯文件名 + 规范路径校验必须落在 NameListPath 根目录内 + id 白名单。
+            if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(playerName))
+                return;
 
-            var tempString = fileName;
-            if (File.ReadAllLines(tempString).All(t => playerName != t))
+            // 仅允许纯文件名（去掉任何目录成分）
+            fileName = Path.GetFileName(fileName);
+            if (string.IsNullOrEmpty(fileName))
+                return;
+
+            var root = Path.GetFullPath(Settings.NameListPath);
+            var fullPath = Path.GetFullPath(Path.Combine(root, fileName));
+            // 必须位于 root 内（防止 ..\ 逃逸与绝对路径）
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // id（玩家名）白名单：禁止路径分隔符与控制字符，限长
+            if (playerName.Length > 30 || playerName.IndexOfAny(new[] { '/', '\\', '\r', '\n' }) >= 0)
+                return;
+
+            Directory.CreateDirectory(root);
+            if (!File.Exists(fullPath))
+                File.Create(fullPath).Close();
+
+            if (File.ReadAllLines(fullPath).All(t => playerName != t))
             {
-                using (var line = File.AppendText(tempString))
+                using (var line = File.AppendText(fullPath))
                 {
                     line.WriteLine(playerName);
                 }
@@ -115,7 +138,9 @@ namespace Server.Library.Utils
 
         public override void OnPostRequest(HttpListenerRequest request, HttpListenerResponse response)
         {
+            // 20261119 审计修复：原只 Console.WriteLine 不关闭 response→客户端连接悬挂；写空响应关闭输出流
             Console.WriteLine("POST request: {0}", request.Url);
+            WriteResponse(response, string.Empty);
         }
     }
 

@@ -2661,7 +2661,9 @@ namespace Server.MirEnvir
                     return 7;
                 }
 
-                AccountList.Add(new AccountInfo(p) { Index = ++NextAccountID, CreationIP = ip });
+                // 20261119 审计修复P1：ip 取查询参数，缺省为 null 时 BinaryWriter.Write(null string) 抛异常，
+                // 导致每次存档该异常被吞、账号档永久无法写入；兜底为空串（字段声明即 string.Empty）
+                AccountList.Add(new AccountInfo(p) { Index = ++NextAccountID, CreationIP = ip ?? string.Empty });
                 return 8;
             }
         }
