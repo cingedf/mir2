@@ -10962,8 +10962,10 @@ namespace Client.MirScenes
                 NPCID = 0;
                 DefaultNPCID = 0;
 
+                // 20261119 审计修复：原条件 IsDisposed 才 Dispose 写反了——MirControl.Dispose 对已释放控件
+                // 幂等 return，导致存活控件永不释放；改为 !IsDisposed 才真正清理
                 for (int i = 0; i < OutputLines.Length; i++)
-                    if (OutputLines[i] != null && OutputLines[i].IsDisposed)
+                    if (OutputLines[i] != null && !OutputLines[i].IsDisposed)
                         OutputLines[i].Dispose();
 
                 OutputMessages.Clear();

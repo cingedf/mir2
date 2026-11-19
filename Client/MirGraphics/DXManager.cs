@@ -282,6 +282,12 @@ namespace Client.MirGraphics
                 if (result.Code != ResultCode.Success.Code) return;
 
                 DXManager.DeviceLost = false;
+
+                // 20261119 审计修复：ResetDevice 在 Device.Reset 抛异常时已 CleanUp 销毁 Sprite/Line 置 null
+                // 并 return 跳过 LoadTextures，设备恢复后 AttemptReset 的 Success 分支此前只清 DeviceLost 不重建
+                // Sprite → 下一帧 CMain RenderEnvironment 里 Sprite.Begin() 抛 NRE 永久黑屏。此处按需重建。
+                if (DXManager.Sprite == null || DXManager.Line == null)
+                    DXManager.LoadTextures();
             }
             catch
             {
