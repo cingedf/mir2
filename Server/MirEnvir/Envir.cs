@@ -206,7 +206,8 @@ namespace Server.MirEnvir
         public int GuildCount; //This shouldn't be needed?? -> remove in the future
 
         //Live Info
-        public bool Saving = false;
+        // 20261119 审计修复P2：Saving 跨线程读写（HTTP/UI 写、SaveAccounts 的 while 读），volatile 保证可见性
+        public volatile bool Saving = false;
         public List<Map> MapList = new List<Map>();
         public List<SafeZoneInfo> StartPoints = new List<SafeZoneInfo>();
         public List<ItemInfo> StartItems = new List<ItemInfo>();
@@ -881,6 +882,22 @@ namespace Server.MirEnvir
                     var line = frame.GetFileLineNumber();
 
                     MessageQueue.Enqueue(GameLanguage.ServerTextMap.GetLocalization((ServerTextKeys.InnerWorkloopErrorLine), line, ex));
+
+                    // 20261119 审计修复P1：致命异常路径此前无 Running=false/http.Stop()/mob 中断，
+                    // 服务假死仍显示"运行中"，Start()(:2134) 因 Running=true 永久拦截，只能重启进程。
+                    // 不能直接调 Stop()——其 while(_thread!=null) 等的就是当前 WorkLoop 线程自身 → 死锁；
+                    // 内联停机核心（同 Stop() 前半段），后续 :886 起的有序收尾照常执行。
+                    Running = false;
+                    lock (_locker) { Monitor.PulseAll(_locker); }
+                    for (var i = 1; i < MobThreading.Length; i++)
+                    {
+                        if (MobThreads[i] != null) MobThreads[i].EndTime = Time + 9999;
+                        if (MobThreading[i] != null &&
+                            MobThreading[i].ThreadState != System.Threading.ThreadState.Stopped &&
+                            MobThreading[i].ThreadState != System.Threading.ThreadState.Unstarted)
+                            MobThreading[i].Interrupt();
+                    }
+                    try { http?.Stop(); } catch { }
                 }
 
                 StopNetwork();
@@ -1364,9 +1381,15 @@ namespace Server.MirEnvir
                 writer.Write(HeroList.Count);
                 for (var i = 0; i < HeroList.Count; i++)
                     HeroList[i].Save(writer);
-                writer.Write(AccountList.Count);
-                for (var i = 0; i < AccountList.Count; i++)
-                    AccountList[i].Save(writer);
+                // 20261119 审计修复P1：AccountList 由 HTTP 线程（HTTPNewAccount:2674）与网络线程（NewAccount:2622）
+                // 在 AccountLock 内 Add，存盘枚举必须持同锁防 List 并发修改异常。调用链先 LoadLock 后 AccountLock，
+                // 而写端只持 AccountLock 不取 LoadLock，无反向锁序不死锁。
+                lock (AccountLock)
+                {
+                    writer.Write(AccountList.Count);
+                    for (var i = 0; i < AccountList.Count; i++)
+                        AccountList[i].Save(writer);
+                }
 
                 writer.Write(NextAuctionID);
                 writer.Write(Auctions.Count);
@@ -2160,6 +2183,18 @@ namespace Server.MirEnvir
                     MobThreading[i].ThreadState != System.Threading.ThreadState.Stopped && MobThreading[i].ThreadState != System.Threading.ThreadState.Unstarted)
                 {
                     MobThreading[i].Interrupt();
+                }
+            }
+
+            // 20261119 审计修复P1：Interrupt 后 Join 等待 mob 线程真正退出（带超时防 UI 卡死），
+            // 避免 Reboot 时旧线程尚未退出、Start() 已建新线程→新旧 mob 线程重叠重复刷怪/掉落。
+            for (var i = 1; i < MobThreading.Length; i++)
+            {
+                if (MobThreading[i] != null &&
+                    MobThreading[i].ThreadState != System.Threading.ThreadState.Unstarted &&
+                    MobThreading[i] != Thread.CurrentThread)
+                {
+                    MobThreading[i].Join(2000);
                 }
             }
 

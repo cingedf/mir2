@@ -390,7 +390,8 @@ namespace Server
             RelogDelay = Reader.ReadUInt16("General", "RelogDelay", RelogDelay);
             GMPassword = Reader.ReadString("General", "GMPassword", GMPassword);
             Multithreaded = Reader.ReadBoolean("General", "Multithreaded", Multithreaded);
-            ThreadLimit = Reader.ReadInt32("General", "ThreadLimit", ThreadLimit);
+            // 20261119 审计修复P2：ThreadLimit=0 会导致 MobThreads 空数组，MapObject.Spawned 访问 MobThreads[SpawnThread] 越界崩服；钳制下限为1
+            ThreadLimit = Math.Max(1, Reader.ReadInt32("General", "ThreadLimit", ThreadLimit));
             TestServer = Reader.ReadBoolean("General", "TestServer", TestServer);
             EnforceDBChecks = Reader.ReadBoolean("General", "EnforceDBChecks", EnforceDBChecks);
             MonsterProcessWhenAlone = Reader.ReadBoolean("General", "MonsterProcessWhenAlone", MonsterProcessWhenAlone);
