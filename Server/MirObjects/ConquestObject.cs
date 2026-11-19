@@ -908,6 +908,9 @@ namespace Server.MirObjects
 
         public void StartWar(ConquestGame type)
         {
+            // 20261119 审计修复：开战时清空上一战残留的国王积分（KingPoints 是单场战争内的临时计分），
+            // 否则征服模式下一场开战直接沿用上战积分，导致错误判胜。当前「占领皇宫」模式不用该字典，行为等价。
+            KingPoints.Clear();
             WarIsOn = true;
 
             foreach (var pl in Envir.Players)
@@ -926,6 +929,11 @@ namespace Server.MirObjects
 
                     foreach (KeyValuePair<ConquestGuildFlagInfo, Dictionary<GuildObject, int>> item in ControlPoints)
                     {
+                        // 20261119 审计修复：控制点未被任何行会占领时 item.Key.Guild 为 null，
+                        // 用作 Dictionary key 时 TryGetValue(null)/索引赋值均抛 ArgumentNullException 中断 EndWar；
+                        // 无敌方占领的控制点本就不计入积分，跳过即可（行为等价）
+                        if (item.Key.Guild == null) continue;
+
                         controlledPoints.TryGetValue(item.Key.Guild, out count);
 
                         if(count == 0)

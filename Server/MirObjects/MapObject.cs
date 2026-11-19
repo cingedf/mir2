@@ -1016,7 +1016,9 @@ namespace Server.MirObjects
                 Point location;
 
                 if (distance <= 0)
-                    location = new Point(edgeoffset + Envir.Random.Next(map.Width - edgeoffset), edgeoffset + Envir.Random.Next(map.Height - edgeoffset)); //Can adjust Random Range...
+                    // 20261119 审计修复：极小地图（Width/Height <= edgeoffset=20）时 map.Width-edgeoffset<=0，
+                    // Random.Next(负/0) 抛 ArgumentOutOfRangeException；钳制下限 1，正常地图不变行为等价
+                    location = new Point(edgeoffset + Envir.Random.Next(Math.Max(1, map.Width - edgeoffset)), edgeoffset + Envir.Random.Next(Math.Max(1, map.Height - edgeoffset))); //Can adjust Random Range...
                 else
                     location = new Point(CurrentLocation.X + Envir.Random.Next(-distance, distance + 1),
                                          CurrentLocation.Y + Envir.Random.Next(-distance, distance + 1));

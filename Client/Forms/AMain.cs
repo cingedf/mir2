@@ -18,6 +18,9 @@ namespace Launcher
         public List<FileInformation> OldList;
         public Queue<FileInformation> DownloadList = new Queue<FileInformation>();
         public List<Download> ActiveDownloads = new List<Download>();
+        // 20261119 审计修复：ActiveDownloads 由工作线程 Add（:256）与 UI 线程 InterfaceTimer_Tick 读写（:579/:620/:631/:641/:656），
+        // 原无锁并发访问 List 可致 RemoveAt 与遍历交错抛 ArgumentOutOfRangeException / 计数错乱。用专用锁对象保护所有结构访问
+        private readonly object _activeDownloadsLock = new object();
 
         private Stopwatch _stopwatch = Stopwatch.StartNew();
 
@@ -253,7 +256,7 @@ namespace Launcher
                         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authInfo);
                     }
 
-                    ActiveDownloads.Add(dl);
+                    lock (_activeDownloadsLock) ActiveDownloads.Add(dl); //20261119 审计修复：工作线程 Add 与 UI 线程读写需同步
 
                     var task = Task.Run(() => client.GetAsync(new Uri($"{Settings.P_Host}{fileName}"), HttpCompletionOption.ResponseHeadersRead));
                     var response = task.Result;
@@ -576,7 +579,11 @@ namespace Launcher
         {
             try
             {
-                if (Completed && ActiveDownloads.Count == 0)
+                // 20261119 审计修复：先取快照再判断，lock 内只做 Count 读取，不把下方 UI 操作/Launch/Close/MessageBox 包进锁（防死锁）
+                bool downloadsEmpty;
+                lock (_activeDownloadsLock) downloadsEmpty = ActiveDownloads.Count == 0;
+
+                if (Completed && downloadsEmpty)
                 {
                     ActionLabel.Text = "";
                     CurrentFile_label.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.UpToDate);
@@ -616,30 +623,35 @@ namespace Launcher
                 var currentBytes = 0L;
                 FileInformation currentFile = null;
 
-                // Remove completed downloads..
-                for (var i = ActiveDownloads.Count - 1; i >= 0; i--)
+                // 20261119 审计修复：两段遍历与按索引删除合并进同一把锁，防工作线程 Add 与 UI 线程 RemoveAt/遍历交错；
+                // 锁内只操作 List 与累加局部量 currentBytes（非 UI 操作），不调 MessageBox/Launch，避免持锁触发重入死锁
+                lock (_activeDownloadsLock)
                 {
-                    var dl = ActiveDownloads[i];
-
-                    if (dl.Completed)
+                    // Remove completed downloads..
+                    for (var i = ActiveDownloads.Count - 1; i >= 0; i--)
                     {
-                        ActiveDownloads.RemoveAt(i);
-                        continue;
+                        var dl = ActiveDownloads[i];
+
+                        if (dl.Completed)
+                        {
+                            ActiveDownloads.RemoveAt(i);
+                            continue;
+                        }
                     }
-                }
 
-                for (var i = ActiveDownloads.Count - 1; i >= 0; i--)
-                {
-                    var dl = ActiveDownloads[i];
-                    if (!dl.Completed)
-                        currentBytes += dl.CurrentBytes;
-                }
+                    for (var i = ActiveDownloads.Count - 1; i >= 0; i--)
+                    {
+                        var dl = ActiveDownloads[i];
+                        if (!dl.Completed)
+                            currentBytes += dl.CurrentBytes;
+                    }
 
-                if (Settings.P_Concurrency == 1)
-                {
-                    // Note: Just mimic old behaviour for now until a better UI is done.
-                    if (ActiveDownloads.Count > 0)
-                        currentFile = ActiveDownloads[0].Info;
+                    if (Settings.P_Concurrency == 1)
+                    {
+                        // Note: Just mimic old behaviour for now until a better UI is done.
+                        if (ActiveDownloads.Count > 0)
+                            currentFile = ActiveDownloads[0].Info;
+                    }
                 }
 
                 ActionLabel.Visible = true;
@@ -653,7 +665,9 @@ namespace Launcher
 
                 if (Settings.P_Concurrency > 1)
                 {
-                    CurrentFile_label.Text = string.Format("<Concurrent> {0}", ActiveDownloads.Count);
+                    int concurrentCount;
+                    lock (_activeDownloadsLock) concurrentCount = ActiveDownloads.Count; //20261119 审计修复：锁内只取 Count 快照
+                    CurrentFile_label.Text = string.Format("<Concurrent> {0}", concurrentCount);
                     SpeedLabel.Text = ToSize(currentBytes / _stopwatch.Elapsed.TotalSeconds);
                 }
                 else

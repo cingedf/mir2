@@ -245,7 +245,9 @@ namespace Client.MirControls
 
             for (int i = 0; i < Program.Form.Controls.Count; i++)
             {
-                TextBox T = (TextBox) Program.Form.Controls[i];
+                // 20261119 审计修复：原硬转换 (TextBox) 遇非 TextBox 原生控件抛 InvalidCastException 卡死输入；
+                // 对齐本类 Show() 的 as 写法。当前控件全是 TextBox 时行为完全等价，仅未来加控件时防御
+                TextBox T = Program.Form.Controls[i] as TextBox;
                 if (T != null && T.Tag != null)
                     ((MirTextBox) T.Tag).DialogChanged();
             }
