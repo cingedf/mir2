@@ -27,6 +27,20 @@ namespace LibraryEditor.ReverseIndex
         private Reference _ambigRef;
         private bool _suppressComboEvent;
         private bool _busy; // T6：保存/编译/部署进行中标志，防重复点击（重复编译/重复换件）
+        // T8：导回图片落盘状态——ImportGroupImages 成功替换内存位图后置脏，
+        // SaveAll 检测到才把图片写进 lib 文件（LibFramesWriter 序列化整个 Images+Frames）。
+        private bool _libDirty;
+        private int _importedCount; // 本次累计导回张数（提示文案用）
+
+        // T9：GroupPreviewForm 导回图片成功后回调这里置脏（图片改动没有引用 Changed 标记，
+        // 必须单独记账，否则 SaveAll 会以「没有改动」为由跳过，图片永远落不了盘）。
+        internal void MarkLibImagesImported(int count)
+        {
+            if (count <= 0) return;
+            _libDirty = true;
+            _importedCount += count;
+            UpdateStatus(); // 状态栏立即提示有未落盘的图片
+        }
         private string _lastBackupSession; // P0-2：最近一次保存的备份会话目录（「回到本次备份」用）
 
         // T5 直观性：筛选/操作指引/悬浮说明/实时状态（零基础可用）
@@ -46,10 +60,12 @@ namespace LibraryEditor.ReverseIndex
         private readonly Button _btnCompile = new Button();
         private readonly Button _btnDeploy = new Button();
         private readonly Button _btnDiff = new Button();
+        private readonly Button _btnReport = new Button(); // T9 点子⑤：库体检报告
         private readonly Button _btnUndo = new Button();
         private readonly Button _btnAlias = new Button();
         private readonly Button _btnMapSetup = new Button();
-        private readonly Button _btnRestore = new Button(); // P0-2：回到本次备份
+        private readonly Button _btnRestore = new Button();
+        private readonly Button _btnLaunch = new Button(); // T8：部署成功后一键启动游戏验证 // P0-2：回到本次备份
         private readonly ComboBox _cmboLib = new ComboBox();
         private readonly Label _lblStatus = new Label();
 
@@ -153,6 +169,30 @@ namespace LibraryEditor.ReverseIndex
             _grid.CellValueChanged += Grid_CellValueChanged;
             _grid.SelectionChanged += Grid_SelectionChanged; // T3.2: 选中歧义库行时显示编号下拉
             _grid.DataError += (s, e) => { e.ThrowException = false; };
+            // T9 点子②：右键「恢复此行」——只还原一行（原「撤销」是一把梭全部还原）。
+            var rowMenu = new ContextMenuStrip();
+            var miRestoreRow = new ToolStripMenuItem("恢复此行（撤销这一行的修改）");
+            miRestoreRow.Click += (s, e) =>
+            {
+                if (_grid.CurrentRow == null) return;
+                var rr = _grid.CurrentRow.Tag as Reference;
+                if (rr == null) return;
+                if (!rr.Changed) { AppendResult("该行没有修改，无需恢复。"); return; }
+                rr.EditedValue = rr.BaseValue;
+                _grid.CurrentRow.Cells[COL_VALUE].Value = rr.EditedValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                _grid.CurrentRow.DefaultCellStyle.BackColor = _grid.DefaultCellStyle.BackColor;
+                if (!string.IsNullOrEmpty(rr.GroupId))
+                    foreach (DataGridViewRow row in _grid.Rows)
+                    {
+                        var other = row.Tag as Reference;
+                        if (other != null && other.GroupId == rr.GroupId)
+                            row.Cells[COL_GROUP].Value = GroupText(other);
+                    }
+                UpdateStatus();
+                AppendResult("[恢复] " + rr.HumanLabel + " 已还原为 " + rr.BaseValue);
+            };
+            rowMenu.Items.Add(miRestoreRow);
+            _grid.ContextMenuStrip = rowMenu;
 
             // 底部结果/状态区
             var bottom = new Panel { Dock = DockStyle.Bottom, Height = 190 };
@@ -179,6 +219,8 @@ namespace LibraryEditor.ReverseIndex
             _btnMapSetup.Text = "映射设置";    // T3.3
             _btnRestore.Text = "回到备份（无）"; // P0-2
             _btnRestore.Enabled = false;
+            _btnLaunch.Text = "启动游戏";        // T8：验证换件效果
+            _btnReport.Text = "库体检";          // T9 点子⑤：空帧/孤帧统计
             _btnRescan.Click += (s, e) => Rescan();
             _btnSave.Click += (s, e) => SaveAll();
             _btnCompile.Click += (s, e) => CompileOnly();
@@ -188,6 +230,8 @@ namespace LibraryEditor.ReverseIndex
             _btnAlias.Click += (s, e) => ManageAliases();   // T3.3
             _btnMapSetup.Click += (s, e) => ManageMap();     // T3.3
             _btnRestore.Click += (s, e) => RestoreLastBackup(); // P0-2
+            _btnLaunch.Click += (s, e) => LaunchGame();          // T8
+            _btnReport.Click += (s, e) => RunLibReport();        // T9 点子⑤
             bar.Controls.Add(_btnRescan);
             bar.Controls.Add(_btnSave);
             bar.Controls.Add(_btnCompile);
@@ -197,6 +241,8 @@ namespace LibraryEditor.ReverseIndex
             bar.Controls.Add(_btnAlias);        // T3.3
             bar.Controls.Add(_btnMapSetup);     // T3.3
             bar.Controls.Add(_btnRestore);      // P0-2
+            bar.Controls.Add(_btnLaunch);       // T8
+            bar.Controls.Add(_btnReport);       // T9 点子⑤
             // T5 布局：停靠控件统一移到 BuildUi 末尾按序挂载（见下方“T5 布局”块）
 
             // T5 直观性：筛选栏（搜索 + 只看已改动 + 一句话指引），零基础也能找到条目
@@ -230,6 +276,8 @@ namespace LibraryEditor.ReverseIndex
             _tips.SetToolTip(_btnAlias, "给看不懂的条目起中文名，保存后列表里直接显示这个名字。");
             _tips.SetToolTip(_btnMapSetup, "当 lib 文件对应不上源码变量（反查失败）时，在这里手工指定对应关系。");
             _tips.SetToolTip(_btnRestore, "把最近一次「保存改动」之前的源码/lib/部署文件还原（保存失败、改错了想反悔时用）。");
+            _tips.SetToolTip(_btnLaunch, "启动游戏客户端，亲眼验证换图/换帧效果（文件在 mir2-deploy\\Client）。");
+            _tips.SetToolTip(_btnReport, "统计当前 lib 的总帧数、空帧数量、被引用帧与没人用的孤帧，帮你挑空闲帧号放新图。");
             _tips.SetToolTip(_grid, "双击行＝弹出缩略图选帧；也可以直接在「当前值」格里输入数字。改过的行会变黄。");
             _tips.SetToolTip(bandHost, "帧号时间轴：每根竖线＝一个帧号引用，点击竖线跳到对应行；颜色含义见上方图例（橙色=玩家全局帧表，改前会二次确认）。");
             _tips.SetToolTip(_txtFilter, "输入名字、表达式或帧号片段，列表即时筛选；清空恢复全部。");
@@ -449,6 +497,21 @@ namespace LibraryEditor.ReverseIndex
                 // T5：筛选/重扫会重建行实例，已改动项必须恢复黄色高亮，否则未保存状态不可见。
                 if (r.Changed)
                     _grid.Rows[row].DefaultCellStyle.BackColor = Color.LightYellow;
+                // T8 换图体检：检查该行指向的帧是否是空帧（游戏里会显示不出图）。
+                // 空帧判定与 MLibraryV2.RemoveBlanks 一致（FBytes<=24）。黄色警示，不阻止编辑。
+                if (_lib != null && r.IsFrameNumber && r.EditedValue >= 0 && r.EditedValue < _lib.Count)
+                {
+                    try
+                    {
+                        var mi = _lib.GetMImage(r.EditedValue);
+                        if (mi == null || mi.FBytes == null || mi.FBytes.Length <= 24)
+                        {
+                            _grid.Rows[row].Cells[COL_VALUE].Style.BackColor = Color.MistyRose;
+                            _grid.Rows[row].Cells[COL_VALUE].ToolTipText = "该帧是空帧（游戏里会缺图）——换图/补图时优先处理这一帧。";
+                        }
+                    }
+                    catch { }
+                }
             }
 
             _grid.Columns[COL_LABEL].Width = 240;
@@ -541,8 +604,6 @@ namespace LibraryEditor.ReverseIndex
                               .Distinct().ToList();
             return "同组 " + members.Count + " 处：" + string.Join("/", vals);
         }
-
-        // T6：组员查询（GroupText 静态化需要引用列表穿透）。
         private static List<Reference> _refsStatic;
         private static List<Reference> GroupMembers(List<Reference> refs, string groupId)
         {
@@ -554,12 +615,17 @@ namespace LibraryEditor.ReverseIndex
         private void UpdateStatus()
         {
             int changed = _refs.Count(r => r.Changed);
+            string libImg = _libDirty ? " | ⚠ 导回图片 " + _importedCount + " 张未写盘（点「保存改动」写入）" : "";
             _lblStatus.Text = string.Format(
-                "本库引用 {0} 条 | 当前显示 {1} 条 | 已改动 {2} 条（黄色行=未保存）| 改完点「保存改动」一键写回+编译+部署",
-                _refs.Count, _filtered.Count, changed);
-            // T5 便利性：保存按钮联动——无改动置灰，有改动显示数量，一眼知道"还有没有没存的"。
-            _btnSave.Enabled = changed > 0;
-            _btnSave.Text = changed > 0 ? string.Format("保存改动({0})", changed) : "保存改动";
+                "本库引用 {0} 条 | 当前显示 {1} 条 | 已改动 {2} 条（黄色行=未保存）{3}| 改完点「保存改动」一键写回+编译+部署",
+                _refs.Count, _filtered.Count, changed, libImg);
+            // T5/T9 便利性：保存按钮联动——无改动置灰，有改动/有导回图片时显示数量，一眼知道"还有没有没存的"。
+            bool hasAny = changed > 0 || _libDirty;
+            _btnSave.Enabled = hasAny;
+            _btnSave.Text = !hasAny ? "保存改动"
+                : (changed > 0 && _libDirty) ? string.Format("保存改动({0}+图{1})", changed, _importedCount)
+                : changed > 0 ? string.Format("保存改动({0})", changed)
+                : string.Format("保存改动(图{0})", _importedCount);
         }
 
         // T5 便利性：关窗保护——有未保存改动时先确认，防止点 X 静默丢失。
@@ -567,9 +633,14 @@ namespace LibraryEditor.ReverseIndex
         {
             if (e.CloseReason == CloseReason.ApplicationExitCall || e.CloseReason == CloseReason.FormOwnerClosing) return;
             int changed = _refs.Count(r => r.Changed);
-            if (changed == 0) return;
+            if (changed == 0 && !_libDirty) return; // T9：导回图片未写盘同样要拦截
+            string what = _libDirty
+                ? (changed > 0
+                    ? "还有 " + changed + " 处改动和 " + _importedCount + " 张导回图片没有保存"
+                    : "还有 " + _importedCount + " 张导回图片没有写入 lib 文件")
+                : "还有 " + changed + " 处改动没有保存";
             var confirm = MessageBox.Show(
-                "还有 " + changed + " 处改动没有保存，直接关闭会丢失这些修改。\n确定要关闭吗？（要保留请先点「保存改动」）",
+                what + "，直接关闭会丢失这些修改。\n确定要关闭吗？（要保留请先点「保存改动」）",
                 "未保存的改动", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
             if (confirm != DialogResult.Yes) e.Cancel = true;
         }
@@ -634,6 +705,9 @@ namespace LibraryEditor.ReverseIndex
             }
             r.EditedValue = val;
             _grid.Rows[e.RowIndex].DefaultCellStyle.BackColor = r.Changed ? Color.LightYellow : _grid.DefaultCellStyle.BackColor;
+            // T9 点子①：帧号撞车提示——同一帧被多处引用时改值容易撞上别的用途，黄字提醒（同组行不算）。
+            if (r.IsFrameNumber)
+                WarnFrameCollision(r);
             // T6：值变化后同组行的"组帧范围"文本要实时刷新，否则显示的是上次绑定时的旧值列表。
             if (!string.IsNullOrEmpty(r.GroupId))
             {
@@ -678,6 +752,19 @@ namespace LibraryEditor.ReverseIndex
                 return;
             }
             ShowGroupPreview(r);
+        }
+
+        // T9 点子①：帧号撞车提示——改的帧号已被其他用途占用时黄字提醒（同组行不算撞车）。
+        // 只查 IsFrameNumber 的引用，防止与帧数/跳帧/毫秒参数误报。
+        private void WarnFrameCollision(Reference r)
+        {
+            var clash = _refs.FirstOrDefault(o =>
+                o != r && o.IsFrameNumber && o.Target == r.Target
+                && o.LibVariable == r.LibVariable
+                && o.EditedValue == r.EditedValue
+                && o.GroupId != r.GroupId); // 同组=同一画面用到的几个帧号位，撞是正常的
+            if (clash == null) return;
+            AppendResult("[注意] 帧 " + r.EditedValue + " 已被「" + clash.HumanLabel + "」（" + clash.FilePath + ":" + clash.Line + "）使用，确认不是撞号再保存。");
         }
 
         // T6（第4问）：组图预览——展开该引用所属组的全部帧（含真实帧号），
@@ -804,7 +891,7 @@ namespace LibraryEditor.ReverseIndex
         {
             _busy = busy;
             Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
-            foreach (var b in new[] { _btnRescan, _btnSave, _btnCompile, _btnDeploy, _btnDiff, _btnUndo, _btnAlias, _btnMapSetup, _btnRestore })
+            foreach (var b in new[] { _btnRescan, _btnSave, _btnCompile, _btnDeploy, _btnDiff, _btnUndo, _btnAlias, _btnMapSetup, _btnRestore, _btnLaunch, _btnReport })
                 b.Enabled = !busy;
             _grid.ReadOnly = busy; // 保存期间禁止再编辑（写回用的是改前快照，编辑会丢失）
             if (busy) _lblStatus.Text = "正在" + phase + "……请勿重复点击，完成后会自动显示结果。";
@@ -816,9 +903,18 @@ namespace LibraryEditor.ReverseIndex
         {
             if (_busy) { AppendResult("[进行中] 已有保存/编译/部署操作在执行，请等它完成。"); return; }
             var changed = _refs.Where(r => r.Changed).ToList();
-            if (changed.Count == 0)
+            // T8：导回图片只改内存位图（不产生引用改动），也要能落盘——否则导回的图永远写不进 lib。
+            if (changed.Count == 0 && !_libDirty)
             {
                 AppendResult("没有改动需要保存。");
+                return;
+            }
+
+            // T8：只有导回图片、没有其它改动时，走专用的纯图片落盘链路
+            //（图片不在引用/帧表体系里，源码无需动，编译部署也不影响图片）。
+            if (changed.Count == 0 && _libDirty)
+            {
+                SaveLibImagesOnly();
                 return;
             }
 
@@ -870,6 +966,36 @@ namespace LibraryEditor.ReverseIndex
                 AppendResult("[拒绝保存] 客户端 Client.exe 正在运行，请先关闭客户端再保存（lib 写回与换件都需要）。");
                 return;
             }
+
+            // T8：导回图片与帧号/帧表改动同时存在时，lib 写回一并落盘（备份由 libChanged 分支的 LibFramesWriter 负责；
+            // 若本库无 Frames 段导致 LibFramesWriter 拒写，图片改动无法落盘——这里给纯图片路径兜底）。
+            if (_libDirty && changed.All(r => r.Target != "LibFrames"))
+            {
+                // 源码照常走下面链路；lib 图片单独追加到本次备份会话并落盘
+                try
+                {
+                    var bkpImg = new BackupManager(_cfg);
+                    bkpImg.BackupLib(_libPath);
+                    var lwImg = new LibFramesWriter(_cfg, bkpImg);
+                    var lrImg = lwImg.Write(_lib);
+                    if (lrImg.Success)
+                    {
+                        _libDirty = false;
+                        RecordBackupSession(bkpImg);
+                        UpdateRestoreButton();
+                        AppendResult("[图片] 导回的 " + _importedCount + " 张图片已写入 lib（" + lrImg.Message + "）。");
+                    }
+                    else
+                    {
+                        AppendResult("[图片] lib 写回失败：" + lrImg.Message + "（图片改动仍在内存，可重试保存）");
+                    }
+                }
+                catch (Exception exImg)
+                {
+                    AppendResult("[图片] lib 写回异常：" + exImg.Message + "（图片改动仍在内存，可重试保存）");
+                }
+            }
+            _importedCount = 0;
 
             SetBusy(true, "保存改动（写回源码 → 编译 → 部署换件）");
             AppendResult("正在保存改动……（写回源码 → 编译 → 部署换件，约 1 分钟；请勿重复点击）");
@@ -968,6 +1094,124 @@ namespace LibraryEditor.ReverseIndex
                 AppendResult("[保存异常] " + ex);
             }
             finally { SetBusy(false, null); }
+        }
+
+        // T8：纯图片落盘链路——只导回了图片、没有帧号/帧表改动时走这里。
+        // 与帧表写回同一套门禁（客户端关闭 + 备份 + 原子替换），成功后清脏标记。
+        private void SaveLibImagesOnly()
+        {
+            if (_lib == null) { AppendResult("尚未打开 lib。"); return; }
+            if (Deployer.ClientRunning())
+            {
+                AppendResult("[拒绝保存] 客户端 Client.exe 正在运行，请先关闭客户端再保存。");
+                return;
+            }
+            SetBusy(true, "保存导回图片（写 lib 文件）");
+            try
+            {
+                var backup = new BackupManager(_cfg);
+                backup.BackupLib(_libPath);
+                var lw = new LibFramesWriter(_cfg, backup);
+                var lr = lw.Write(_lib);
+                if (lr.Success)
+                {
+                    _libDirty = false;
+                    RecordBackupSession(backup);
+                    UpdateRestoreButton();
+                    AppendResult("[图片] 已把导回的 " + _importedCount + " 张图片写入 lib：" + lr.Message);
+                    AppendResult("（备份在 " + backup.SessionDir + "，改错了可点「回到备份」还原）");
+                    _importedCount = 0;
+                    Rescan();
+                }
+                else
+                {
+                    AppendResult("[图片] lib 写回失败：" + lr.Message + "（图片改动仍在内存，可重试保存）");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendResult("[图片] lib 写回异常：" + ex.Message + "（图片改动仍在内存，可重试保存）");
+            }
+            finally { SetBusy(false, null); }
+        }
+
+        // T9 点子⑤：库体检报告——总帧数 / 空帧 / 被引用帧 / 孤帧统计。
+        // 目的：帮用户挑"没人用的帧号"放新图，也暴露 lib 里的空洞。
+        private void RunLibReport()
+        {
+            if (_lib == null) { AppendResult("尚未打开 lib。"); return; }
+            SetBusy(true, "库体检（遍历帧）");
+            try
+            {
+                int total = _lib.Count;
+                var empty = new List<int>();
+                var sizes = new List<string>(); // 空帧之外的示例尺寸，只记前几条避免报告爆炸
+                for (int i = 0; i < total; i++)
+                {
+                    bool isEmpty = true; int w = 0, h = 0;
+                    try
+                    {
+                        var img = _lib.GetMImage(i);
+                        if (img != null)
+                        {
+                            isEmpty = img.FBytes == null || img.FBytes.Length <= 24;
+                            w = img.Width; h = img.Height;
+                        }
+                    }
+                    catch { }
+                    if (isEmpty) empty.Add(i);
+                    else if (sizes.Count < 5) sizes.Add(i + "=" + w + "×" + h);
+                }
+
+                // 被引用帧集合：所有帧号类引用的当前生效值（含未保存改动）+ lib 自带帧表区间
+                var used = new HashSet<int>();
+                foreach (var r in _refs)
+                {
+                    if (!r.IsFrameNumber) continue;
+                    int v = r.Changed ? r.EditedValue : r.BaseValue;
+                    if (v >= 0 && v < total) used.Add(v);
+                }
+                if (_lib.Frames != null)
+                {
+                    foreach (var kv in _lib.Frames)
+                    {
+                        var f = kv.Value;
+                        if (f == null) continue;
+                        for (int i = f.Start; i < f.Start + f.Count && i < total; i++)
+                            if (i >= 0) used.Add(i);
+                    }
+                }
+                var orphans = new List<int>();
+                for (int i = 0; i < total; i++)
+                    if (!used.Contains(i)) orphans.Add(i);
+
+                AppendResult("===== 库体检：" + System.IO.Path.GetFileName(_libPath) + " =====");
+                AppendResult("总帧数 " + total + "，空帧 " + empty.Count + "，被引用（源码帧号+自带帧表）" + used.Count + "，孤帧（无人用）" + orphans.Count);
+                if (empty.Count > 0)
+                    AppendResult("空帧位置：" + PreviewList(empty) + (empty.Count > 20 ? " …" : ""));
+                if (orphans.Count > 0)
+                    AppendResult("孤帧位置：" + PreviewList(orphans) + (orphans.Count > 20 ? " …" : "") + "（这些帧号可安全放新图，不会影响现有画面）");
+                if (sizes.Count > 0)
+                    AppendResult("尺寸示例：" + string.Join(", ", sizes));
+                AppendResult("（体检只读，不改任何文件）");
+            }
+            catch (Exception ex)
+            {
+                AppendResult("[体检] 异常：" + ex.Message);
+            }
+            finally { SetBusy(false, null); }
+        }
+
+        // T9 点子⑤：长列表只展示前 20 个，避免结果区刷屏。
+        private static string PreviewList(List<int> list)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < list.Count && i < 20; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(list[i]);
+            }
+            return sb.ToString();
         }
 
         // P0-1：把 LibFrames 类引用的编辑值写回内存帧表（保存链路的 lib 侧落点）。
@@ -1163,6 +1407,36 @@ namespace LibraryEditor.ReverseIndex
                 foreach (var f in dr.Files) AppendResult("  " + f.FileName + ": " + (f.Ok ? "✓" : "✗ " + f.Message));
             }
             finally { SetBusy(false, null); }
+        }
+
+        // T8：一键启动游戏——部署成功后直接验证换图效果，不用去文件夹翻 Client.exe。
+        private void LaunchGame()
+        {
+            string exe = Path.Combine(_cfg.DeployRoot, "Client.exe");
+            if (!File.Exists(exe))
+            {
+                AppendResult("[启动失败] 找不到 " + exe + "（请先部署换件）。");
+                return;
+            }
+            if (Deployer.ClientRunning())
+            {
+                AppendResult("[提示] 游戏已经在运行，无需重复启动。");
+                return;
+            }
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    WorkingDirectory = _cfg.DeployRoot, // 工作目录必须是部署根，否则找不到依赖文件
+                    UseShellExecute = true,
+                });
+                AppendResult("[启动] 游戏已启动（" + exe + "）。到游戏里看换图/换帧效果吧。");
+            }
+            catch (Exception ex)
+            {
+                AppendResult("[启动失败] " + ex.Message);
+            }
         }
 
         private void ShowDiff()
@@ -1481,13 +1755,28 @@ namespace LibraryEditor.ReverseIndex
             {
                 var cell = new Panel { Width = 92, Height = 92, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(3) };
                 var pic = new PictureBox { Dock = DockStyle.Top, Height = 64, SizeMode = PictureBoxSizeMode.Zoom };
+                // T9 点子④：空帧灰显 + 正常帧尺寸角标（FBytes<=24 与 RemoveBlanks 同源判定）。
+                bool isEmpty = false; int w = 0, h = 0;
                 try
                 {
                     var img = _lib.GetMImage(i);
-                    if (img != null) pic.Image = (Image)img.Image.Clone();
+                    if (img != null)
+                    {
+                        isEmpty = img.FBytes == null || img.FBytes.Length <= 24;
+                        w = img.Width; h = img.Height;
+                        if (!isEmpty) pic.Image = (Image)img.Image.Clone();
+                    }
+                    else isEmpty = true;
                 }
-                catch { }
-                var lab = new Label { Dock = DockStyle.Bottom, Height = 22, TextAlign = ContentAlignment.MiddleCenter, Text = i.ToString() };
+                catch { isEmpty = true; }
+                var lab = new Label
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 22,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Text = isEmpty ? i + "（空帧）" : i + "  " + w + "×" + h,
+                    BackColor = isEmpty ? Color.FromArgb(210, 210, 210) : SystemColors.Control
+                };
                 int captured = i;
                 cell.Click += (s, e) => { SelectedFrame = captured; this.DialogResult = DialogResult.OK; this.Close(); };
                 pic.Click += (s, e) => { SelectedFrame = captured; this.DialogResult = DialogResult.OK; this.Close(); };
@@ -1514,6 +1803,12 @@ namespace LibraryEditor.ReverseIndex
         private readonly ContextMenuStrip _menu; // T6 右键：复制帧号 + T7 扩展：跳到表格行/导出组图
         private readonly ReverseIndexForm _owner; // T7：来源表格（跳转用），可为 null
         private readonly Reference _ownerRef;     // T7：双击来源的引用（跳转目标行），可为 null
+        // T8 动画播放：Timer 按 Interval 逐帧连播 + 方向下拉（8 朝向）。
+        private readonly System.Windows.Forms.Timer _anim = new System.Windows.Forms.Timer();
+        private readonly ComboBox _cmboDir = new ComboBox();
+        private readonly PictureBox _animPic = new PictureBox();
+        private readonly Label _animLab = new Label();
+        private int _animIdx = -1;               // 当前播到组内第几帧
 
         public GroupPreviewForm(MLibraryV2 lib, List<int> frames, int currentFrame,
                                 ReverseIndexForm owner = null, Reference ownerRef = null)
@@ -1531,7 +1826,7 @@ namespace LibraryEditor.ReverseIndex
             {
                 Dock = DockStyle.Bottom,
                 Height = 26,
-                Text = "当前帧：" + currentFrame + "（高亮）。缩略图按帧号排序；右键可复制帧号、跳到表格行、导出本组图片。",
+                Text = "当前帧：" + currentFrame + "（高亮）。缩略图按帧号排序；右键可复制帧号、跳到表格行、导出/导回本组图片。",
                 Padding = new Padding(8, 4, 8, 0)
             };
             this.Controls.Add(_hint);
@@ -1560,14 +1855,24 @@ namespace LibraryEditor.ReverseIndex
             // T7：整组导出为带帧号文件名的 PNG（换图/补图时直接交给画师/替换工具）。
             var miExport = new ToolStripMenuItem("导出本组全部图片…");
             miExport.Click += (s, e) => ExportViaDialog();
+            // T8：导回——把改好的 帧_帧号.png 按文件名对号入座写回 lib（内存替换，保存改动时落盘）。
+            var miImport = new ToolStripMenuItem("从文件夹导回图片…");
+            miImport.Click += (s, e) => ImportViaDialog();
+            // T9 点子③：从其他 lib 复制帧——选源 lib → 弹选帧网格 → 覆盖本组当前帧（保留本帧锚点）。
+            var miCopyFrom = new ToolStripMenuItem("从其他 lib 复制帧…");
+            miCopyFrom.Click += (s, e) => CopyFromOtherLib();
             _menu.Items.Add(miCopy);
             _menu.Items.Add(miCopyAll);
             _menu.Items.Add(miJump);
             _menu.Items.Add(miExport);
+            _menu.Items.Add(miImport);
+            _menu.Items.Add(miCopyFrom);
             this.ContextMenuStrip = _menu; // 右键空白处也可复制全部
 
             this.FormClosed += (s, e) => // P2-13：关闭后释放全部缩略图克隆
             {
+                _anim.Stop();
+                _anim.Dispose();
                 foreach (Control c in _panel.Controls)
                     foreach (Control sub in c.Controls)
                     {
@@ -1576,7 +1881,85 @@ namespace LibraryEditor.ReverseIndex
                     }
             };
 
+            // T8 动画播放：顶部播放栏（▶ 播放/⏸ 停止 + 朝向下拉 + 动画画布）。
+            // 播放公式与 LMain.FrameAnimTimer_Tick 一致：drawFrame = Start + OffSet*方向 + 当前帧，
+            // OffSet = Count + Skip（Frames.cs）。组帧列表是"一个方向的帧序列"，换方向时整体平移 OffSet。
+            var playBar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(8, 6, 8, 2) };
+            var btnPlay = new Button { Text = "▶ 播放动画", Width = 110 };
+            _cmboDir.DropDownStyle = ComboBoxStyle.DropDownList;
+            _cmboDir.Width = 120;
+            foreach (var d in (MirDirection[])Enum.GetValues(typeof(MirDirection)))
+                _cmboDir.Items.Add(d.ToString());
+            _cmboDir.SelectedIndex = 0;
+            var lblAnimHint = new Label { Text = "连续播放本组动作（可换 8 个朝向），直观检查动作衔接。", AutoSize = true, Padding = new Padding(8, 6, 0, 0), ForeColor = Color.DimGray };
+            playBar.Controls.Add(btnPlay);
+            playBar.Controls.Add(_cmboDir);
+            playBar.Controls.Add(lblAnimHint);
+            this.Controls.Add(playBar);
+
+            // 动画画布（独立于下方静态缩略图）：播放时显示当前帧大图，停止时隐藏。
+            _animPic.Dock = DockStyle.Bottom;
+            _animPic.Height = 180;
+            _animPic.SizeMode = PictureBoxSizeMode.CenterImage;
+            _animPic.BackColor = Color.White;
+            _animPic.Visible = false;
+            _animLab.Dock = DockStyle.Bottom;
+            _animLab.Height = 22;
+            _animLab.TextAlign = ContentAlignment.MiddleCenter;
+            _animLab.Visible = false;
+            this.Controls.Add(_animLab);
+            this.Controls.Add(_animPic);
+
+            _anim.Interval = 140; // 默认 140ms/帧；组内有 Interval 数据的引用会在 ShowGroupPreview 里覆盖
+            _anim.Tick += (s, e) =>
+            {
+                if (_frames.Count == 0) { _anim.Stop(); return; }
+                _animIdx = (_animIdx + 1) % _frames.Count;
+                ShowAnimFrame();
+            };
+            btnPlay.Click += (s, e) =>
+            {
+                if (_anim.Enabled) { _anim.Stop(); ShowAnimFrame(false); return; }
+                _animIdx = -1;
+                _animPic.Visible = true;
+                _animLab.Visible = true;
+                _anim.Start();
+            };
+
             BuildCells(currentFrame);
+        }
+
+        // T8：把组内 _animIdx 帧画到动画画布（含方向平移）。visible=false 时隐藏画布恢复静态视图。
+        private void ShowAnimFrame(bool visible = true)
+        {
+            if (!visible || _animIdx < 0 || _animIdx >= _frames.Count)
+            {
+                _animPic.Visible = false;
+                _animLab.Visible = false;
+                return;
+            }
+            // 方向平移：组内帧序列属于 0 方向（South），其他方向 = 帧 + OffSet*方向序号。
+            // OffSet=Count+Skip 只有 Frame 类引用知道（GroupSkip 字段带 Skip），此处用帧差近似：
+            // 若组是连续帧（相邻差=1），按传统 8 向图布局平移 OffSet*dir（OffSet 未知时按组帧数推）。
+            int dir = Math.Max(0, _cmboDir.SelectedIndex);
+            int step = FrameStride();
+            int drawFrame = _frames[_animIdx] + step * dir;
+            try
+            {
+                var img = drawFrame >= 0 && drawFrame < _lib.Count ? _lib.GetMImage(drawFrame) : null;
+                _animPic.Image = img != null && img.Image != null ? (Image)img.Image.Clone() : null;
+                _animLab.Text = "播放中：帧 " + drawFrame + "（组内第 " + (_animIdx + 1) + "/" + _frames.Count + " 帧，朝向 " + _cmboDir.Text + "）——点「▶ 停止动画」回到静态图";
+            }
+            catch { _animPic.Image = null; }
+        }
+
+        // T8：组内相邻帧的步长（连续帧=1；有跳帧按跳帧差），方向平移用。
+        // 传统 8 向动作图的 OffSet=Count+Skip，等价于"下一方向首帧-本方向首帧"。
+        private int FrameStride()
+        {
+            if (_frames.Count < 2) return _frames.Count;
+            int d = _frames[1] - _frames[0];
+            return d > 0 ? d : _frames.Count;
         }
 
         // T7：菜单动作——选目录后整组导出，成功时弹窗告知数量与位置（零基础反馈）。
@@ -1624,26 +2007,129 @@ namespace LibraryEditor.ReverseIndex
             return ok;
         }
 
+        // T8（导入）：从文件夹导回图片——按 帧_帧号.png 文件名对号入座写回 lib。
+        // 只替换组内列出的帧；保留原帧 X/Y 偏移（画面锚点，丢了会错位）。
+        // 返回 (成功张数, 总候选张数, 详细消息)。
+        internal Tuple<int, int, string> ImportGroupImages(string dir)
+        {
+            if (_lib == null) return Tuple.Create(0, 0, "尚未打开 lib。");
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+                return Tuple.Create(0, 0, "目录不存在：" + dir);
+            int ok = 0, missing = 0;
+            var skipped = new List<string>();
+            foreach (int f in _frames)
+            {
+                string png = Path.Combine(dir, "帧_" + f.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".png");
+                if (!File.Exists(png)) { missing++; continue; }
+                try
+                {
+                    using (var bmp = new Bitmap(png))
+                    {
+                        // 保留原帧的画布偏移：换图只换内容，锚点不动（否则脚底下移/悬空）
+                        Point off = _lib.GetOffSet(f);
+                        _lib.ReplaceImage(f, (Bitmap)bmp.Clone(), (short)off.X, (short)off.Y);
+                    }
+                    ok++;
+                }
+                catch (Exception ex) { skipped.Add("帧 " + f + ": " + ex.Message); }
+            }
+            string msg = "已导入 " + ok + " / " + _frames.Count + " 张（" + missing + " 张未找到对应 PNG）";
+            if (skipped.Count > 0) msg += "；失败：" + string.Join("；", skipped.Take(5));
+            if (ok > 0 && _owner != null) _owner.MarkLibImagesImported(ok); // T9：回调主窗体记账（图片无 Changed 标记，必须单独跟踪）
+            return Tuple.Create(ok, _frames.Count, msg);
+        }
+
+        // T8（导入）：弹目录选择框并把 PNG 写回 lib（不落盘，仅内存替换；用户点「保存改动」才写 lib 文件）。
+        private void ImportViaDialog()
+        {
+            using (var fb = new FolderBrowserDialog { Description = "选择导回目录（里面应有 帧_帧号.png 文件，匹配本组 " + _frames.Count + " 帧）" })
+            {
+                if (fb.ShowDialog(this) != DialogResult.OK) return;
+                var res = ImportGroupImages(fb.SelectedPath);
+                MessageBox.Show(this,
+                    res.Item2 > 0 && res.Item1 > 0
+                        ? res.Item3 + "\n\n注意：图片已替换到内存中的 lib，还需在主窗口点「保存改动」才会写盘。"
+                        : res.Item3,
+                    "导回组图", MessageBoxButtons.OK, res.Item1 > 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                // 导回后刷新预览缩略图（内存中的帧已变）
+                if (res.Item1 > 0) RebuildCells();
+            }
+        }
+
+        // T8：重建全部缩略图（导回后刷新用）。
+        private void RebuildCells()
+        {
+            _panel.Controls.Clear();
+            int current = _frames.Count > 0 ? _frames[0] : -1;
+            BuildCells(current);
+        }
+
+        // T9 点子③：从其他 lib 复制帧——选源 lib 文件 → 弹源库选帧网格 → 把选中帧的图
+        // 覆盖到本组第一帧（保留本帧锚点 X/Y；源帧带遮罩时提示阴影层会丢失）。
+        // 内存替换不落盘，与导回一致：点主窗口「保存改动」才写 lib 文件。
+        private void CopyFromOtherLib()
+        {
+            if (_lib == null || _frames.Count == 0) return;
+            using (var ofd = new OpenFileDialog { Filter = "游戏图库 (*.Lib)|*.Lib|所有文件 (*.*)|*.*", Title = "选择要复制帧的源 lib" })
+            {
+                if (ofd.ShowDialog(this) != DialogResult.OK) return;
+                MLibraryV2 src;
+                try { src = new MLibraryV2(ofd.FileName); }
+                catch (Exception ex) { MessageBox.Show(this, "打开源 lib 失败：" + ex.Message, "复制帧", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                int targetFrame = _frames[0]; // 覆盖本组第一帧（通常是当前动作的起始帧）
+                using (var picker = new FramePickerForm(src, -1))
+                {
+                    if (picker.ShowDialog(this) != DialogResult.OK) return;
+                    int srcFrame = picker.SelectedFrame;
+                    try
+                    {
+                        var smi = src.GetMImage(srcFrame);
+                        if (smi == null || smi.Image == null)
+                        {
+                            MessageBox.Show(this, "源帧 " + srcFrame + " 是空帧，没有图可复制。", "复制帧", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                        if (smi.HasMask)
+                            MessageBox.Show(this, "注意：源帧带阴影层（mask），复制后阴影层会丢失。", "复制帧", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        Point off = _lib.GetOffSet(targetFrame); // 保留本帧锚点，画面位置不变
+                        _lib.ReplaceImage(targetFrame, (Bitmap)smi.Image.Clone(), (short)off.X, (short)off.Y);
+                        if (_owner != null) _owner.MarkLibImagesImported(1);
+                        RebuildCells();
+                        MessageBox.Show(this, "已把源库帧 " + srcFrame + " 复制到本组帧 " + targetFrame + "（内存）。\n还需在主窗口点「保存改动」才会写盘。", "复制帧", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex) { MessageBox.Show(this, "复制失败：" + ex.Message, "复制帧", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+                }
+            }
+        }
+
         private void BuildCells(int currentFrame)
         {
             foreach (var f in _frames)
             {
                 var cell = new Panel { Width = 110, Height = 110, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(4), Tag = f.ToString(System.Globalization.CultureInfo.InvariantCulture) };
                 var pic = new PictureBox { Dock = DockStyle.Top, Height = 78, SizeMode = PictureBoxSizeMode.Zoom };
+                // T9 点子④：空帧灰显 + 尺寸角标（与 FramePickerForm 同源判定）。
+                bool isEmpty = false; int w = 0, h = 0;
                 try
                 {
                     var img = _lib.GetMImage(f);
-                    if (img != null) pic.Image = (Image)img.Image.Clone();
+                    if (img != null)
+                    {
+                        isEmpty = img.FBytes == null || img.FBytes.Length <= 24;
+                        w = img.Width; h = img.Height;
+                        if (!isEmpty) pic.Image = (Image)img.Image.Clone();
+                    }
+                    else isEmpty = true;
                 }
-                catch { }
+                catch { isEmpty = true; }
                 bool isCurrent = f == currentFrame;
                 var lab = new Label
                 {
                     Dock = DockStyle.Bottom,
                     Height = 22,
                     TextAlign = ContentAlignment.MiddleCenter,
-                    Text = "帧 " + f + (isCurrent ? "（当前）" : ""),
-                    BackColor = isCurrent ? Color.Gold : SystemColors.Control,
+                    Text = "帧 " + f + (isEmpty ? "（空帧）" : "  " + w + "×" + h) + (isCurrent ? "（当前）" : ""),
+                    BackColor = isEmpty && !isCurrent ? Color.FromArgb(210, 210, 210) : (isCurrent ? Color.Gold : SystemColors.Control),
                     Tag = f.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 };
                 cell.Controls.Add(pic);
