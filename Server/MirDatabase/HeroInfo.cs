@@ -45,7 +45,8 @@ namespace Server.MirDatabase
 
             Experience = reader.ReadInt64();
 
-            int count = reader.ReadInt32();
+            // 20261119 审计修复P2：count 来自存档无钳制，损坏/篡改存档可致巨大值 Array.Resize OOM；钳制到英雄背包上限 42
+            int count = Math.Clamp(reader.ReadInt32(), 0, 42);
 
             Array.Resize(ref Inventory, count);
 

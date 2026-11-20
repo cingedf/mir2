@@ -54,7 +54,8 @@ namespace Server.MirObjects
                     Info.CurrentHeroIndex = currentHero.Index;
                     for (int i = 0; i < Info.Heroes.Length; i++)
                     {
-                        if (Info.Heroes[i].Index != currentHero.Index) continue;
+                        // 20261119 审计修复P2：英雄封印/删除后 Info.Heroes[x]=null 留空洞，遍历未判空→登录/换英雄 NRE
+                        if (Info.Heroes[i] == null || Info.Heroes[i].Index != currentHero.Index) continue;
                         CurrentHeroIndex = i;
                         break;
                     }
@@ -978,7 +979,7 @@ namespace Server.MirObjects
             if (MyGuild != null && MyGuild.Name != Settings.NewbieGuild)
                 MyGuild.GainExp(amount);
 
-            if (Experience < MaxExperience) return;
+            /* 20261119 审计修复P1：满级 MaxExperience=0 致 while 恒真刷级到65535+卡主线程，满级后直接返回（对齐 HeroObject） */ if (MaxExperience <= 0 || Experience < MaxExperience) return;
             if (Level >= ushort.MaxValue) return;
 
             //Calculate increased levels
@@ -10158,10 +10159,13 @@ namespace Server.MirObjects
         {
             if (!HeroSpawned || !Hero.AutoPot) return;
 
+            // 20261119 审计修复P2：stat 客户端可控，原任意非 HP 值都改写 MP 百分比；显式限定 HP/MP，其它值直接忽略
             if (stat == Stat.HP)
                 Hero.AutoHPPercent = (byte)Math.Min(99, value);
-            else
+            else if (stat == Stat.MP)
                 Hero.AutoMPPercent = (byte)Math.Min(99, value);
+            else
+                return;
 
             Enqueue(new S.SetAutoPotValue() { Stat = stat, Value = value });
         }

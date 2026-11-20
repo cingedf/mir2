@@ -326,9 +326,7 @@ namespace Server.MirObjects
             UserItem item = null;
             int index = -1;
 
-            if (Owner.Hero != null && Owner.Hero.Dead) return;
-
-            for (int i = 0; i < Info.Inventory.Length; i++)
+            /* 20261119 审计修复P1：删除 Owner.Hero.Dead 提前拦截，死英雄可用复活卷轴自救，由下方 Dead+卷轴判断精确管控 */ for (int i = 0; i < Info.Inventory.Length; i++)
             {
                 item = Info.Inventory[i];
                 if (item == null || item.UniqueID != id) continue;
@@ -1228,7 +1226,7 @@ namespace Server.MirObjects
 
             Owner.Enqueue(new S.GainHeroExperience { Amount = amount });
 
-            if (Experience < MaxExperience) return;
+            /* 20261119 审计修复P1：满级 MaxExperience=0 致 while 恒真刷级到65535+卡主线程，满级后直接返回（对齐 PlayerObject） */ if (MaxExperience <= 0 || Experience < MaxExperience) return;
             if (Level >= ushort.MaxValue) return;
 
             //Calculate increased levels
