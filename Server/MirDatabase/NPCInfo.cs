@@ -144,7 +144,7 @@ namespace Server.MirDatabase
         {
             string[] data = text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 
-            if (data.Length < 6) return;
+            if (data.Length < 19) return; //20261119 审计修复P2：下方访问 data[18]，守卫需覆盖（原<6 致编辑器畸形行越界）
 
             NPCInfo info;
             bool isNew = false;
@@ -159,7 +159,10 @@ namespace Server.MirDatabase
             }
             info.FileName = data[1];
 
-            info.MapIndex = EditEnvir.MapInfoList.Where(d => d.FileName == data[2]).FirstOrDefault().Index;
+            //20261119 审计修复P2：地图名配置错误时 FirstOrDefault 返回 null，直接取 .Index 空引用崩溃
+            var npcMap = EditEnvir.MapInfoList.FirstOrDefault(d => d.FileName == data[2]);
+            if (npcMap == null) return;
+            info.MapIndex = npcMap.Index;
 
             if (!int.TryParse(data[3], out int x)) return;
             if (!int.TryParse(data[4], out int y)) return;

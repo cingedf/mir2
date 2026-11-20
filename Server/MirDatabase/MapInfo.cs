@@ -258,6 +258,14 @@ namespace Server.MirDatabase
             if (!int.TryParse(data[6], out riCount)) return;
             if (!int.TryParse(data[7], out npcCount)) return;
 
+            //20261119 审计修复P2：各段 stride 由配置 count 控制（安全区4/移动5/刷怪7但访问到段内+9/NPC6），
+            // 畸形 count 致后续索引越界；按各循环实际最大访问索引算出所需总长度，不足则直接返回
+            if (sziCount < 0 || miCount < 0 || riCount < 0 || npcCount < 0) return;
+            long head = 8L + (long)sziCount * 4 + (long)miCount * 5;
+            long respawnEnd = head + (long)riCount * 7 + 3L;       //刷怪段访问到 start+9+(i*7)
+            long npcEnd = head + (long)riCount * 7 + (long)npcCount * 6; //NPC 段起点 + stride
+            long required = Math.Max(respawnEnd, npcEnd);
+            if (required > data.Length) return;
 
             int start = 8;
 

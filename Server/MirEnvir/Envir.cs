@@ -2333,13 +2333,15 @@ namespace Server.MirEnvir
             LoadConquests();
             LoadGTInfo();
 
-            _listener = new TcpListener(IPAddress.Parse(Settings.IPAddress), Settings.Port);
+            //20261119 审计修复P2：IP 配置非法时 IPAddress.Parse 抛异常致启动失败；TryParse 失败回退 Loopback（最小暴露，不监听所有网卡）
+            IPAddress bindAddress = IPAddress.TryParse(Settings.IPAddress, out IPAddress parsed) ? parsed : IPAddress.Loopback;
+            _listener = new TcpListener(bindAddress, Settings.Port);
             _listener.Start();
             _listener.BeginAcceptTcpClient(Connection, null);
 
             if (StatusPortEnabled)
             {
-                _StatusPort = new TcpListener(IPAddress.Parse(Settings.IPAddress), 3000);
+                _StatusPort = new TcpListener(bindAddress, 3000);
                 _StatusPort.Start();
                 _StatusPort.BeginAcceptTcpClient(StatusConnection, null);
             }

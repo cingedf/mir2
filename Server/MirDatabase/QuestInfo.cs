@@ -438,7 +438,7 @@ namespace Server.MirDatabase
         {
             string[] data = text.Split(new[] { ',' });
 
-            if (data.Length < 10) return;
+            if (data.Length < 13) return; //20261119 审计修复P2：下方访问 data[12]，守卫需覆盖（原<10 致编辑器畸形行越界）
             QuestInfo info;
             bool isNew = false;
             if (!int.TryParse(data[0], out var index))

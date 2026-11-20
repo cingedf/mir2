@@ -391,7 +391,8 @@ namespace Server
             GMPassword = Reader.ReadString("General", "GMPassword", GMPassword);
             Multithreaded = Reader.ReadBoolean("General", "Multithreaded", Multithreaded);
             // 20261119 审计修复P2：ThreadLimit=0 会导致 MobThreads 空数组，MapObject.Spawned 访问 MobThreads[SpawnThread] 越界崩服；钳制下限为1
-            ThreadLimit = Math.Max(1, Reader.ReadInt32("General", "ThreadLimit", ThreadLimit));
+            // 20261119 审计修复P2：ThreadLimit 上下限都钳制（上限防畸形配置创建过多 MobThread 耗尽资源）
+            ThreadLimit = Math.Clamp(Reader.ReadInt32("General", "ThreadLimit", ThreadLimit), 1, 64);
             TestServer = Reader.ReadBoolean("General", "TestServer", TestServer);
             EnforceDBChecks = Reader.ReadBoolean("General", "EnforceDBChecks", EnforceDBChecks);
             MonsterProcessWhenAlone = Reader.ReadBoolean("General", "MonsterProcessWhenAlone", MonsterProcessWhenAlone);
@@ -440,7 +441,9 @@ namespace Server
             CredxGold = Reader.ReadInt16("Database", "CredxGold", CredxGold);
 
             //Game
-            DropRate = Reader.ReadSingle("Game", "DropRate", DropRate);
+            // 20261119 审计修复P2：DropRate=0/负值使 AttemptDrop 的 Chance/DropRate 除零→rate 钳为 1→全掉落必中，
+            // 钳制下限防配置错误破坏掉落经济（默认 1F 不变）
+            DropRate = Math.Max(0.01F, Reader.ReadSingle("Game", "DropRate", DropRate));
             ExpRate = Reader.ReadSingle("Game", "ExpRate", ExpRate);
             ItemTimeOut = Reader.ReadInt32("Game", "ItemTimeOut", ItemTimeOut);
             PlayerDiedItemTimeOut = Reader.ReadInt32("Game", "PlayerDiedItemTimeOut", PlayerDiedItemTimeOut);
@@ -973,9 +976,11 @@ namespace Server
 
                     if (!string.IsNullOrEmpty(formula))
                     {
+                        //20261119 审计修复P1：BaseStats.ini Formula 拼写错误 Enum.Parse 抛异常启动崩溃；改 TryParse 失败跳过
+                        if (!Enum.TryParse<StatFormula>(formula, true, out StatFormula formulaType)) continue;
                         var baseStat = new BaseStat((Stat)stat)
                         {
-                            FormulaType = (StatFormula)Enum.Parse(typeof(StatFormula), formula, true),
+                            FormulaType = formulaType,
                             Base = reader.ReadInt32(key, "Base", 0),
                             Gain = reader.ReadFloat(key, "Gain", 0),
                             GainRate = reader.ReadFloat(key, "GainRate", 0),
@@ -1013,9 +1018,11 @@ namespace Server
 
                     if (!string.IsNullOrEmpty(formula))
                     {
+                        //20261119 审计修复P1：HeroBaseStats.ini Formula 拼写错误 Enum.Parse 抛异常启动崩溃；改 TryParse 失败跳过
+                        if (!Enum.TryParse<StatFormula>(formula, true, out StatFormula formulaType)) continue;
                         var baseStat = new BaseStat((Stat)stat)
                         {
-                            FormulaType = (StatFormula)Enum.Parse(typeof(StatFormula), formula, true),
+                            FormulaType = formulaType,
                             Base = reader.ReadInt32(key, "Base", 0),
                             Gain = reader.ReadFloat(key, "Gain", 0),
                             GainRate = reader.ReadFloat(key, "GainRate", 0),

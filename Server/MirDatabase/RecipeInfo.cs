@@ -53,10 +53,12 @@ namespace Server.MirDatabase
 
             for (int i = 0; i < lines.Count; i++)
             {
-                if (String.IsNullOrEmpty(lines[i])) continue;
+                if (String.IsNullOrWhiteSpace(lines[i])) continue; //20261119 审计修复P1：纯空格行 Split(RemoveEmpty) 返零长数组致 tools/ingredients data[0] 越界
 
                 if (lines[i].StartsWith("["))
                 {
+                    //20261119 审计修复P2：畸形节头（如单独 "["）Substring(1,Length-2) 负长度抛异常，启动崩溃
+                    if (lines[i].Length < 3) continue;
                     mode = lines[i].Substring(1, lines[i].Length - 2).ToLower();
                     continue;
                 }
@@ -71,19 +73,16 @@ namespace Server.MirDatabase
 
                             switch (data[0].ToLower())
                             {
+                                // 20261119 审计修复P1：配方数值裸 Parse，错别字即启动崩溃；改 TryParse 容错并钳制 Chance
                                 case "amount":
-                                    Item.Count = ushort.Parse(data[1]);
+                                    if (ushort.TryParse(data[1], out ushort amount)) Item.Count = amount;
                                     break;
                                 case "chance":
-                                    Chance = byte.Parse(data[1]);
-
-                                    if (Chance > 100)
-                                    {
-                                        Chance = 100;
-                                    }
+                                    if (byte.TryParse(data[1], out byte chance))
+                                        Chance = chance > 100 ? (byte)100 : chance;
                                     break;
                                 case "gold":
-                                    Gold = uint.Parse(data[1]);
+                                    if (uint.TryParse(data[1], out uint gold)) Gold = gold;
                                     break;
                                 default:
                                     break;
@@ -205,7 +204,8 @@ namespace Server.MirDatabase
             {
                 foreach (var flag in RequiredFlag)
                 {
-                     if(!player.Info.Flags[flag])
+                    //20261119 审计修复P2：配方 flag 由配置提供，越界索引玩家 Flags 数组会抛异常致合成崩溃；越界视为不满足
+                    if (flag < 0 || flag >= player.Info.Flags.Length || !player.Info.Flags[flag])
                         return false;
                 }
             }

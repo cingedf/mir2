@@ -55,7 +55,7 @@ namespace Server.MirDatabase
         {
             string[] data = text.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
 
-            if (data.Length < 7) return null;
+            if (data.Length < 11) return null; //20261119 审计修复P2：下方访问 data[10]，守卫需覆盖（原<7 致编辑器畸形行越界）
 
             RespawnInfo info = new RespawnInfo();
 

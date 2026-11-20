@@ -336,6 +336,9 @@ namespace Server.MirDatabase
                 return null;
             }
 
+            //20261119 审计修复P2：parts[0] 过短时 Substring(2) 负长度抛异常，掉落表畸形行致启动崩溃
+            if (parts[0].Length < 2) return null;
+
             DropInfo info = new DropInfo();
 
             if (!int.TryParse(parts[0].Substring(2), out info.Chance)) return null;
