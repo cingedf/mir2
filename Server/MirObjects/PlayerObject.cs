@@ -11070,7 +11070,8 @@ namespace Server.MirObjects
                 gt.Leader2 = string.Empty;
             gt.Price = 0;
             gt.Key = MyGuild.GTKey;
-            gt.Days = (Envir.Now - MyGuild.GTRent).Days;
+            // 20261119 审计整理：GTRent=Now+31d，改用 TotalDays 比 .Days 更准（跨边界秒差少许下偏，显示/逻辑仍同级）
+            gt.Days = (int)(Envir.Now - MyGuild.GTRent).TotalDays;
             gt.Begin = (MyGuild.GTBegin - Envir.Now).Seconds;
         }
         #endregion
@@ -12002,7 +12003,10 @@ namespace Server.MirObjects
                 return;
             }
 
-            if (quest.Info.Type != QuestType.重复)
+            // 20261119 审计修复P3：重复任务原不写 CompletedQuests，前置 QuestInfo.CanAccept(:355)
+            // 对 RequiredQuest>0 && !CompletedQuests.Contains(RequiredQuest) 会拦截——以重复任务为
+            // 前置的任务永远接不到（链死）。改：重复任务首次完成也写一次标记，之后除去同步。
+            if (quest.Info.Type != QuestType.重复 || !Info.CompletedQuests.Contains(quest.Index))
             {
                 Info.CompletedQuests.Add(quest.Index);
                 GetCompletedQuests();

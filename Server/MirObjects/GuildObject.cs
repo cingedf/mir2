@@ -842,7 +842,8 @@ namespace Server.MirObjects
                 else
                 {
                     if (GTBegin > Envir.Now)
-                        gt.Begin = (GTBegin - Envir.Now).Seconds;
+                        // 20261119 审计整理：20261119 修正倒计时精度——原 .Seconds 丢失距离开始时间的小数秒，改用 TotalSeconds（行为等价收敛）
+                        gt.Begin = (int)((GTBegin - Envir.Now).TotalSeconds);
                     else
                         gt.Begin = 0;
 

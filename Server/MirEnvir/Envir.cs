@@ -2081,7 +2081,7 @@ namespace Server.MirEnvir
                     if (Guild.Ranks.Count > 0 && Guild.Ranks[0] != null && Guild.Ranks[0].Members.Count > 0 && Guild.Ranks[0].Members[0] != null)
                         gt.Leader = Guild.Ranks[0].Members[0].Name;
                     gt.Price = 0;
-                    gt.Days = (Now - Guild.GTRent).Days;
+                    gt.Days = (int)(Now - Guild.GTRent).TotalDays;
                 }
             }
         }
