@@ -4,10 +4,10 @@ public static class Globals
 
     public const int
 
-        MinAccountIDLength = 3,
+        MinAccountIDLength = 1,
         MaxAccountIDLength = 15,
 
-        MinPasswordLength = 5,
+        MinPasswordLength = 1,
         MaxPasswordLength = 15,
 
         MinCharacterNameLength = 3,
