@@ -4058,18 +4058,14 @@ namespace Server.MirEnvir
             return true;
         }
 
-        private void ClearDailyQuests(CharacterInfo info)
+        // 20261119 审计修复：改 public 供 PlayerObject 登录时补做跨天重置；RemoveAt 正序跳项改 RemoveAll
+        public void ClearDailyQuests(CharacterInfo info)
         {
             foreach (var quest in QuestInfoList)
             {
                 if (quest.Type != QuestType.每日) continue;
 
-                for (var i = 0; i < info.CompletedQuests.Count; i++)
-                {
-                    if (info.CompletedQuests[i] != quest.Index) continue;
-
-                    info.CompletedQuests.RemoveAt(i);
-                }
+                info.CompletedQuests.RemoveAll(index => index == quest.Index);
             }
 
             info.Player?.GetCompletedQuests();

@@ -279,6 +279,13 @@ namespace Server.MirObjects
                 }
             }
 
+            // 20261119 审计修复：每日重置唯一靠 Envir.Process() 的 Now.Day != dailyTime 触发，
+            // 停机跨午夜重启后 dailyTime 初始化为新的一天→永不触发；NewDay 未序列化→登录也不补发。
+            // 用此刻尚未被覆盖的落盘 LastLoginDate 判定跨天，置 NewDay 让登录流程补做每日清理+发奖。
+            // 同日重登时落盘日期已是今天，不会重复触发。
+            if (info.LastLoginDate.Date != Envir.Now.Date)
+                info.NewDay = true;
+
             Info.LastLoginDate = Envir.Now;
         }
 
@@ -1238,6 +1245,9 @@ namespace Server.MirObjects
             //Call Daily NPC
             if (Info.NewDay)
             {
+                // 20261119 审计修复：跨天重启后 ProcessNewDay 未触发，这里补做每日任务清理
+                // （重复清理由 RemoveAll 幂等保证），再触发 Daily NPC 发奖；随后 NewDay=false
+                Envir.Main.ClearDailyQuests(Info);
                 CallDefaultNPC(DefaultNPCType.Daily);
             }
         }

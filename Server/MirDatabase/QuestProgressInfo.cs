@@ -411,7 +411,9 @@ namespace Server.MirDatabase
         {
             for (int i = 0; i < FlagTaskSet.Count; i++)
             {
-                for (int j = 0; j < Flags.Length - 1000; j++)
+                // 20261119 审计修复：ParseFlag 允许 number 到 FlagIndexCount-1000（即 Flags.Length-1000），
+                // 原 j < 上界漏掉最后一个 flag（边界），任务旗标永远无法完成；改 <= 含上界
+                for (int j = 0; j <= Flags.Length - 1000; j++)
                 {
                     if (FlagTaskSet[i].Number != j || !Flags[j]) continue;
 
