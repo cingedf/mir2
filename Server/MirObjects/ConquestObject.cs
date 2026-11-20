@@ -873,6 +873,10 @@ namespace Server.MirObjects
                     }
                     break;
                 case ConquestGame.经典模式:
+                    // 20261119 审计修复P1：经典模式计分直接解引用 PalaceMap/ takingGuild——
+                    // PalaceMap=GetMap(PalaceIndex) 配错地图时为 null；唯一在场玩家无公会时 takingGuild 保持 null，
+                    // 原 :895 判定成立后 :897 takingGuild.Guildindex 抛 NRE，每 10 秒触发熔断停机。加守卫。
+                    if (PalaceMap == null) break;
                     int guildCounter = 0;
                     GuildObject takingGuild = null;
                     for (int i = 0; i < PalaceMap.Players.Count; i++)
@@ -892,7 +896,7 @@ namespace Server.MirObjects
                         }
                     }
 
-                    if (guildCounter == 1 && takingGuild != Guild)
+                    if (guildCounter == 1 && takingGuild != null && takingGuild != Guild)
                     {
                         if (StartType == ConquestType.申请启动 && takingGuild.Guildindex != GuildInfo.AttackerID) return;
 

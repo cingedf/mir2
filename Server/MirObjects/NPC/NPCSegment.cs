@@ -3321,8 +3321,11 @@ namespace Server.MirObjects
                         player.MyGuild.GTPrice = 0;
                         GTmap.Owner = player.MyGuild.Name;
                         GTmap.Leader = player.MyGuild.Ranks[0].Members[0].Name;
+                        // 20261119 审计修复P2：副会长应写 Leader2 副会字段，勿覆盖 Leader 会长（对齐 PlayerObject 已修同类）
                         if (player.MyGuild.Ranks[0].Members.Count > 1)
-                            GTmap.Leader = player.MyGuild.Ranks[0].Members[1].Name;
+                            GTmap.Leader2 = player.MyGuild.Ranks[0].Members[1].Name;
+                        else
+                            GTmap.Leader2 = string.Empty;
                         GTmap.Price = 0;
                         GTmap.Key = player.MyGuild.GTKey;
 
@@ -3415,7 +3418,7 @@ namespace Server.MirObjects
                         player.MyGuild.SendServerPacket(new S.GuildStorageGoldChange() { Type = 2, Amount = (uint)Settings.ExtendGT });
 
                         player.MyGuild.GTRent = player.MyGuild.GTRent.AddDays(Settings.GTDays);
-                        GTmap.Price = 10000000;
+                        // 20261119 审计修复P2：续租只延长租期，原 Price=10000000 会把领地意外挂牌出售（他人可买走）
                         break;
 
                     case ActionType.GiveGold:
@@ -4579,6 +4582,10 @@ namespace Server.MirObjects
                             var conquest = Envir.Conquests.FirstOrDefault(z => z.Info.Index == tempInt);
                             if (conquest == null) return;
 
+                            // 20261119 审计修复：取攻城金库须占领方会长操作（防普通成员私吞金库），对齐开关城门校验；GM 例外
+                            if (!player.IsGM && (player.MyGuild == null || player.MyGuild.Guildindex != conquest.GuildInfo.Owner
+                                || player.MyGuildRank != player.MyGuild.Ranks[0])) return;
+
                             if (player.MyGuild != null && player.MyGuild.Guildindex == conquest.GuildInfo.Owner)
                             {
                                 player.MyGuild.Gold += conquest.GuildInfo.GoldStorage;
@@ -4593,6 +4600,10 @@ namespace Server.MirObjects
                             var conquest = Envir.Conquests.FirstOrDefault(z => z.Info.Index == tempInt);
                             if (conquest == null) return;
 
+                            // 20261119 审计修复：设置攻城税率须占领方会长操作（防普通成员篡改税率），对齐开关城门校验；GM 例外
+                            if (!player.IsGM && (player.MyGuild == null || player.MyGuild.Guildindex != conquest.GuildInfo.Owner
+                                || player.MyGuildRank != player.MyGuild.Ranks[0])) return;
+
                             if (!byte.TryParse(param[1], out byte tempByte)) return;
                             if (player.MyGuild != null && player.MyGuild.Guildindex == conquest.GuildInfo.Owner)
                             {
@@ -4602,6 +4613,10 @@ namespace Server.MirObjects
                         break;
                     case ActionType.StartConquest:
                         {
+                            // 20261119 审计修复：强制开始/停止攻城是高危管理操作（归攻守哪方不明确），
+                            // 仅 GM 可执行，防任意玩家通过脚本跳转随意启停攻城战；正常开战走 ScheduleConquest 自动触发
+                            if (!player.IsGM) return;
+
                             if (!int.TryParse(param[0], out int tempInt)) return;
                             var conquest = Envir.Conquests.FirstOrDefault(z => z.Info.Index == tempInt);
                             if (conquest == null) return;

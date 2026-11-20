@@ -872,10 +872,11 @@ namespace Server.MirObjects
             gt.Begin = 0;
             gt.Key = 0;
 
+            // 20261119 审计修复：Teleport 会把玩家从 map.Players 移除，正序遍历会跳过紧邻玩家导致漏驱逐；改倒序
             for (int i = 0; i < gt.Maps.Count; i++)
             {
                 Map map = gt.Maps[i];
-                for (int j = 0; j < map.Players.Count; j++)
+                for (int j = map.Players.Count - 1; j >= 0; j--)
                 {
                     PlayerObject player = map.Players[j];
                     if (player == null) continue;

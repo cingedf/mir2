@@ -4544,6 +4544,29 @@ namespace Server.MirEnvir
 
         public void DeleteGuild(GuildObject guild)
         {
+            // 20261119 审计修复：解散行会必须释放领地并清理悬空引用，否则 GTMapList.Owner 永远指向已解散行会
+            // （领地永久锁死无法再被购买），且 GuildsAtWar/Conquest 残留对已解散行会对象的强引用与陈旧状态
+            if (guild.GTIndex >= 0)
+                guild.EndGT(); // 置 Owner=None/Price=BuyGTGold + 驱逐领地玩家 + 清行会侧 GTIndex/GTRent/GTKey
+
+            // 清理进行中的行会战（EndWar 会同步清双方 WarringGuilds + 更新玩家颜色）
+            for (var i = GuildsAtWar.Count - 1; i >= 0; i--)
+            {
+                var war = GuildsAtWar[i];
+                if (war.GuildA != guild && war.GuildB != guild) continue;
+                war.EndWar();
+                GuildsAtWar.RemoveAt(i);
+            }
+
+            // 清理攻城城堡对已解散行会的引用（ConquestObject.Guild 与行会侧 Conquest 双向引用）
+            // 注意用 Conquests(List<ConquestObject> 含 .Guild)，非 ConquestList(List<ConquestGuildInfo>)
+            for (var i = 0; i < Conquests.Count; i++)
+            {
+                if (Conquests[i].Guild != guild) continue;
+                Conquests[i].Guild = null;
+            }
+            guild.Conquest = null;
+
             Guilds.Remove(guild);
             GuildList.Remove(guild.Info);
 

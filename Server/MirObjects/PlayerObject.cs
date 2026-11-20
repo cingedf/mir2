@@ -14627,7 +14627,10 @@ namespace Server.MirObjects
             }
             else if (CurrentMap.tempConquest != null)
             {
-                if (checkPalace && CurrentMap.Info.Index == CurrentMap.tempConquest.PalaceMap.Info.Index && CurrentMap.tempConquest.GameType == ConquestGame.占领皇宫)
+                // 20261119 审计修复P2：PalaceMap 由 GetMap 取得，地图缺失时为 null，直接解引用 .Info.Index 会 NRE
+                if (checkPalace && CurrentMap.tempConquest.PalaceMap != null
+                    && CurrentMap.Info.Index == CurrentMap.tempConquest.PalaceMap.Info.Index
+                    && CurrentMap.tempConquest.GameType == ConquestGame.占领皇宫)
                     CurrentMap.tempConquest.TakeConquest(this);
 
                 EnterSabuk();
