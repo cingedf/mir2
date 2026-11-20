@@ -133,7 +133,11 @@ namespace Client.MirScenes
 
         private  void SendVersion()
         {
-            _connectBox.Label.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.SendingClientVersion);
+            // 20261120 审计修复P1：连接框在 ClientVersion 成功分支(:171) 已 Dispose（MirMessageBox.Dispose 将 Label 置 null），
+            // 重连后再次收到 Connected 时本行 _connectBox.Label.Text 直接 NRE → 版本包永不发出 → 卡在"发送版本"无法登录。
+            // 判空更新标签（对齐 Process() :96 的写法），版本包照常发送。
+            if (_connectBox?.Label != null)
+                _connectBox.Label.Text = GameLanguage.ClientTextMap.GetLocalization(ClientTextKeys.SendingClientVersion);
 
             C.ClientVersion p = new C.ClientVersion();
             try
